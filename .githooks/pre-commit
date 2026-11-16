@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+echo "Ejecutando escáner de secretos..."
+OUTPUT="$(bash scripts/security/scan_secrets.sh . 2>&1)"
+echo "$OUTPUT"
+
+if printf '%s\n' "$OUTPUT" | grep -qE '\[(CRITICAL|HIGH)\]'; then
+  echo "Commit bloqueado: corrige los hallazgos CRITICAL/HIGH."
+  exit 1
+fi
+
+echo "Sin secretos bloqueantes."

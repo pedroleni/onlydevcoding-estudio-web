@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --fondo: #141416;
+  --superficie: #1e1e21;
+  --borde: #313136;
+  --texto: #f5f5f6;
+  --tenue: #8e8e98;
+  --marca: #299bc6;
+  --carbon: #28272a;
+}
+
+@theme inline {
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--superficie);
+  --color-borde: var(--borde);
+  --color-texto: var(--texto);
+  --color-tenue: var(--tenue);
+  --color-marca: var(--marca);
+  --color-carbon: var(--carbon);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--fondo);
+}
+
+body {
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 4px;
+}
+
+.contenido-principal {
+  width: min(100% - 2rem, 80rem);
+  margin-inline: auto;
+}
+
+@media (min-width: 48rem) {
+  .contenido-principal {
+    width: min(100% - 4rem, 80rem);
+  }
+}
