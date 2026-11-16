@@ -20,8 +20,7 @@ jobs:
           fail=0
           for scanner in scripts/security/scan_*.sh; do
             name="$(basename "$scanner" .sh)"
-            bash "$scanner" . | tee "/tmp/security-scan/${name}.log" || true
-            if grep -qE '\[(CRITICAL|HIGH)\]' "/tmp/security-scan/${name}.log"; then
+            if ! bash "$scanner" . | tee "/tmp/security-scan/${name}.log"; then
               fail=1
             fi
           done
@@ -29,6 +28,12 @@ jobs:
             echo "Los scanners han encontrado hallazgos bloqueantes."
             exit 1
           fi
+      - name: Tests de contrato de los scanners
+        run: |
+          set -euo pipefail
+          for test in scripts/security/test_*.sh; do
+            bash "$test"
+          done
       - name: Subir logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

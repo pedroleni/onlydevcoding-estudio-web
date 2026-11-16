@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { TarjetaEscena } from "@/components/TarjetaEscena";
@@ -26,5 +26,19 @@ describe("TarjetaEscena", () => {
     expect(document.querySelector("video")?.getAttribute("src")).toMatch(
       /#t=33$/,
     );
+  });
+
+  it("muestra los nombres de archivo como se escriben", () => {
+    render(
+      <TarjetaEscena
+        escena={{
+          ...escena,
+          textos: ["abre Widget punto tsx."],
+        }}
+        previa={null}
+      />,
+    );
+
+    expect(screen.getByText("abre Widget.tsx.")).toBeInTheDocument();
   });
 });

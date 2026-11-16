@@ -42,4 +42,6 @@ fi
 
 echo "Total findings: $FINDINGS"
 [ "$FINDINGS" -eq 0 ] && echo "Lockfile presente y sincronizado."
-exit 0
+if [ "$FINDINGS" -gt 0 ]; then
+  exit 1
+fi

@@ -27,7 +27,8 @@ afecte al producto o a la seguridad, señala la duda en vez de improvisarla.
 
 ## Comandos del proyecto
 
-- Desarrollo: `npm run dev`
+- Uso diario: `npm run estudio`
+- Desarrollo de código: `npm run dev`
 - Lint: `npm run lint`
 - Tests: `npm test -- --run`
 - Build: `npm run build`
@@ -88,6 +89,18 @@ trabajo e indica los pasos manuales pendientes.
 - La fase 1 no escribe en las carpetas del estudio ni de cursos.
 - La web solo llama a la API local. `API_URL` y `NEXT_PUBLIC_API_URL` usan por
   defecto `http://127.0.0.1:8000`.
+- `next dev` y `next start` escuchan únicamente en `127.0.0.1:3000`. El Proxy
+  de Next valida `Host` en las rutas de la aplicación, redirige
+  `localhost:3000` al host canónico y rechaza cualquier otro host para mitigar
+  DNS rebinding. Las rutas internas `/__nextjs_*` y `/_next/*` de `next dev`
+  no pasan por el Proxy, incluida `__nextjs_launch-editor`; por eso `npm run
+  dev` es solo para desarrollar y el uso diario debe hacerse con `npm run
+  estudio` (`next build && next start`), donde los endpoints `__nextjs` no
+  existen. Se usa `127.0.0.1` también para que la web y la API sean del mismo
+  sitio: la API rechaza los medios pedidos con `Sec-Fetch-Site: cross-site`.
+- En fases futuras, toda escritura mediante Server Actions o rutas `POST`
+  necesitará una cabecera o un token propio. Comprobar `Origin` no es defensa
+  suficiente contra DNS rebinding.
 - Nunca expongas secretos en variables `NEXT_PUBLIC_*`.
 - Renderiza textos externos mediante JSX normal. No uses
   `dangerouslySetInnerHTML`.

@@ -9,15 +9,17 @@ function Reproductor({
   ruta,
   etiqueta,
   poster,
+  fotogramaInicial = false,
 }: {
   ruta: string;
   etiqueta: string;
   poster?: string;
+  fotogramaInicial?: boolean;
 }) {
   return (
     <video
       className="aspect-video w-full bg-carbon object-contain"
-      src={urlMedio(ruta)}
+      src={`${urlMedio(ruta)}${fotogramaInicial ? "#t=1" : ""}`}
       poster={poster ? urlMedio(poster) : undefined}
       controls
       preload="metadata"
@@ -66,7 +68,7 @@ export function ListaPiezas({ piezas }: { piezas: Pieza[] }) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     key={`${pieza.id}-${portada}`}
-                    className="aspect-video w-full border border-borde object-cover"
+                    className="aspect-[9/16] w-full border border-borde bg-carbon object-contain"
                     src={urlMedio(portada)}
                     alt={`Portada ${indice + 1} de ${pieza.titulo}`}
                     loading="lazy"
@@ -124,6 +126,7 @@ export function VistaVideoFinal({
               <Reproductor
                 ruta={previaActiva}
                 etiqueta="Previa seleccionada"
+                fotogramaInicial
               />
             </div>
             <div className="flex flex-wrap gap-2" aria-label="Elegir una previa">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
 import { ListaPiezas, VistaVideoFinal } from "@/components/ListaPiezas";
@@ -11,10 +12,17 @@ import {
   type PestanaLeccion,
 } from "@/components/PestanasLeccion";
 import { TarjetaEscena } from "@/components/TarjetaEscena";
-import { ApiNoDisponible, obtenerLeccion } from "@/lib/api";
+import {
+  ApiNoDisponible,
+  ErrorApi,
+  obtenerCursos,
+  obtenerLeccion,
+} from "@/lib/api";
+import { CURSO_VALIDO } from "@/lib/curso";
+import { textoLegible } from "@/lib/texto-legible";
 import type { Escena, EstadoLeccion, Leccion } from "@/lib/tipos";
 
-const CURSO_VALIDO = /^[a-z0-9-]{1,40}$/;
+const NUMERO_VALIDO = /^[1-9]\d{0,2}$/;
 
 function BloqueGrabacion({
   id,
@@ -43,15 +51,12 @@ function BloqueGrabacion({
 
       {escenas.length > 0 ? (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {escenas.map((escena, indice) => (
+          {escenas.map((escena) => (
             <li
               key={escena.id}
               className="border border-borde bg-superficie p-4 text-sm"
             >
-              <span aria-hidden="true">
-                {indice < avance.hechas ? "✅" : "⬜"}
-              </span>{" "}
-              <span className="font-medium">{escena.titulo}</span>
+              <span className="font-medium">{textoLegible(escena.titulo)}</span>
               <span className="mt-2 block font-mono text-xs text-tenue">
                 {escena.id}
               </span>
@@ -157,39 +162,49 @@ function ContenidoPestana({
   );
 }
 
-export default async function PaginaLeccion({
+function CargandoLeccion() {
+  return (
+    <div className="border border-borde bg-superficie p-6 text-tenue">
+      Cargando lección…
+    </div>
+  );
+}
+
+async function ContenidoLeccion({
   params,
   searchParams,
 }: PageProps<"/cursos/[curso]/[numero]">) {
-  await connection();
   const [{ curso, numero: numeroTexto }, consulta] = await Promise.all([
     params,
     searchParams,
   ]);
-  const numero = Number(numeroTexto);
+  await connection();
 
-  if (
-    !CURSO_VALIDO.test(curso) ||
-    !Number.isInteger(numero) ||
-    numero < 1 ||
-    numero > 999
-  ) {
+  if (!CURSO_VALIDO.test(curso) || !NUMERO_VALIDO.test(numeroTexto)) {
     notFound();
   }
 
+  const numero = Number(numeroTexto);
+
   let leccion;
+  let cursos;
 
   try {
-    leccion = await obtenerLeccion(curso, numero);
+    [leccion, cursos] = await Promise.all([
+      obtenerLeccion(curso, numero),
+      obtenerCursos(),
+    ]);
   } catch (error) {
-    if (error instanceof ApiNoDisponible) {
-      return <AvisoApi />;
+    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+      return <AvisoApi error={error} />;
     }
 
     throw error;
   }
 
-  if (leccion === null) {
+  const cursoEncontrado = cursos.find(({ id }) => id === curso);
+
+  if (leccion === null || !cursoEncontrado) {
     notFound();
   }
 
@@ -201,7 +216,7 @@ export default async function PaginaLeccion({
     : "guion";
 
   return (
-    <section className="py-8 md:py-12">
+    <>
       <header>
         <Link
           href={`/cursos/${encodeURIComponent(curso)}`}
@@ -212,7 +227,7 @@ export default async function PaginaLeccion({
         <div className="mt-5 flex flex-col items-start justify-between gap-5 md:flex-row md:gap-8">
           <div>
             <p className="text-sm text-tenue">
-              {leccion.curso} · Lección {leccion.numero}
+              {cursoEncontrado.nombre} · Lección {leccion.numero}
             </p>
             <h1 className="mt-2 max-w-3xl text-3xl font-semibold tracking-[-0.035em] md:text-5xl">
               {leccion.titulo}
@@ -224,15 +239,13 @@ export default async function PaginaLeccion({
             ) : null}
           </div>
 
-          <Link
-            href={`/teleprompter?curso=${encodeURIComponent(curso)}&leccion=${numero}`}
+          <span
             aria-disabled="true"
-            tabIndex={-1}
             title="Disponible en la fase 4"
             className="pointer-events-none inline-flex min-h-11 shrink-0 items-center border border-borde bg-carbon px-4 text-sm font-medium text-tenue opacity-70"
           >
             Abrir en el teleprompter
-          </Link>
+          </span>
         </div>
       </header>
 
@@ -244,6 +257,19 @@ export default async function PaginaLeccion({
         <ContenidoPestana leccion={leccion} pestana={pestana} />
         <PanelEstado estado={leccion.estado} />
       </div>
+    </>
+  );
+}
+
+export default function PaginaLeccion({
+  params,
+  searchParams,
+}: PageProps<"/cursos/[curso]/[numero]">) {
+  return (
+    <section className="py-8 md:py-12">
+      <Suspense fallback={<CargandoLeccion />}>
+        <ContenidoLeccion params={params} searchParams={searchParams} />
+      </Suspense>
     </section>
   );
 }

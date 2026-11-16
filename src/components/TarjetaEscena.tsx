@@ -1,4 +1,5 @@
 import { urlMedio } from "@/lib/api";
+import { textoLegible } from "@/lib/texto-legible";
 import type { Escena } from "@/lib/tipos";
 
 const ETIQUETAS_MODO: Record<Escena["modo"], string> = {
@@ -8,7 +9,7 @@ const ETIQUETAS_MODO: Record<Escena["modo"], string> = {
 };
 
 function extractoTextos(textos: string[]): string {
-  const texto = textos.join(" ").trim();
+  const texto = textoLegible(textos.join(" ").trim());
 
   if (texto.length <= 180) {
     return texto;
@@ -57,7 +58,7 @@ export function TarjetaEscena({
           </span>
         </div>
         <h3 className="mt-3 text-lg font-semibold tracking-[-0.02em]">
-          {escena.titulo}
+          {textoLegible(escena.titulo)}
         </h3>
         {extracto ? (
           <p className="mt-2 max-w-[68ch] text-sm leading-6 text-tenue">

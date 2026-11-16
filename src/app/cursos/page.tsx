@@ -2,7 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { AvisoApi } from "@/components/AvisoApi";
-import { ApiNoDisponible, obtenerCursos } from "@/lib/api";
+import { ApiNoDisponible, ErrorApi, obtenerCursos } from "@/lib/api";
 
 export default async function PaginaCursos() {
   await connection();
@@ -11,8 +11,8 @@ export default async function PaginaCursos() {
   try {
     cursos = await obtenerCursos();
   } catch (error) {
-    if (error instanceof ApiNoDisponible) {
-      return <AvisoApi />;
+    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+      return <AvisoApi error={error} />;
     }
 
     throw error;

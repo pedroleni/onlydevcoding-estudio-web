@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import PaginaCursos from "@/app/cursos/page";
-import { ApiNoDisponible, obtenerCursos } from "@/lib/api";
+import { ApiNoDisponible, ErrorApi, obtenerCursos } from "@/lib/api";
 
 vi.mock("next/server", () => ({
   connection: vi.fn().mockResolvedValue(undefined),
@@ -30,5 +30,18 @@ describe("página de cursos", () => {
     expect(
       screen.getByText("No se puede conectar con la API"),
     ).toBeInTheDocument();
+  });
+
+  it("distingue un rechazo de la API de un fallo de conexión", async () => {
+    vi.mocked(obtenerCursos).mockRejectedValue(new ErrorApi(403));
+
+    render(await PaginaCursos());
+
+    expect(
+      screen.getByText("La API ha rechazado la petición (estado 403)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No se puede conectar con la API"),
+    ).not.toBeInTheDocument();
   });
 });

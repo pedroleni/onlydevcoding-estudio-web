@@ -1,28 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
-import { ApiNoDisponible, obtenerLecciones } from "@/lib/api";
-import type { EstadoLeccion } from "@/lib/tipos";
+import {
+  ApiNoDisponible,
+  ErrorApi,
+  obtenerLecciones,
+} from "@/lib/api";
+import { CURSO_VALIDO, estaPublicado, REDES } from "@/lib/curso";
 
-const CURSO_VALIDO = /^[a-z0-9-]{1,40}$/;
-const REDES = [
-  ["youtube", "YouTube"],
-  ["instagram", "Instagram"],
-  ["tiktok", "TikTok"],
-  ["linkedin", "LinkedIn"],
-] as const;
-
-function publicada(estado: EstadoLeccion, clave: string, nombre: string) {
-  return estado.publicado[clave] ?? estado.publicado[nombre] ?? false;
+function CargandoCurso() {
+  return (
+    <div className="border border-borde bg-superficie p-6 text-tenue">
+      Cargando curso…
+    </div>
+  );
 }
 
-export default async function PaginaCurso({
+async function ContenidoCurso({
   params,
-}: PageProps<"/cursos/[curso]">) {
-  await connection();
+}: Pick<PageProps<"/cursos/[curso]">, "params">) {
   const { curso } = await params;
+  await connection();
 
   if (!CURSO_VALIDO.test(curso)) {
     notFound();
@@ -33,8 +34,8 @@ export default async function PaginaCurso({
   try {
     lecciones = await obtenerLecciones(curso);
   } catch (error) {
-    if (error instanceof ApiNoDisponible) {
-      return <AvisoApi />;
+    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+      return <AvisoApi error={error} />;
     }
 
     throw error;
@@ -47,7 +48,7 @@ export default async function PaginaCurso({
   const nombreCurso = lecciones[0]?.curso ?? curso.replaceAll("-", " ");
 
   return (
-    <section className="py-10 md:py-16">
+    <>
       <header>
         <Link
           href="/cursos"
@@ -59,8 +60,7 @@ export default async function PaginaCurso({
           {nombreCurso}
         </h1>
         <p className="mt-3 text-tenue">
-          {lecciones.length}{" "}
-          {lecciones.length === 1 ? "lección" : "lecciones"}
+          {lecciones.length} {lecciones.length === 1 ? "lección" : "lecciones"}
         </p>
       </header>
 
@@ -86,8 +86,7 @@ export default async function PaginaCurso({
                   Voz {leccion.estado.voz.hechas}/{leccion.estado.voz.total}
                 </span>
                 <span className="border border-borde bg-carbon px-2 py-1">
-                  Cámara {leccion.estado.camara.hechas}/
-                  {leccion.estado.camara.total}
+                  Cámara {leccion.estado.camara.hechas}/{leccion.estado.camara.total}
                 </span>
                 <span className="border border-borde bg-carbon px-2 py-1">
                   {leccion.estado.video_final ? "✅" : "⬜"} Vídeo final
@@ -97,7 +96,7 @@ export default async function PaginaCurso({
                     key={clave}
                     className="border border-borde bg-carbon px-2 py-1"
                   >
-                    {publicada(leccion.estado, clave, nombre) ? "✅" : "⬜"}{" "}
+                    {estaPublicado(leccion.estado, clave, nombre) ? "✅" : "⬜"}{" "}
                     {nombre}
                   </span>
                 ))}
@@ -110,6 +109,18 @@ export default async function PaginaCurso({
           Este curso todavía no tiene lecciones.
         </p>
       )}
+    </>
+  );
+}
+
+export default function PaginaCurso({
+  params,
+}: PageProps<"/cursos/[curso]">) {
+  return (
+    <section className="py-10 md:py-16">
+      <Suspense fallback={<CargandoCurso />}>
+        <ContenidoCurso params={params} />
+      </Suspense>
     </section>
   );
 }

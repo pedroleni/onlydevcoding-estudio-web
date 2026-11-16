@@ -1,16 +1,8 @@
+import { estaPublicado, REDES } from "@/lib/curso";
 import type { EstadoLeccion } from "@/lib/tipos";
-
-const REDES = ["YouTube", "Instagram", "TikTok", "LinkedIn"] as const;
 
 function estaCompleto(hechas: number, total: number): boolean {
   return total > 0 && hechas >= total;
-}
-
-function estaPublicado(
-  publicado: EstadoLeccion["publicado"],
-  red: (typeof REDES)[number],
-): boolean {
-  return publicado[red] ?? publicado[red.toLowerCase()] ?? false;
 }
 
 export function PanelEstado({ estado }: { estado: EstadoLeccion }) {
@@ -56,12 +48,12 @@ export function PanelEstado({ estado }: { estado: EstadoLeccion }) {
       <div className="mt-6 border-t border-borde pt-5">
         <h3 className="text-sm font-semibold text-texto">Publicación</h3>
         <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-tenue">
-          {REDES.map((red) => (
-            <li key={red} className="flex items-center gap-2">
+          {REDES.map(([clave, nombre]) => (
+            <li key={clave} className="flex items-center gap-2">
               <span aria-hidden="true">
-                {estaPublicado(estado.publicado, red) ? "✅" : "⬜"}
+                {estaPublicado(estado, clave, nombre) ? "✅" : "⬜"}
               </span>
-              <span>{red}</span>
+              <span>{nombre}</span>
             </li>
           ))}
         </ul>

@@ -9,6 +9,16 @@ export class ApiNoDisponible extends Error {
   }
 }
 
+export class ErrorApi extends Error {
+  readonly estado: number;
+
+  constructor(estado: number) {
+    super(`La API ha rechazado la petición (estado ${estado})`);
+    this.name = "ErrorApi";
+    this.estado = estado;
+  }
+}
+
 function sinBarraFinal(url: string): string {
   return url.replace(/\/+$/, "");
 }
@@ -21,7 +31,15 @@ function urlApiPublica(): string {
   return sinBarraFinal(process.env.NEXT_PUBLIC_API_URL ?? API_LOCAL);
 }
 
-async function pedir<T>(ruta: string): Promise<T> {
+async function pedir<T>(ruta: string): Promise<T>;
+async function pedir<T>(
+  ruta: string,
+  opciones: { nullEn404: true },
+): Promise<T | null>;
+async function pedir<T>(
+  ruta: string,
+  opciones: { nullEn404?: boolean } = {},
+): Promise<T | null> {
   let respuesta: Response;
 
   try {
@@ -32,11 +50,23 @@ async function pedir<T>(ruta: string): Promise<T> {
     throw new ApiNoDisponible(undefined, { cause });
   }
 
-  if (!respuesta.ok) {
-    throw new ApiNoDisponible(`La API ha respondido con ${respuesta.status}`);
+  if (respuesta.status === 404 && opciones.nullEn404) {
+    return null;
   }
 
-  return (await respuesta.json()) as T;
+  if (respuesta.status >= 500) {
+    throw new ApiNoDisponible();
+  }
+
+  if (!respuesta.ok) {
+    throw new ErrorApi(respuesta.status);
+  }
+
+  try {
+    return (await respuesta.json()) as T;
+  } catch (cause) {
+    throw new ApiNoDisponible("Respuesta de la API no válida", { cause });
+  }
 }
 
 export function obtenerCursos(): Promise<Curso[]> {
@@ -46,52 +76,24 @@ export function obtenerCursos(): Promise<Curso[]> {
 export async function obtenerLecciones(
   curso: string,
 ): Promise<LeccionResumen[] | null> {
-  let respuesta: Response;
-
-  try {
-    respuesta = await fetch(
-      `${urlApiServidor()}/api/cursos/${encodeURIComponent(curso)}/lecciones`,
-      { cache: "no-store" },
-    );
-  } catch (cause) {
-    throw new ApiNoDisponible(undefined, { cause });
-  }
-
-  if (respuesta.status === 404) {
-    return null;
-  }
-
-  if (!respuesta.ok) {
-    throw new ApiNoDisponible(`La API ha respondido con ${respuesta.status}`);
-  }
-
-  return (await respuesta.json()) as LeccionResumen[];
+  return pedir<LeccionResumen[]>(
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones`,
+    { nullEn404: true },
+  );
 }
 
 export async function obtenerLeccion(
   curso: string,
   numero: number,
 ): Promise<Leccion | null> {
-  let respuesta: Response;
-
-  try {
-    respuesta = await fetch(
-      `${urlApiServidor()}/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}`,
-      { cache: "no-store" },
-    );
-  } catch (cause) {
-    throw new ApiNoDisponible(undefined, { cause });
-  }
-
-  if (respuesta.status === 404) {
+  if (!Number.isInteger(numero) || numero < 1 || numero > 999) {
     return null;
   }
 
-  if (!respuesta.ok) {
-    throw new ApiNoDisponible(`La API ha respondido con ${respuesta.status}`);
-  }
-
-  return (await respuesta.json()) as Leccion;
+  return pedir<Leccion>(
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}`,
+    { nullEn404: true },
+  );
 }
 
 export function urlMedio(ruta: string): string {

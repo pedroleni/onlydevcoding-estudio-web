@@ -1,0 +1,166 @@
+import { render, screen, within } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import PaginaCurso from "@/app/cursos/[curso]/page";
+import PaginaLeccion from "@/app/cursos/[curso]/[numero]/page";
+import { notFound } from "next/navigation";
+import { obtenerCursos, obtenerLeccion } from "@/lib/api";
+import type { Leccion } from "@/lib/tipos";
+
+vi.mock("next/server", () => ({
+  connection: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
+}));
+
+vi.mock("@/lib/api", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/api")>();
+  return {
+    ...original,
+    obtenerCursos: vi.fn(),
+    obtenerLecciones: vi.fn(),
+    obtenerLeccion: vi.fn(),
+  };
+});
+
+const leccion: Leccion = {
+  curso: "Curso ficticio",
+  numero: 1,
+  slug: "leccion-ficticia",
+  titulo: "Lección ficticia",
+  subtitulo: "",
+  escenas: [
+    {
+      id: "voz-uno",
+      modo: "voz",
+      tipo: "explicacion",
+      titulo: "Primera escena",
+      textos: ["Texto ficticio."],
+      inicio_s: null,
+      duracion_s: null,
+    },
+    {
+      id: "voz-dos",
+      modo: "voz",
+      tipo: "explicacion",
+      titulo: "Segunda escena",
+      textos: ["Otro texto ficticio."],
+      inicio_s: null,
+      duracion_s: null,
+    },
+  ],
+  piezas: [],
+  previas: [],
+  duracion_s: null,
+  estado: {
+    guion: true,
+    voz: { hechas: 1, total: 2 },
+    camara: { hechas: 0, total: 0 },
+    video_final: false,
+    miniatura: null,
+    previa: null,
+    publicado: {},
+  },
+};
+
+async function renderizarContenidoLeccion({
+  numero = "1",
+  pestana,
+}: {
+  numero?: string;
+  pestana?: string;
+} = {}) {
+  const pagina = PaginaLeccion({
+    params: Promise.resolve({ curso: "curso-ficticio", numero }),
+    searchParams: Promise.resolve(pestana ? { pestana } : {}),
+  });
+  const suspense = (
+    pagina as ReactElement<{
+      children: ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
+    }>
+  ).props.children;
+  const contenido = suspense.props.children;
+  const cargarContenido = contenido.type as (
+    props: Record<string, unknown>,
+  ) => Promise<ReactNode>;
+
+  return cargarContenido(contenido.props);
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(notFound).mockImplementation(() => {
+    throw new Error("NEXT_NOT_FOUND");
+  });
+  vi.mocked(obtenerLeccion).mockResolvedValue(leccion);
+  vi.mocked(obtenerCursos).mockResolvedValue([
+    {
+      id: "curso-ficticio",
+      nombre: "Curso ficticio",
+      carpeta: "curso-ficticio",
+      lecciones: 1,
+    },
+  ]);
+});
+
+describe("shell de las páginas dinámicas", () => {
+  it("la página de curso no espera params ni datos antes de Suspense", () => {
+    const params = new Promise<never>(() => undefined);
+    const resultado = PaginaCurso({
+      params,
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(resultado).not.toBeInstanceOf(Promise);
+  });
+
+  it("la página de lección no espera params ni datos antes de Suspense", () => {
+    const params = new Promise<never>(() => undefined);
+    const searchParams = new Promise<never>(() => undefined);
+    const resultado = PaginaLeccion({ params, searchParams });
+
+    expect(resultado).not.toBeInstanceOf(Promise);
+  });
+
+  it("muestra solo el recuento conocido en grabaciones, sin atribuirlo a escenas", async () => {
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+
+    const grabaciones = screen.getByRole("tabpanel");
+    expect(within(grabaciones).getByText("1/2")).toBeInTheDocument();
+    expect(within(grabaciones).getByText("voz-uno")).toBeInTheDocument();
+    expect(within(grabaciones).getByText("Primera escena")).toBeInTheDocument();
+    expect(within(grabaciones).queryByText("✅")).not.toBeInTheDocument();
+    expect(within(grabaciones).queryByText("⬜")).not.toBeInTheDocument();
+  });
+
+  it.each(["1e2", "0x10", "1.0", "01"])(
+    "rechaza el número de lección no canónico %s",
+    async (numero) => {
+      await expect(renderizarContenidoLeccion({ numero })).rejects.toThrow(
+        "NEXT_NOT_FOUND",
+      );
+      expect(obtenerLeccion).not.toHaveBeenCalled();
+    },
+  );
+
+  it("renderiza el teleprompter desactivado sin enlace", async () => {
+    render(await renderizarContenidoLeccion());
+
+    const control = screen.getByText("Abrir en el teleprompter");
+    expect(control.tagName).toBe("SPAN");
+    expect(control).toHaveAttribute("aria-disabled", "true");
+    expect(control).not.toHaveAttribute("href");
+  });
+
+  it("usa guion cuando la pestaña solicitada no existe", async () => {
+    render(await renderizarContenidoLeccion({ pestana: "desconocida" }));
+
+    expect(screen.getByRole("tab", { name: "Guion" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+});

@@ -22,6 +22,20 @@ ruta de explotación concreta.
 - React escapa texto renderizado con JSX. Este es el patrón aprobado para los
   títulos, guiones y metadatos recibidos de la API.
 - No existe Supabase, RLS ni despliegue en Vercel en este proyecto.
+- Next escucha únicamente en `127.0.0.1:3000`. `src/proxy.ts` permite ese
+  `Host`, redirige `localhost:3000` a la dirección canónica y rechaza el resto
+  con 400 en las rutas de la aplicación para reducir la exposición local y
+  mitigar DNS rebinding. Las rutas internas `/__nextjs_*` y `/_next/*` de
+  `next dev` no pasan por el Proxy, incluida `__nextjs_launch-editor`;
+  `npm run dev` es solo para desarrollar. El uso diario es `npm run estudio`
+  (`next build && next start`), donde los endpoints `__nextjs` no existen.
+- Web y API usan `127.0.0.1` para pertenecer al mismo sitio; la API rechaza
+  los medios pedidos con `Sec-Fetch-Site: cross-site`. No se usa
+  `Cross-Origin-Resource-Policy: same-site` (Chromium bloquea con ella los
+  medios entre los puertos 3000 y 8000).
+- La fase 1 solo lee. Cualquier Server Action o ruta `POST` futura que escriba
+  debe requerir una cabecera o un token propio; validar `Origin` no basta ante
+  DNS rebinding.
 
 ## Hallazgos prioritarios
 

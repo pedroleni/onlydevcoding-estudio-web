@@ -24,18 +24,38 @@ cp .env.example .env
 Los valores de ejemplo apuntan a `http://127.0.0.1:8000`. No añadas secretos,
 rutas privadas ni datos reales del estudio a los archivos versionados.
 
-## Desarrollo
+## Uso diario
 
 Antes de abrir la web, arranca la API local del estudio en
-`127.0.0.1:8000`. Después inicia Next.js:
+`127.0.0.1:8000`. Para consultar el estudio, crea una build de producción y
+arráncala con:
 
 ```bash
-npm run dev
+npm run estudio
 ```
 
-La web estará disponible en [http://localhost:3000](http://localhost:3000).
+La web estará disponible únicamente en
+[http://127.0.0.1:3000](http://127.0.0.1:3000). Los scripts `dev`, `start` y
+`estudio` escuchan solo en `127.0.0.1`, no en las interfaces de la red local.
+Usa esa dirección en vez de `localhost`: así la web y la API
+(`127.0.0.1:8000`) pertenecen al mismo sitio, y la API solo sirve los medios
+a peticiones que no lleguen marcadas como `Sec-Fetch-Site: cross-site`. Las peticiones con
+`Host: localhost:3000` se redirigen a la dirección canónica; cualquier otro
+`Host` se rechaza con un 400 en las rutas de la aplicación para reducir la
+exposición a DNS rebinding.
+
+## Desarrollo
+
+Usa `npm run dev` únicamente mientras programas. Las rutas internas
+`/__nextjs_*` y `/_next/*` de `next dev` no pasan por `src/proxy.ts`, incluida
+`/__nextjs_launch-editor`; por eso el modo de desarrollo no ofrece la misma
+protección de `Host` que el uso diario con `npm run estudio`. En la build de
+producción los endpoints `__nextjs` de desarrollo no existen.
+
 Si la API no está en marcha, las pantallas muestran un aviso en lugar de
-quedarse en blanco.
+quedarse en blanco. La fase 1 es de solo lectura. Cualquier escritura futura,
+ya sea mediante Server Actions o rutas `POST`, deberá exigir además una
+cabecera o un token propio: validar `Origin` no basta frente a DNS rebinding.
 
 ## Comprobaciones
 

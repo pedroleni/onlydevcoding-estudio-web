@@ -12,3 +12,4 @@ anteriores; si cambia el estado de un hallazgo, actualiza su sección de estado.
 
 | Fecha | Archivo | Alcance | Resultado |
 |---|---|---|---|
+| 2026-11-16 | [2026-11-16-fase-1.md](2026-11-16-fase-1.md) | Rama `feat/fase-1` completa (`ab1f1f4..8e45469`) y código actual, ocho dominios | BAJO, score 6: 0 CRITICAL, 0 HIGH, 1 MEDIUM, 3 LOW |
