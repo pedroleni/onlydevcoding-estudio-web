@@ -24,7 +24,7 @@ if [ -d .github/workflows ]; then
       if ! printf '%s' "$ref" | grep -qE '^[0-9a-f]{40}$'; then
         finding "$workflow contiene una acción sin SHA de 40 caracteres: $ref"
       fi
-    done < <(grep -E '^[[:space:]]*-[[:space:]]+uses:[[:space:]]+[^[:space:]]+@' "$workflow" || true)
+    done < <(grep -E '^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]+[^[:space:]]+@' "$workflow" || true)
   done < <(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) | sort)
 fi
 

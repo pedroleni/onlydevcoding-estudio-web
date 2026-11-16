@@ -43,10 +43,29 @@ export function obtenerCursos(): Promise<Curso[]> {
   return pedir<Curso[]>("/api/cursos");
 }
 
-export function obtenerLecciones(curso: string): Promise<LeccionResumen[]> {
-  return pedir<LeccionResumen[]>(
-    `/api/cursos/${encodeURIComponent(curso)}/lecciones`,
-  );
+export async function obtenerLecciones(
+  curso: string,
+): Promise<LeccionResumen[] | null> {
+  let respuesta: Response;
+
+  try {
+    respuesta = await fetch(
+      `${urlApiServidor()}/api/cursos/${encodeURIComponent(curso)}/lecciones`,
+      { cache: "no-store" },
+    );
+  } catch (cause) {
+    throw new ApiNoDisponible(undefined, { cause });
+  }
+
+  if (respuesta.status === 404) {
+    return null;
+  }
+
+  if (!respuesta.ok) {
+    throw new ApiNoDisponible(`La API ha respondido con ${respuesta.status}`);
+  }
+
+  return (await respuesta.json()) as LeccionResumen[];
 }
 
 export async function obtenerLeccion(
