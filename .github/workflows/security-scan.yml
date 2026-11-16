@@ -1,0 +1,42 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Ejecutar scanners
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/security-scan
+          fail=0
+          for scanner in scripts/security/scan_*.sh; do
+            name="$(basename "$scanner" .sh)"
+            if ! bash "$scanner" . | tee "/tmp/security-scan/${name}.log"; then
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "Los scanners han encontrado hallazgos bloqueantes."
+            exit 1
+          fi
+      - name: Tests de contrato de los scanners
+        run: |
+          set -euo pipefail
+          for test in scripts/security/test_*.sh; do
+            bash "$test"
+          done
+      - name: Subir logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-scan-logs
+          path: /tmp/security-scan/

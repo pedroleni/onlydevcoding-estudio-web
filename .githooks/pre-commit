@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+INDICE="$(mktemp -d)"
+trap 'rm -rf "$INDICE"' EXIT
+git checkout-index --all --prefix="$INDICE/"
+
+echo "Ejecutando escáneres sobre lo preparado..."
+estado=0
+for scanner in scan_secrets.sh scan_prompt_injection.sh; do
+  salida=""
+  codigo=0
+  salida="$(bash "$INDICE/scripts/security/$scanner" "$INDICE" 2>&1)" || codigo=$?
+  printf '%s\n' "$salida"
+  if [ "$codigo" -ne 0 ]; then
+    estado=1
+  fi
+done
+
+if [ "$estado" -ne 0 ]; then
+  echo "Commit bloqueado: corrige los hallazgos CRITICAL/HIGH."
+  exit 1
+fi
+
+echo "Sin hallazgos bloqueantes."
