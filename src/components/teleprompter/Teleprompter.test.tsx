@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BarraNavegacion } from "@/components/BarraNavegacion";
 import { Teleprompter } from "@/components/teleprompter/Teleprompter";
 import { guardarTextos } from "@/lib/acciones-teleprompter";
 import { leerTrabajo } from "@/lib/trabajos";
@@ -19,6 +20,7 @@ const router = { replace: vi.fn(), push: vi.fn(), refresh: vi.fn() };
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  usePathname: () => "/teleprompter",
 }));
 
 vi.mock("@/lib/teleprompter/grabadora", async (importOriginal) => {
@@ -1211,7 +1213,6 @@ describe("Teleprompter: ronda 1", () => {
         inicio: "2026-01-01T10:00:00",
         fin: null,
         error: null,
-        registro: [],
       };
       vi.mocked(leerTrabajo)
         .mockResolvedValueOnce({ ...trabajo, progreso: 0.6 })
@@ -1318,5 +1319,224 @@ describe("Teleprompter: ronda 1", () => {
       expect(screen.getByRole("status")).toHaveTextContent("Empezar pone en marcha el cronómetro."),
     );
     contenedor.remove();
+  });
+});
+
+describe("Teleprompter: ronda final", () => {
+  const AVISO_SALIR = "Hay una toma o un texto sin guardar. ¿Salir igualmente?";
+
+  // La barra de navegación de la app encima del teleprompter, como en el layout.
+  function pintarConBarra(datosPrueba: DatosTeleprompter = datos) {
+    return render(
+      <>
+        <BarraNavegacion />
+        <Teleprompter datos={datosPrueba} lecciones={lecciones} seleccion={seleccion} />
+      </>,
+    );
+  }
+
+  // Los clics en enlaces que llegan al final de su recorrido (donde un <Link> navegaría): si
+  // llegan y si llegan ya cancelados. Se cancela aquí para que jsdom no intente navegar de verdad.
+  function espiarNavegacion() {
+    const llegadas: boolean[] = [];
+    const espia = (evento: MouseEvent) => {
+      if (!(evento.target instanceof Element) || !evento.target.closest("a[href]")) return;
+      llegadas.push(evento.defaultPrevented);
+      evento.preventDefault();
+    };
+    window.addEventListener("click", espia);
+    return { llegadas, quitar: () => window.removeEventListener("click", espia) };
+  }
+
+  function enlace(nombre: string) {
+    return within(screen.getByRole("navigation", { name: "Navegación principal" })).getByRole(
+      "link",
+      { name: nombre },
+    );
+  }
+
+  async function grabarYFallarSubida() {
+    vi.mocked(subirToma).mockRejectedValueOnce(new Error("La API no responde"));
+    await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+    await screen.findByText("Silencio");
+    await userEvent.click(screen.getByRole("button", { name: /Parar/ }));
+    await screen.findByRole("button", { name: "Reintentar subida" });
+  }
+
+  it("con una toma pendiente, un enlace de la barra pide confirmación y, si se cancela, no navega", async () => {
+    const confirmar = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    pintarConBarra();
+    await grabarYFallarSubida();
+    const navegacion = espiarNavegacion();
+    try {
+      await userEvent.click(enlace("Cursos"));
+      expect(confirmar).toHaveBeenCalledTimes(1);
+      expect(confirmar).toHaveBeenCalledWith(AVISO_SALIR);
+      expect(navegacion.llegadas).toEqual([]);
+      expect(screen.getByRole("button", { name: "Reintentar subida" })).toBeInTheDocument();
+
+      await userEvent.click(enlace("Cursos"));
+      expect(confirmar).toHaveBeenCalledTimes(2);
+      expect(navegacion.llegadas).toEqual([false]);
+    } finally {
+      navegacion.quitar();
+    }
+  });
+
+  it("también avisa en cualquier enlace de la app, y no en uno de otro origen", async () => {
+    const confirmar = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(
+      <>
+        <a href="/tareas">Enlace interno</a>
+        <a href="https://sitio.ejemplo/">Enlace externo</a>
+        <Teleprompter datos={datos} lecciones={lecciones} seleccion={seleccion} />
+      </>,
+    );
+    await grabarYFallarSubida();
+    const navegacion = espiarNavegacion();
+    try {
+      await userEvent.click(screen.getByRole("link", { name: "Enlace interno" }));
+      expect(confirmar).toHaveBeenCalledTimes(1);
+      expect(navegacion.llegadas).toEqual([]);
+
+      await userEvent.click(screen.getByRole("link", { name: "Enlace externo" }));
+      expect(confirmar).toHaveBeenCalledTimes(1);
+      expect(navegacion.llegadas).toEqual([false]);
+    } finally {
+      navegacion.quitar();
+    }
+  });
+
+  it("sin nada pendiente navega sin preguntar", async () => {
+    const confirmar = vi.spyOn(window, "confirm");
+    pintarConBarra();
+    const navegacion = espiarNavegacion();
+    try {
+      await userEvent.click(enlace("Tareas"));
+      expect(confirmar).not.toHaveBeenCalled();
+      expect(navegacion.llegadas).toEqual([false]);
+    } finally {
+      navegacion.quitar();
+    }
+  });
+
+  it("avisa mientras se graba y mientras se sube la toma", async () => {
+    const confirmar = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const subida = diferido<Awaited<ReturnType<typeof subirToma>>>();
+    vi.mocked(subirToma).mockReturnValueOnce(subida.promesa);
+    pintarConBarra();
+    const navegacion = espiarNavegacion();
+    try {
+      await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+      await screen.findByText("Silencio");
+      await userEvent.click(enlace("Teleprompter"));
+      expect(confirmar).toHaveBeenCalledTimes(1);
+
+      await userEvent.click(screen.getByRole("button", { name: /Parar/ }));
+      await waitFor(() => expect(subirToma).toHaveBeenCalled());
+      await userEvent.click(enlace("Teleprompter"));
+      expect(confirmar).toHaveBeenCalledTimes(2);
+      expect(navegacion.llegadas).toEqual([]);
+
+      await act(async () =>
+        subida.resolver({ escena: "E04", ruta: "grabaciones/E04.wav", version: 3, bytes: 52 }),
+      );
+      await screen.findByText("Guardada: E04.wav. Escúchala o pasa a la siguiente con →.");
+      await userEvent.click(enlace("Teleprompter"));
+      expect(confirmar).toHaveBeenCalledTimes(2);
+      expect(navegacion.llegadas).toEqual([false]);
+    } finally {
+      navegacion.quitar();
+    }
+  });
+
+  it("con texto sin guardar en el editor avisa, y con toma y texto pendientes pregunta una sola vez", async () => {
+    const confirmar = vi.spyOn(window, "confirm").mockReturnValue(false);
+    pintarConBarra();
+    const navegacion = espiarNavegacion();
+    try {
+      await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+      await userEvent.type(screen.getByLabelText("Frase 1"), " más");
+      await userEvent.click(enlace("Cursos"));
+      expect(confirmar).toHaveBeenCalledTimes(1);
+      expect(confirmar).toHaveBeenCalledWith(AVISO_SALIR);
+      expect(navegacion.llegadas).toEqual([]);
+      expect((screen.getByLabelText("Frase 1") as HTMLTextAreaElement).value).toMatch(/ más$/);
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+      await grabarYFallarSubida();
+      await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+      await userEvent.type(screen.getByLabelText("Frase 1"), " más");
+      confirmar.mockReturnValue(true);
+      await userEvent.click(enlace("Cursos"));
+      expect(confirmar).toHaveBeenCalledTimes(2);
+      expect(navegacion.llegadas).toEqual([false]);
+    } finally {
+      navegacion.quitar();
+    }
+  });
+
+  it("la toma se sube a la escena en la que se empezó aunque un refresco cambie la escena visible", async () => {
+    const { rerender } = pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+    await screen.findByText("Silencio");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("E04 ·");
+
+    // Llega un guion con una escena más delante: el mismo índice ya es otra escena.
+    rerender(
+      <Teleprompter
+        datos={{ ...datos, escenas: [escena("E06", "voz"), ...datos.escenas] }}
+        lecciones={lecciones}
+        seleccion={seleccion}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 })).not.toHaveTextContent("E04 ·");
+
+    await userEvent.click(screen.getByRole("button", { name: /Parar/ }));
+
+    await waitFor(() => expect(subirToma).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(subirToma).mock.calls[0][2]).toBe("E04");
+  });
+
+  it("si la grabadora no arranca, lo dice, para todo y cierra el micrófono", async () => {
+    class GrabadoraRota extends GrabadoraFalsa {
+      start(): void {
+        throw new Error("El micrófono se ha desconectado");
+      }
+    }
+    vi.stubGlobal("MediaRecorder", GrabadoraRota);
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+
+    expect(
+      await screen.findByText("No se puede usar el micrófono: El micrófono se ha desconectado"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Silencio")).not.toBeInTheDocument();
+    expect(pista.stop).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Grabar/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Ensayar/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Parar/ })).toBeDisabled();
+    expect(screen.getByLabelText("Lección")).toBeEnabled();
+
+    // La siguiente toma vuelve a abrir el micrófono en vez de reutilizar el flujo roto.
+    vi.stubGlobal("MediaRecorder", GrabadoraFalsa);
+    await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+    await screen.findByText("Silencio");
+    expect(getUserMedia).toHaveBeenCalledTimes(2);
+  });
+
+  it("codifica la versión de la toma en la URL del audio", async () => {
+    pintar({
+      ...datos,
+      escenas: datos.escenas.map((e) =>
+        e.id === "E03" ? { ...e, version_toma: "1&ruta=otra" as unknown as number } : e,
+      ),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "E03 ✓" }));
+
+    expect(screen.getByTestId("toma").getAttribute("src")).toMatch(/&v=1%26ruta%3Dotra$/);
   });
 });

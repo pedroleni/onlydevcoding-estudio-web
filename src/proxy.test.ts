@@ -107,6 +107,19 @@ describe("proxy", () => {
     })).toBe(true);
   });
 
+  // Solo se salta el Proxy bajo /grabar/: cualquier otra ruta que se le parezca sí pasa por él.
+  it.each([
+    ["/grabar/react/4/E03", false],
+    ["/grabarlo", true],
+    ["/grabar-x", true],
+    ["/Grabar/react/4/E03", true],
+    ["/cursos", true],
+    ["/teleprompter", true],
+    ["/tareas", true],
+  ])("con %s, el Proxy se ejecuta: %s", (url, seEjecuta) => {
+    expect(unstable_doesMiddlewareMatch({ config, url })).toBe(seEjecuta);
+  });
+
   it("sigue excluyendo todas las rutas internas de _next", () => {
     expect(unstable_doesMiddlewareMatch({
       config,

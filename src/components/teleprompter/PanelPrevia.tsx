@@ -3,11 +3,20 @@
 import type { Ref } from "react";
 
 import type { SeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPrevia";
-import { urlMedio } from "@/lib/medios";
+import { urlToma } from "@/lib/medios";
 import type { EstadoPrevia, Montaje } from "@/lib/tipos";
 
 const BOTON =
   "inline-flex cursor-pointer items-center justify-self-center rounded-[10px] border border-marca bg-marca px-4 py-2.5 font-semibold text-white transition-colors hover:enabled:border-tenue disabled:cursor-default disabled:opacity-40";
+
+// El error de un trabajo ya viene de la API como un mensaje genérico. Si aun así trae algo que
+// parece una ruta del disco, no se enseña: el teleprompter sale en capturas y vídeos.
+function textoFallo(error: string | null, interrumpido: boolean): string {
+  const motivo = error ?? (interrumpido ? "se interrumpió" : null);
+  return motivo && !/[/\\]/.test(motivo)
+    ? `Falló la última vez (${motivo}).`
+    : "Falló la última vez.";
+}
 
 // Solo pinta: el seguimiento del trabajo vive en la sesión (`useSeguimientoPrevia`), así que
 // sigue aunque el panel se oculte.
@@ -29,17 +38,11 @@ export function PanelPrevia({
   const { trabajo, generando, perdida, pidiendo, mensaje, generar } = seguimiento;
   const escenaMontaje = montaje?.escenas.find(({ id }) => id === escena);
   const hay = Boolean(previa.existe && previa.ruta && escenaMontaje) && !generando && !perdida;
-  const fallo =
-    trabajo && (trabajo.estado === "error" || trabajo.estado === "interrumpido")
-      ? (trabajo.error ?? "se interrumpió")
-      : null;
+  const fallido =
+    trabajo !== null && (trabajo.estado === "error" || trabajo.estado === "interrumpido");
+  const fallo = fallido ? textoFallo(trabajo.error, trabajo.estado === "interrumpido") : null;
 
-  const fuente =
-    previa.ruta === null
-      ? null
-      : `${urlMedio(previa.ruta)}${
-          previa.version !== null ? `&v=${encodeURIComponent(String(previa.version))}` : ""
-        }`;
+  const fuente = previa.ruta === null ? null : urlToma(previa.ruta, previa.version);
   const porcentaje = Math.round((trabajo?.progreso ?? 0) * 100);
 
   return (
@@ -93,7 +96,7 @@ export function PanelPrevia({
               <span>
                 {fallo ? (
                   <>
-                    {`Falló la última vez (${fallo}).`}
+                    {fallo}
                     <br />
                   </>
                 ) : null}

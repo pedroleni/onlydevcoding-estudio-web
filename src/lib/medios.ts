@@ -11,3 +11,9 @@ export function urlApiPublica(): string {
 export function urlMedio(ruta: string): string {
   return `${urlApiPublica()}/api/medios?ruta=${encodeURIComponent(ruta)}`;
 }
+
+// La URL de un medio con su versión (para que el navegador no sirva una copia vieja), codificada.
+export function urlToma(ruta: string, version: number | string | null): string {
+  const base = urlMedio(ruta);
+  return version === null ? base : `${base}&v=${encodeURIComponent(String(version))}`;
+}

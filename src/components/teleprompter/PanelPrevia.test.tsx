@@ -57,7 +57,6 @@ function trabajo(cambios: Partial<Trabajo> = {}): Trabajo {
     inicio: "2026-01-01T10:00:00",
     fin: null,
     error: null,
-    registro: [],
     ...cambios,
   };
 }
@@ -231,6 +230,37 @@ describe("PanelPrevia", () => {
     expect(router.refresh).not.toHaveBeenCalled();
     await avanzar(10_000);
     expect(leerTrabajo).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["error", "No se encontró /ruta/ficticia/previa.mp4"],
+    ["interrumpido", "No se encontró C:\\carpeta\\ficticia\\previa.mp4"],
+  ] as const)(
+    "si el error de un trabajo %s trae una ruta, solo dice que falló, sin enseñarla",
+    (estado, error) => {
+      pintar({ ...sinPrevia, trabajo: trabajo({ estado, error }) });
+
+      expect(screen.getByText(/^Falló la última vez\./)).toBeInTheDocument();
+      expect(screen.queryByText(/Falló la última vez \(/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/ficticia/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/No se encontró/)).not.toBeInTheDocument();
+    },
+  );
+
+  it("un error genérico de la API se enseña tal cual", () => {
+    pintar({
+      ...sinPrevia,
+      trabajo: trabajo({
+        estado: "error",
+        error: "La vista previa ha tardado demasiado y se ha cancelado",
+      }),
+    });
+
+    expect(
+      screen.getByText(
+        /Falló la última vez \(La vista previa ha tardado demasiado y se ha cancelado\)\./,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("un trabajo interrumpido también se da como fallido", () => {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, type CSSProperties } from "react";
+import { useState, useTransition, type CSSProperties } from "react";
 
+import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
 import { guardarTextos, type TextosEscena } from "@/lib/acciones-teleprompter";
 import type { EscenaTeleprompter, Teleprompter } from "@/lib/tipos";
 
@@ -48,16 +49,9 @@ export function EditorTextos({
   const llegoNuevo = recargando && version !== base.version;
   const sinGuardar = textos.some((texto, i) => texto !== base.originales[i]);
 
-  // Salir de la página con texto sin guardar lo perdería: el navegador pregunta.
-  useEffect(() => {
-    if (!sinGuardar) return;
-    const alSalir = (evento: BeforeUnloadEvent) => {
-      evento.preventDefault();
-      evento.returnValue = "";
-    };
-    window.addEventListener("beforeunload", alSalir);
-    return () => window.removeEventListener("beforeunload", alSalir);
-  }, [sinGuardar]);
+  // Salir de la página (recargar, cerrar o un enlace interno) con texto sin guardar lo perdería:
+  // se pregunta antes.
+  useAvisoAlSalir(sinGuardar);
 
   function cambiar(i: number, valor: string) {
     setTextos((actuales) => actuales.map((texto, j) => (j === i ? sinSaltos(valor) : texto)));

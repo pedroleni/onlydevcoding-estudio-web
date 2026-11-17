@@ -164,7 +164,6 @@ export interface Trabajo {
   inicio: string;
   fin: string | null;
   error: string | null;
-  registro: string[];
 }
 
 export interface EstadoPrevia {

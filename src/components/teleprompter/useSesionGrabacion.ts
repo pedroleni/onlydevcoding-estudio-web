@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { Microfono } from "@/components/teleprompter/BarraAjustes";
+import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
 import {
   abrirMicro,
   aWav,
@@ -32,6 +33,8 @@ export function resumenSubidas(subidas: number, total: number, ultimoError: stri
 type Vivo = {
   cerrado: boolean;
   grabacion: Grabacion | null;
+  // La escena en la que empezó la grabación en curso: la toma se sube ahí aunque cambie la visible.
+  escenaGrabando: string;
   grabando: boolean;
   guardando: boolean;
   // Un solo flujo abierto y, como mucho, una apertura en curso que se reutiliza.
@@ -47,6 +50,7 @@ type Vivo = {
 const crearVivo = (): Vivo => ({
   cerrado: false,
   grabacion: null,
+  escenaGrabando: "",
   grabando: false,
   guardando: false,
   flujo: null,
@@ -86,17 +90,9 @@ export function useSesionGrabacion({
   // Se crea la primera vez que hace falta, nunca durante el render.
   const vivo = (): Vivo => (vivoRef.current ??= crearVivo());
 
-  // Salir de la página con una toma grabándose, sin subir o subiéndose la perdería: el navegador pregunta.
-  const tomaSinSubir = grabando || pendientes.length > 0 || guardando;
-  useEffect(() => {
-    if (!tomaSinSubir) return;
-    const alSalir = (evento: BeforeUnloadEvent) => {
-      evento.preventDefault();
-      evento.returnValue = "";
-    };
-    window.addEventListener("beforeunload", alSalir);
-    return () => window.removeEventListener("beforeunload", alSalir);
-  }, [tomaSinSubir]);
+  // Salir de la página (recargar, cerrar o un enlace interno) con una toma grabándose, sin subir
+  // o subiéndose la perdería: se pregunta antes.
+  useAvisoAlSalir(grabando || pendientes.length > 0 || guardando);
 
   useEffect(() => {
     const v = vivo();
@@ -183,10 +179,32 @@ export function useSesionGrabacion({
     return apertura;
   }
 
-  // Solo la ejecución viva crea la grabadora, sobre el flujo que acaba de recibir.
-  function empezarGrabacion(flujo: MediaStream) {
+  // Lo abierto del micrófono deja de valer (por ejemplo, un flujo muerto): la siguiente toma lo
+  // vuelve a abrir.
+  function cerrarMicro() {
     const v = vivo();
-    v.grabacion = grabar(flujo);
+    v.generacionMicro++;
+    v.pararNivel?.();
+    v.pararNivel = null;
+    pararPistas(v.flujo);
+    v.flujo = null;
+    v.microAbierto = "";
+    v.abriendo = null;
+  }
+
+  // Solo la ejecución viva crea la grabadora, sobre el flujo que acaba de recibir, y recuerda la
+  // escena en la que se empieza. Si la grabadora no arranca (micrófono desconectado, formato no
+  // admitido), cierra el micrófono y lanza el error.
+  function empezarGrabacion(flujo: MediaStream, idEscena: string) {
+    const v = vivo();
+    try {
+      v.grabacion = grabar(flujo);
+    } catch (error) {
+      v.grabacion = null;
+      cerrarMicro();
+      throw error;
+    }
+    v.escenaGrabando = idEscena;
     v.grabando = true;
     setGrabando(true);
   }
@@ -211,10 +229,12 @@ export function useSesionGrabacion({
     }
   }
 
-  async function pararGrabacion(idEscena: string, tirar = false) {
+  // Para la grabación en curso y sube la toma a la escena en la que empezó (o la tira).
+  async function pararGrabacion(tirar = false) {
     const v = vivo();
     const grabacion = v.grabacion;
     if (!grabacion) return;
+    const idEscena = v.escenaGrabando;
     v.grabacion = null;
     v.guardando = true;
     setGuardando(true);

@@ -20,7 +20,6 @@ describe("lectura de trabajos", () => {
       inicio: "2026-11-17T10:00:00Z",
       fin: null,
       error: null,
-      registro: [],
     };
     const fetchSimulado = vi.fn().mockResolvedValue(Response.json(trabajo));
     vi.stubGlobal("fetch", fetchSimulado);

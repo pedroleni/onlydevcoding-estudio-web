@@ -30,7 +30,7 @@ import { TextoConRitmo } from "@/components/teleprompter/TextoConRitmo";
 import { ponerTexto, useLectura } from "@/components/teleprompter/useLectura";
 import { useSeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPrevia";
 import { mensaje, useSesionGrabacion } from "@/components/teleprompter/useSesionGrabacion";
-import { urlMedio } from "@/lib/medios";
+import { urlToma } from "@/lib/medios";
 import {
   guardarPreferencias,
   leerPreferencias,
@@ -283,14 +283,14 @@ function SesionTeleprompter({
           iniciosFrases,
         });
       },
-      alTerminar: () => void terminar(actualEscena),
+      alTerminar: () => void terminar(),
     });
   }
 
-  async function terminar(actualEscena: EscenaTeleprompter) {
+  async function terminar() {
     if (sesion.grabandoAhora()) {
       lectura.detener();
-      await sesion.pararGrabacion(actualEscena.id);
+      await sesion.pararGrabacion();
     }
     pararTodo(false);
   }
@@ -337,7 +337,14 @@ function SesionTeleprompter({
       // Si se paró mientras el navegador pedía el permiso, esta ejecución ya no graba:
       // el flujo se queda abierto para la siguiente y la grabadora solo la crea la ejecución viva.
       if (!sigue()) return;
-      sesion.empezarGrabacion(flujo);
+      try {
+        sesion.empezarGrabacion(flujo, actualEscena.id);
+      } catch (error) {
+        if (sesion.cerrada()) return;
+        setEstado(`No se puede usar el micrófono: ${mensaje(error)}`);
+        if (ejecucion.vigente()) pararTodo(true);
+        return;
+      }
       await lectura.cuentaAtras(
         [
           ["Silencio", "dos segundos sin hablar ni moverte (sirve para limpiar el ruido)", 2000],
@@ -364,9 +371,10 @@ function SesionTeleprompter({
 
   async function parar() {
     if (sesion.guardandoAhora()) return;
-    if (sesion.grabandoAhora() && escena) {
+    if (sesion.grabandoAhora()) {
+      // Se sube a la escena en la que empezó la toma, aunque la visible haya cambiado.
       lectura.detener();
-      await sesion.pararGrabacion(escena.id);
+      await sesion.pararGrabacion();
     } else if (sesion.abriendoAhora() && escena) {
       // Aún no se graba nada: se deja de esperar al permiso y no se pierde ninguna toma.
       setEstado(null);
@@ -376,9 +384,9 @@ function SesionTeleprompter({
 
   async function repetir() {
     if (sesion.guardandoAhora()) return;
-    if (sesion.grabandoAhora() && escena) {
+    if (sesion.grabandoAhora()) {
       lectura.detener();
-      await sesion.pararGrabacion(escena.id, true);
+      await sesion.pararGrabacion(true);
     }
     mostrarEscena(indice);
     void arrancar(voz);
@@ -472,9 +480,9 @@ function SesionTeleprompter({
   const toma = !voz || !escena
     ? null
     : tomaLocal
-      ? `${urlMedio(tomaLocal.ruta)}&v=${tomaLocal.version}`
+      ? urlToma(tomaLocal.ruta, tomaLocal.version)
       : escena.grabada && escena.toma
-        ? `${urlMedio(escena.toma)}${escena.version_toma !== null ? `&v=${escena.version_toma}` : ""}`
+        ? urlToma(escena.toma, escena.version_toma)
         : null;
   const duracion =
     escena && plan
