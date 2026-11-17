@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { elegirPortada } from "@/lib/acciones";
-import { urlMedio } from "@/lib/api";
+import { urlMedio } from "@/lib/medios";
 import type { PiezaVista } from "@/lib/tipos";
 
 export function ElegirPortada({

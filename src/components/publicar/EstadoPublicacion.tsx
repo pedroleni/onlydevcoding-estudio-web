@@ -5,18 +5,7 @@ import { useState, useTransition } from "react";
 import { cambiarEstado } from "@/lib/acciones";
 import { fechaPublicacionLegible } from "@/lib/fecha-publicacion";
 import type { EstadoRed, RedVista } from "@/lib/tipos";
-
-const HOSTS_PUBLICACION = new Set([
-  "youtube.com",
-  "www.youtube.com",
-  "youtu.be",
-  "instagram.com",
-  "www.instagram.com",
-  "tiktok.com",
-  "www.tiktok.com",
-  "linkedin.com",
-  "www.linkedin.com",
-]);
+import { errorUrlPublicacion } from "@/lib/url-publicacion";
 
 function valorDatetimeLocal(fecha: string | null): string {
   if (fecha === null) return "";
@@ -24,43 +13,6 @@ function valorDatetimeLocal(fecha: string | null): string {
   if (Number.isNaN(valor.getTime())) return "";
   const dos = (numero: number) => String(numero).padStart(2, "0");
   return `${valor.getFullYear()}-${dos(valor.getMonth() + 1)}-${dos(valor.getDate())}T${dos(valor.getHours())}:${dos(valor.getMinutes())}`;
-}
-
-export function errorUrlPublicacion(valor: string): string | null {
-  if (valor === "") return null;
-  if (
-    /\s/u.test(valor) ||
-    Array.from(valor).some((caracter) => {
-      const codigo = caracter.codePointAt(0) ?? 0;
-      return codigo < 32 || codigo === 127;
-    })
-  ) {
-    return "La URL de publicación no es válida";
-  }
-
-  try {
-    const url = new URL(valor);
-    const inicioAutoridad = valor.indexOf("://");
-    const autoridad =
-      inicioAutoridad >= 0
-        ? valor.slice(inicioAutoridad + 3).split(/[/?#]/u, 1)[0]
-        : "";
-    if (
-      url.protocol !== "https:" ||
-      !HOSTS_PUBLICACION.has(url.hostname) ||
-      url.username !== "" ||
-      url.password !== "" ||
-      url.port !== "" ||
-      autoridad === "" ||
-      autoridad.includes(":") ||
-      autoridad.includes("\\")
-    ) {
-      return "La URL de publicación no está permitida";
-    }
-  } catch {
-    return "La URL de publicación no es válida";
-  }
-  return null;
 }
 
 type ObjetivoAccion = "programar" | "publicar" | "pendiente";
@@ -104,7 +56,17 @@ export function EstadoPublicacion({
       );
       if (!resultado.ok) {
         setError({ objetivo, mensaje: resultado.mensaje });
+        return;
       }
+      const estadoGuardado = resultado.vista.piezas
+        .find(({ id }) => id === pieza)
+        ?.redes.find(({ red: id }) => id === red)?.estado ?? nuevoEstado;
+      const fechaGuardada =
+        estadoGuardado.estado === "programado"
+          ? estadoGuardado.fecha
+          : fechaPropuesta;
+      setFecha(valorDatetimeLocal(fechaGuardada));
+      setUrl(estadoGuardado.url ?? "");
     });
   }
 

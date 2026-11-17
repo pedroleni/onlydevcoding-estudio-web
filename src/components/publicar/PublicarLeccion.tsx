@@ -1,30 +1,17 @@
 import Link from "next/link";
 
 import { BotonCopiar } from "@/components/publicar/BotonCopiar";
+import { Contador } from "@/components/publicar/Contador";
 import { ElegirPortada } from "@/components/publicar/ElegirPortada";
 import { EstadoPublicacion } from "@/components/publicar/EstadoPublicacion";
 import { SelectorPieza } from "@/components/publicar/SelectorPieza";
-import { TextosPublicacionRed } from "@/components/publicar/TextosRed";
+import { PanelTextosRed } from "@/components/publicar/TextosRed";
 import { REDES } from "@/lib/curso";
-import {
-  LIMITES_PUBLICACION,
-  longitudPublicacion,
-} from "@/lib/limites";
+import { LIMITES_PUBLICACION } from "@/lib/limites";
 import type { VistaPublicacion } from "@/lib/tipos";
 
 function nombreRed(id: string): string {
   return REDES.find(([red]) => red === id)?.[1] ?? id;
-}
-
-function ContadorLinea({ texto }: { texto: string }) {
-  const longitud = longitudPublicacion(texto);
-  return (
-    <span
-      className={`shrink-0 font-mono text-xs ${longitud > LIMITES_PUBLICACION.caracteresPorLinea ? "text-red-400" : "text-tenue"}`}
-    >
-      {longitud}/{LIMITES_PUBLICACION.caracteresPorLinea}
-    </span>
-  );
 }
 
 export function PublicarLeccion({
@@ -121,7 +108,7 @@ export function PublicarLeccion({
               </nav>
 
               <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
-                <TextosPublicacionRed
+                <PanelTextosRed
                   red={red.red}
                   textos={red.textos}
                   fechaPropuesta={pieza.fecha_propuesta}
@@ -150,11 +137,6 @@ export function PublicarLeccion({
           <p className="mt-2 text-sm text-tenue">
             Esta lección todavía no tiene piezas para publicar.
           </p>
-          {!vista.error ? (
-            <p className="mt-2 text-sm text-tenue">
-              Esta lección todavía no tiene textos de publicación
-            </p>
-          ) : null}
         </div>
       )}
 
@@ -165,13 +147,12 @@ export function PublicarLeccion({
               <h2 id="notas-publicacion-titulo" className="text-sm font-semibold">
                 Notas generales
               </h2>
-              <span
-                className={`font-mono text-xs ${longitudPublicacion(vista.notas) > LIMITES_PUBLICACION.notas ? "text-red-400" : "text-tenue"}`}
-              >
-                {longitudPublicacion(vista.notas)}/{LIMITES_PUBLICACION.notas}
-              </span>
+              <Contador
+                valor={vista.notas}
+                limite={LIMITES_PUBLICACION.notas}
+              />
             </div>
-            <BotonCopiar texto={vista.notas} />
+            <BotonCopiar texto={vista.notas} contexto="las notas generales" />
           </div>
           <p className="whitespace-pre-wrap break-words p-4 text-sm leading-6 text-tenue">
             {vista.notas}
@@ -185,11 +166,11 @@ export function PublicarLeccion({
             <h2 id="despues-publicar-titulo" className="text-xl font-semibold">
               Después de publicar
             </h2>
-            <span
-              className={`font-mono text-xs ${vista.despues_de_publicar.length > LIMITES_PUBLICACION.maximoLineas ? "text-red-400" : "text-tenue"}`}
-            >
-              {vista.despues_de_publicar.length}/{LIMITES_PUBLICACION.maximoLineas} tareas
-            </span>
+            <Contador
+              valor={vista.despues_de_publicar.length}
+              limite={LIMITES_PUBLICACION.maximoLineas}
+              unidad="tareas"
+            />
           </div>
           <ol className="mt-4 grid gap-2">
             {vista.despues_de_publicar.map((tarea, indice) => (
@@ -201,7 +182,10 @@ export function PublicarLeccion({
                   {String(indice + 1).padStart(2, "0")}
                 </span>
                 <span className="min-w-0 flex-1 break-words">{tarea}</span>
-                <ContadorLinea texto={tarea} />
+                <Contador
+                  valor={tarea}
+                  limite={LIMITES_PUBLICACION.caracteresPorLinea}
+                />
               </li>
             ))}
           </ol>

@@ -1,15 +1,12 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BotonCopiar } from "@/components/publicar/BotonCopiar";
 import { ElegirPortada } from "@/components/publicar/ElegirPortada";
-import {
-  EstadoPublicacion,
-  errorUrlPublicacion,
-} from "@/components/publicar/EstadoPublicacion";
+import { EstadoPublicacion } from "@/components/publicar/EstadoPublicacion";
 import { PublicarLeccion } from "@/components/publicar/PublicarLeccion";
-import { TextosPublicacionRed } from "@/components/publicar/TextosRed";
+import { PanelTextosRed } from "@/components/publicar/TextosRed";
 import { cambiarEstado, elegirPortada } from "@/lib/acciones";
 import type { PiezaVista, VistaPublicacion } from "@/lib/tipos";
 
@@ -90,6 +87,10 @@ describe("pestaña Publicar", () => {
     vi.mocked(elegirPortada).mockResolvedValue({ ok: true, vista });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("elige la pieza y la red indicadas por la URL", () => {
     render(
       <PublicarLeccion
@@ -110,6 +111,66 @@ describe("pestaña Publicar", () => {
     expect(screen.getByText("Instagram", { selector: "p" })).toBeInTheDocument();
   });
 
+  it("usa la primera pieza cuando ?pieza= no es válida", () => {
+    render(
+      <PublicarLeccion
+        vista={vista}
+        piezaSeleccionada="pieza-inexistente"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /Lección preparada/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("usa la primera red con textos cuando ?red= no es válida", () => {
+    render(
+      <PublicarLeccion
+        vista={vista}
+        piezaSeleccionada="leccion"
+        redSeleccionada="red-inexistente"
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "YouTube" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("muestra los campos no vacíos con independencia de la red", () => {
+    const descripcionInstagram = "Descripción preparada para Instagram";
+    const textoYoutube = "Texto preparado para YouTube";
+    const { rerender } = render(
+      <PanelTextosRed
+        red="instagram"
+        textos={{
+          ...textosYoutube,
+          titulos: [],
+          descripcion: descripcionInstagram,
+          texto: "Texto de Instagram",
+        }}
+        fechaPropuesta={null}
+      />,
+    );
+
+    expect(screen.getByText(descripcionInstagram)).toBeInTheDocument();
+    expect(screen.queryByText(`${descripcionInstagram.length}/5000`)).not.toBeInTheDocument();
+
+    rerender(
+      <PanelTextosRed
+        red="youtube"
+        textos={{ ...textosYoutube, texto: textoYoutube }}
+        fechaPropuesta={null}
+      />,
+    );
+
+    expect(screen.getByText(textoYoutube)).toBeInTheDocument();
+    expect(screen.queryByText(`${textoYoutube.length}/2200`)).not.toBeInTheDocument();
+  });
+
   it("copia el texto exacto, incluidos los saltos de línea", async () => {
     const escribir = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -124,9 +185,47 @@ describe("pestaña Publicar", () => {
     expect(screen.getByRole("button", { name: "Copiado" })).toBeInTheDocument();
   });
 
+  it("vuelve de Copiado a Copiar a los 2 segundos", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    render(<BotonCopiar texto="Texto ficticio" />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copiar" }));
+    });
+    expect(screen.getByRole("button", { name: "Copiado" })).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(2000));
+
+    expect(screen.getByRole("button", { name: "Copiar" })).toBeInTheDocument();
+  });
+
+  it("muestra el error de copia y vuelve a Copiar a los 2 segundos", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("sin permiso")) },
+    });
+    render(<BotonCopiar texto="Texto ficticio" />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copiar" }));
+    });
+    expect(
+      screen.getByRole("button", { name: "No se pudo copiar" }),
+    ).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(2000));
+
+    expect(screen.getByRole("button", { name: "Copiar" })).toBeInTheDocument();
+  });
+
   it("pone en rojo el contador de un título de YouTube que pasa de 100", () => {
     render(
-      <TextosPublicacionRed
+      <PanelTextosRed
         red="youtube"
         textos={{ ...textosYoutube, titulos: ["a".repeat(101)] }}
         fechaPropuesta={null}
@@ -150,6 +249,35 @@ describe("pestaña Publicar", () => {
     expect(within(elegida).getByText("✓ Elegida")).toBeInTheDocument();
   });
 
+  it("envía curso, número, pieza y ruta al elegir una portada", async () => {
+    render(<ElegirPortada curso="curso-ficticio" numero={4} pieza={pieza} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Portada 1/ }));
+
+    await waitFor(() => {
+      expect(elegirPortada).toHaveBeenCalledWith(
+        "curso-ficticio",
+        4,
+        "leccion",
+        "cursos/ficticio/portada-a.jpg",
+      );
+    });
+  });
+
+  it("muestra el error devuelto al elegir una portada", async () => {
+    vi.mocked(elegirPortada).mockResolvedValueOnce({
+      ok: false,
+      mensaje: "No se ha podido elegir la portada",
+    });
+    render(<ElegirPortada curso="curso-ficticio" numero={4} pieza={pieza} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Portada 1/ }));
+
+    expect(
+      await screen.findByRole("alert", { name: "" }),
+    ).toHaveTextContent("No se ha podido elegir la portada");
+  });
+
   it("avisa cuando no hay textos de publicacion.json y mantiene portada y estado", () => {
     const sinJson: VistaPublicacion = {
       ...vista,
@@ -168,6 +296,17 @@ describe("pestaña Publicar", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Portada/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Estado" })).toBeInTheDocument();
+  });
+
+  it("no repite el aviso de textos cuando la lección no tiene piezas", () => {
+    render(<PublicarLeccion vista={{ ...vista, piezas: [] }} />);
+
+    expect(
+      screen.queryByText("Esta lección todavía no tiene textos de publicación"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Esta lección todavía no tiene piezas para publicar."),
+    ).toBeInTheDocument();
   });
 
   it("marca como publicado con la URL opcional", async () => {
@@ -201,6 +340,67 @@ describe("pestaña Publicar", () => {
     });
   });
 
+  it("reinicia fecha y URL con el estado autoritativo tras una acción correcta", async () => {
+    const estadoProgramado = {
+      estado: "programado" as const,
+      fecha: "2026-11-18T21:30",
+      url: null,
+    };
+    vi.mocked(cambiarEstado).mockResolvedValueOnce({
+      ok: true,
+      vista: {
+        ...vista,
+        piezas: [
+          {
+            ...pieza,
+            redes: pieza.redes.map((red) =>
+              red.red === "youtube" ? { ...red, estado: estadoProgramado } : red,
+            ),
+          },
+        ],
+      },
+    });
+    render(
+      <EstadoPublicacion
+        curso="curso-ficticio"
+        numero={4}
+        pieza="leccion"
+        red="youtube"
+        nombreRed="YouTube"
+        estado={{ estado: "pendiente", fecha: null, url: null }}
+        fechaPropuesta={null}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Fecha y hora local"), {
+      target: { value: "2026-11-17T20:00" },
+    });
+    fireEvent.change(screen.getByLabelText("URL de la publicación (opcional)"), {
+      target: { value: "https://youtu.be/valor-anterior" },
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "📅 Programar" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Fecha y hora local")).toHaveValue(
+        "2026-11-18T21:30",
+      );
+      expect(screen.getByLabelText("URL de la publicación (opcional)")).toHaveValue("");
+    });
+  });
+
+  it("da contexto accesible a cada botón de copia", () => {
+    render(
+      <PanelTextosRed
+        red="youtube"
+        textos={textosYoutube}
+        fechaPropuesta={null}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Copiar el título 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copiar la descripción" })).toBeInTheDocument();
+  });
+
   it("rechaza en el cliente una URL no permitida", async () => {
     render(
       <EstadoPublicacion
@@ -224,30 +424,4 @@ describe("pestaña Publicar", () => {
     expect(cambiarEstado).not.toHaveBeenCalled();
   });
 
-  it.each([
-    "https://youtube.com",
-    "https://www.youtube.com/video",
-    "https://youtu.be/abc",
-    "https://instagram.com/p/abc",
-    "https://www.instagram.com/p/abc",
-    "https://tiktok.com/video/1",
-    "https://www.tiktok.com/video/1",
-    "https://linkedin.com/posts/abc",
-    "https://www.linkedin.com/posts/abc",
-  ])("acepta el host de publicación permitido %s", (url) => {
-    expect(errorUrlPublicacion(url)).toBeNull();
-  });
-
-  it.each([
-    "http://youtube.com/video",
-    "https://youtube.com.evil.example/video",
-    ["https://usuario", "youtube.com/video"].join("@"),
-    "https://youtube.com:443/video",
-    "https://youtube.com:/video",
-    "https:///youtube.com/video",
-    "https://youtube.com\\ruta",
-    " https://youtu.be/video",
-  ])("rechaza la variante de URL no permitida %s", (url) => {
-    expect(errorUrlPublicacion(url)).not.toBeNull();
-  });
 });

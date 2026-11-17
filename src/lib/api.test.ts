@@ -6,7 +6,6 @@ import {
   obtenerCursos,
   obtenerLeccion,
   obtenerPublicacion,
-  urlMedio,
 } from "@/lib/api";
 
 function fetchFalla() {
@@ -120,9 +119,4 @@ describe("cliente de la API local", () => {
     },
   );
 
-  it("urlMedio codifica la ruta", () => {
-    expect(urlMedio("cursos/REACT/a b.mp4")).toBe(
-      "http://127.0.0.1:8000/api/medios?ruta=cursos%2FREACT%2Fa%20b.mp4",
-    );
-  });
 });

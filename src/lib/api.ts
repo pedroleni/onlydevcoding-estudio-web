@@ -32,10 +32,6 @@ function urlApiServidor(): string {
   return sinBarraFinal(process.env.API_URL ?? API_LOCAL);
 }
 
-function urlApiPublica(): string {
-  return sinBarraFinal(process.env.NEXT_PUBLIC_API_URL ?? API_LOCAL);
-}
-
 async function pedir<T>(ruta: string): Promise<T>;
 async function pedir<T>(
   ruta: string,
@@ -113,8 +109,4 @@ export async function obtenerPublicacion(
     `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/publicacion`,
     { nullEn404: true },
   );
-}
-
-export function urlMedio(ruta: string): string {
-  return `${urlApiPublica()}/api/medios?ruta=${encodeURIComponent(ruta)}`;
 }
