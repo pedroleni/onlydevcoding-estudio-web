@@ -77,8 +77,9 @@ export interface TareaNueva {
   enlace?: EnlaceTarea | null;
 }
 
-export interface TareaVista extends TareaNueva {
+export interface TareaVista extends Omit<TareaNueva, "hora" | "enlace"> {
   id: number;
+  hora: string | null;
   hecha: boolean;
   hecha_en: string | null;
   enlace: EnlaceTarea | null;

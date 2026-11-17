@@ -43,7 +43,7 @@ function esObjeto(valor: unknown): valor is Record<string, unknown> {
 }
 
 function idPositivo(valor: unknown): valor is number {
-  return typeof valor === "number" && Number.isInteger(valor) && valor >= 1;
+  return typeof valor === "number" && Number.isSafeInteger(valor) && valor >= 1;
 }
 
 function normalizarEnlace(valor: unknown): EnlaceTarea | null | ResultadoAccionTareas {
@@ -101,12 +101,19 @@ function normalizarTarea(valor: unknown): TareaNueva | ResultadoAccionTareas {
   }
   if (typeof texto !== "string") return error("El texto no es válido");
   const textoRecortado = texto.trim();
+  const caracteresTexto = Array.from(textoRecortado);
   if (
-    textoRecortado.length < 1 ||
-    textoRecortado.length > 300 ||
-    Array.from(textoRecortado).some((caracter) => {
-      const codigo = caracter.charCodeAt(0);
-      return codigo < 0x20 || codigo === 0x7f;
+    caracteresTexto.length < 1 ||
+    caracteresTexto.length > 300 ||
+    caracteresTexto.some((caracter) => {
+      const codigo = caracter.codePointAt(0)!;
+      return (
+        codigo < 0x20 ||
+        codigo === 0x7f ||
+        codigo === 0x85 ||
+        codigo === 0x2028 ||
+        codigo === 0x2029
+      );
     })
   ) {
     return error("El texto debe tener entre 1 y 300 caracteres y una sola línea");
@@ -226,13 +233,19 @@ function normalizarTipo(
   }
   if (typeof nombre !== "string") return error("El nombre no es válido");
   const nombreRecortado = nombre.trim();
-  if (nombreRecortado.length < 1 || nombreRecortado.length > 40) {
+  const longitudNombre = Array.from(nombreRecortado).length;
+  if (longitudNombre < 1 || longitudNombre > 40) {
     return error("El nombre debe tener entre 1 y 40 caracteres");
   }
   if (typeof color !== "string" || !COLORES_VALIDOS.has(color as TipoTarea["color"])) {
     return error("El color no es válido");
   }
-  if (typeof orden !== "number" || !Number.isInteger(orden)) {
+  if (
+    typeof orden !== "number" ||
+    !Number.isInteger(orden) ||
+    orden < 0 ||
+    orden > 10_000
+  ) {
     return error("El orden no es válido");
   }
   return {
@@ -265,7 +278,8 @@ export async function crearCurso(id: string, nombre: string): Promise<ResultadoA
   if (typeof id !== "string" || !CURSO_VALIDO.test(id)) return error("El id del curso no es válido");
   if (typeof nombre !== "string") return error("El nombre no es válido");
   const nombreRecortado = nombre.trim();
-  if (nombreRecortado.length < 1 || nombreRecortado.length > 60) {
+  const longitudNombre = Array.from(nombreRecortado).length;
+  if (longitudNombre < 1 || longitudNombre > 60) {
     return error("El nombre debe tener entre 1 y 60 caracteres");
   }
   return ejecutar("/api/cursos", { id, nombre: nombreRecortado }, "POST");

@@ -70,8 +70,11 @@ describe("Server Actions de tareas", () => {
 
   it.each([
     ["una hora imposible", { hora: "25:00" }],
+    ["la hora 24:00", { hora: "24:00" }],
+    ["la hora 09:60", { hora: "09:60" }],
     ["una fecha inexistente", { fecha: "2026-02-29" }],
     ["un salto de línea", { texto: "Primera\nsegunda" }],
+    ["un separador de línea Unicode", { texto: "Primera\u2028segunda" }],
     ["una red sin pieza", {
       enlace: { curso: "react", numero: 4, red: "youtube" },
     }],
@@ -79,6 +82,19 @@ describe("Server Actions de tareas", () => {
     await expect(crearTarea({ ...tareaValida, ...cambios } as TareaNueva)).resolves
       .toMatchObject({ ok: false });
     expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it("mide la longitud del texto en puntos de código", async () => {
+    await expect(crearTarea({
+      ...tareaValida,
+      texto: "😀".repeat(300),
+    })).resolves.toEqual({ ok: true });
+    await expect(crearTarea({
+      ...tareaValida,
+      texto: "😀".repeat(301),
+    })).resolves.toMatchObject({ ok: false });
+
+    expect(escribirSimulado).toHaveBeenCalledOnce();
   });
 
   it("crea una tarea con un objeto reconstruido y el texto recortado", async () => {
@@ -105,6 +121,17 @@ describe("Server Actions de tareas", () => {
     expect(escribirSimulado).toHaveBeenNthCalledWith(1, "/api/tareas/7", tareaValida, "PUT");
     expect(escribirSimulado).toHaveBeenNthCalledWith(2, "/api/tareas/7/hecha", { hecha: true }, "PUT");
     expect(escribirSimulado).toHaveBeenNthCalledWith(3, "/api/tareas/3", {}, "DELETE");
+  });
+
+  it.each([
+    ["un estado no booleano", 3, "sí"],
+    ["el id cero", 0, true],
+    ["un id negativo", -1, true],
+    ["un id decimal", 1.5, true],
+    ["un id entero no seguro", 2 ** 53, true],
+  ])("rechaza %s al marcar una tarea", async (_caso, id, hecha) => {
+    await expect(marcarHecha(id, hecha as never)).resolves.toMatchObject({ ok: false });
+    expect(escribirSimulado).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -177,6 +204,65 @@ describe("Server Actions de tareas", () => {
     expect(escribirSimulado).toHaveBeenNthCalledWith(5, "/api/cursos/typescript", {}, "DELETE");
   });
 
+  it.each([
+    ["un color desconocido", {
+      id: "revision", nombre: "Revisión", color: "#000000", orden: 2,
+    }],
+    ["un nombre vacío", {
+      id: "revision", nombre: "   ", color: "#299BC6", orden: 2,
+    }],
+    ["un nombre de 41 caracteres", {
+      id: "revision", nombre: "a".repeat(41), color: "#299BC6", orden: 2,
+    }],
+    ["un id inválido", {
+      id: "Revision!", nombre: "Revisión", color: "#299BC6", orden: 2,
+    }],
+    ["un orden negativo", {
+      id: "revision", nombre: "Revisión", color: "#299BC6", orden: -1,
+    }],
+    ["un orden superior a 10000", {
+      id: "revision", nombre: "Revisión", color: "#299BC6", orden: 10_001,
+    }],
+    ["un orden decimal", {
+      id: "revision", nombre: "Revisión", color: "#299BC6", orden: 1.5,
+    }],
+  ])("rechaza tipos con %s", async (_caso, tipo) => {
+    await expect(crearTipoTarea(tipo as never)).resolves.toMatchObject({ ok: false });
+    expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it("mide la longitud del nombre del tipo en puntos de código", async () => {
+    await expect(crearTipoTarea({
+      id: "revision",
+      nombre: "😀".repeat(40),
+      color: "#299BC6",
+      orden: 2,
+    })).resolves.toEqual({ ok: true });
+    await expect(crearTipoTarea({
+      id: "revision",
+      nombre: "😀".repeat(41),
+      color: "#299BC6",
+      orden: 2,
+    })).resolves.toMatchObject({ ok: false });
+
+    expect(escribirSimulado).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["un id inválido", "Curso!", "Curso"],
+    ["un nombre de 61 caracteres", "curso", "a".repeat(61)],
+  ])("rechaza cursos con %s", async (_caso, id, nombre) => {
+    await expect(crearCurso(id, nombre)).resolves.toMatchObject({ ok: false });
+    expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it("mide la longitud del nombre del curso en puntos de código", async () => {
+    await expect(crearCurso("curso", "😀".repeat(60))).resolves.toEqual({ ok: true });
+    await expect(crearCurso("curso", "😀".repeat(61))).resolves.toMatchObject({ ok: false });
+
+    expect(escribirSimulado).toHaveBeenCalledOnce();
+  });
+
   it("devuelve las opciones mínimas y no refresca tras leer", async () => {
     obtenerLeccionesSimulado.mockResolvedValueOnce([
       { numero: 4, titulo: "Estado", slug: "estado", curso: "react", estado: {} },
@@ -202,6 +288,26 @@ describe("Server Actions de tareas", () => {
     await expect(opcionesLecciones("../react")).resolves.toEqual([]);
     await expect(opcionesPiezas("react", 0)).resolves.toEqual([]);
     expect(obtenerLeccionesSimulado).not.toHaveBeenCalled();
+    expect(obtenerLeccionSimulado).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["host", { host: "sitio.ejemplo:3000", origin: "http://127.0.0.1:3000" }],
+    ["origin", { host: "127.0.0.1:3000", origin: "http://sitio.ejemplo:3000" }],
+  ])("no consulta lecciones con un %s ajeno", async (_caso, cabeceras) => {
+    headersSimulados.mockResolvedValueOnce(new Headers(cabeceras));
+
+    await expect(opcionesLecciones("react")).resolves.toEqual([]);
+    expect(obtenerLeccionesSimulado).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["host", { host: "sitio.ejemplo:3000", origin: "http://127.0.0.1:3000" }],
+    ["origin", { host: "127.0.0.1:3000", origin: "http://sitio.ejemplo:3000" }],
+  ])("no consulta piezas con un %s ajeno", async (_caso, cabeceras) => {
+    headersSimulados.mockResolvedValueOnce(new Headers(cabeceras));
+
+    await expect(opcionesPiezas("react", 4)).resolves.toEqual([]);
     expect(obtenerLeccionSimulado).not.toHaveBeenCalled();
   });
 });

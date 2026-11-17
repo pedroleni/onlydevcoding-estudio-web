@@ -19,7 +19,28 @@ describe("cliente de escritura de la API local", () => {
 
     expect(fetchSimulado).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/recurso",
-      expect.objectContaining({ method: "PUT", body: '{"valor":1}' }),
+      expect.objectContaining({
+        method: "PUT",
+        body: '{"valor":1}',
+        redirect: "error",
+      }),
+    );
+  });
+
+  it("envía el token y bloquea redirecciones en POST", async () => {
+    vi.stubEnv("ESTUDIO_TOKEN", "token-de-test");
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json({}, { status: 201 }));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await escribir("/api/recurso", { valor: 1 }, "POST");
+
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/recurso",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "X-Estudio-Token": "token-de-test" }),
+        redirect: "error",
+      }),
     );
   });
 
@@ -32,7 +53,12 @@ describe("cliente de escritura de la API local", () => {
 
     expect(fetchSimulado).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/recurso/3",
-      expect.objectContaining({ method: "DELETE", body: "{}" }),
+      expect.objectContaining({
+        method: "DELETE",
+        headers: expect.objectContaining({ "X-Estudio-Token": "token-de-test" }),
+        body: "{}",
+        redirect: "error",
+      }),
     );
   });
 });
