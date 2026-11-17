@@ -3,13 +3,12 @@ import Link from "next/link";
 import { diasDeSemana, fechaLegible } from "@/lib/fechas";
 import type { TareaVista, TipoTarea } from "@/lib/tipos";
 import {
+  COLOR_DESCONOCIDO,
   compararTareas,
   filtrarTareas,
   hrefTareas,
   type ParametrosTareas,
 } from "@/lib/vista-tareas";
-
-const COLOR_DESCONOCIDO = "#9B9BA4";
 
 function cabeceraCorta(fecha: string): string {
   return fechaLegible(fecha).split(" ").slice(0, 2).join(" ");
@@ -25,8 +24,7 @@ export function VistaSemana({
   parametros: ParametrosTareas;
 }) {
   const visibles = filtrarTareas(tareas, parametros.curso, parametros.tipo);
-  const colorDe = (id: string) =>
-    tipos.find((tipo) => tipo.id === id)?.color ?? COLOR_DESCONOCIDO;
+  const tipoDe = (id: string) => tipos.find((tipo) => tipo.id === id);
 
   return (
     <ul className="grid gap-3 md:grid-cols-7">
@@ -37,6 +35,7 @@ export function VistaSemana({
             <h2 className="text-sm font-semibold">
               <Link
                 href={hrefTareas(parametros, { vista: "dia", dia })}
+                aria-label={fechaLegible(dia)}
                 className="hover:text-marca focus-visible:outline-2 focus-visible:outline-marca"
               >
                 {cabeceraCorta(dia)}
@@ -50,14 +49,17 @@ export function VistaSemana({
                   <li
                     key={tarea.id}
                     className="flex min-w-0 items-baseline gap-1.5 border-l-2 pl-2 text-xs"
-                    style={{ borderLeftColor: colorDe(tarea.tipo) }}
+                    style={{ borderLeftColor: tipoDe(tarea.tipo)?.color ?? COLOR_DESCONOCIDO }}
                   >
+                    <span className="sr-only">
+                      {`${tipoDe(tarea.tipo)?.nombre ?? tarea.tipo}${tarea.hecha ? ", hecha" : ""}:`}
+                    </span>
                     {tarea.hora ? (
                       <span className="shrink-0 font-mono text-tenue">{tarea.hora}</span>
                     ) : null}
                     <span
                       title={tarea.texto}
-                      className={`truncate ${tarea.hecha ? "text-tenue line-through" : "text-texto"}`}
+                      className={`line-clamp-2 break-words ${tarea.hecha ? "text-tenue line-through" : "text-texto"}`}
                     >
                       {tarea.texto}
                     </span>

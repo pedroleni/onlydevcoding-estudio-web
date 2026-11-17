@@ -3,6 +3,7 @@ import { esFechaValida } from "@/lib/fechas";
 import type { Curso, TareaVista, TipoTarea } from "@/lib/tipos";
 
 export const SIN_CURSO = "sin-curso";
+export const COLOR_DESCONOCIDO = "#9B9BA4";
 
 const TIPO_VALIDO = /^[a-z0-9-]{1,30}$/;
 const FECHA = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
@@ -82,7 +83,7 @@ export function compararTareas(a: TareaVista, b: TareaVista): number {
 }
 
 function tipoDesconocido(id: string): TipoTarea {
-  return { id, nombre: id, color: "#9B9BA4", orden: Number.MAX_SAFE_INTEGER };
+  return { id, nombre: id, color: COLOR_DESCONOCIDO, orden: Number.MAX_SAFE_INTEGER };
 }
 
 export function agruparDia(

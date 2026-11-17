@@ -2,9 +2,7 @@ import type { ReactNode } from "react";
 
 import { FilaTarea } from "@/components/tareas/FilaTarea";
 import type { Curso, TareaVista, TipoTarea } from "@/lib/tipos";
-import { agruparDia } from "@/lib/vista-tareas";
-
-const COLOR_DESCONOCIDO = "#9B9BA4";
+import { agruparDia, COLOR_DESCONOCIDO } from "@/lib/vista-tareas";
 
 export function VistaDia({
   tareas,

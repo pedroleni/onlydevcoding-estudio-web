@@ -88,7 +88,7 @@ describe("VistaSemana", () => {
   it("enlaza la cabecera de cada día con su vista de día", () => {
     render(<VistaSemana tareas={[]} tipos={tipos} parametros={{ ...parametros, curso: "react" }} />);
 
-    expect(screen.getByRole("link", { name: "mar 30" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "mar 30 dic" })).toHaveAttribute(
       "href",
       "/tareas?vista=dia&dia=2025-12-30&curso=react",
     );
@@ -111,5 +111,32 @@ describe("VistaSemana", () => {
       .map((item) => item.textContent);
     expect(textos[0]).toContain("A las 9");
     expect(textos[1]).toContain("Sin hora");
+  });
+
+  it("pinta el color del tipo y coloca el domingo en la última columna", () => {
+    render(
+      <VistaSemana
+        tareas={[tarea({ id: 1, fecha: "2026-01-04", texto: "Cierre de semana" })]}
+        tipos={tipos}
+        parametros={parametros}
+      />,
+    );
+
+    const dias = columnas();
+    const fila = within(dias[6]).getByText("Cierre de semana").closest("li");
+    expect(fila).toHaveStyle({ borderLeftColor: "#E5534B" });
+  });
+
+  it("anuncia el tipo y si está hecha a los lectores de pantalla", () => {
+    render(
+      <VistaSemana
+        tareas={[tarea({ id: 1, texto: "Render", tipo: "publicar", hecha: true })]}
+        tipos={tipos}
+        parametros={parametros}
+      />,
+    );
+
+    const fila = screen.getByText("Render").closest("li") as HTMLElement;
+    expect(within(fila).getByText("Publicar, hecha:")).toHaveClass("sr-only");
   });
 });
