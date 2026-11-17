@@ -15,6 +15,9 @@ function Tecla({ children }: { children: ReactNode }) {
 export function PieControles({
   voz,
   enMarcha,
+  guardando,
+  pendiente,
+  alReintentar,
   alEnsayar,
   alGrabar,
   alParar,
@@ -25,6 +28,9 @@ export function PieControles({
 }: {
   voz: boolean;
   enMarcha: boolean;
+  guardando: boolean;
+  pendiente: boolean;
+  alReintentar: () => void;
   alEnsayar: () => void;
   alGrabar: () => void;
   alParar: () => void;
@@ -38,7 +44,7 @@ export function PieControles({
       <button
         type="button"
         onClick={alEnsayar}
-        disabled={enMarcha}
+        disabled={enMarcha || guardando}
         className={`${BOTON} border-marca bg-marca text-white`}
       >
         {voz ? "Ensayar" : "Empezar"} <Tecla>Espacio</Tecla>
@@ -46,7 +52,7 @@ export function PieControles({
       <button
         type="button"
         onClick={alGrabar}
-        disabled={enMarcha || !voz}
+        disabled={enMarcha || guardando || !voz}
         className={`${BOTON} border-rojo bg-rojo text-white`}
       >
         ● Grabar <Tecla>Intro</Tecla>
@@ -67,6 +73,16 @@ export function PieControles({
         <span role="status" className="min-w-0">
           {estado}
         </span>
+        {pendiente ? (
+          <button
+            type="button"
+            onClick={alReintentar}
+            disabled={enMarcha || guardando}
+            className={`${BOTON} min-h-9 border-ambar bg-transparent px-3 py-1.5 text-sm text-ambar`}
+          >
+            Reintentar subida
+          </button>
+        ) : null}
         {toma ? (
           <audio
             key={toma}

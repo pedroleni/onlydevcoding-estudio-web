@@ -6,11 +6,13 @@ export function BarraEscenas({
   indice,
   grabadas,
   alElegir,
+  desactivada = false,
 }: {
   escenas: EscenaTeleprompter[];
   indice: number;
   grabadas: ReadonlySet<string>;
   alElegir: (indice: number) => void;
+  desactivada?: boolean;
 }) {
   return (
     <nav
@@ -27,8 +29,9 @@ export function BarraEscenas({
             type="button"
             title={textoLegible(escena.titulo)}
             aria-current={actual ? "true" : undefined}
+            disabled={desactivada}
             onClick={() => alElegir(i)}
-            className={`min-h-9 rounded-lg border px-2.5 py-1.5 font-mono text-[13px] font-bold transition-colors hover:border-tenue ${
+            className={`min-h-9 rounded-lg border px-2.5 py-1.5 font-mono text-[13px] font-bold transition-colors hover:enabled:border-tenue disabled:cursor-default disabled:opacity-60 ${
               escena.modo === "voz" ? "text-azul-claro" : "text-ambar"
             } ${actual ? "border-texto bg-superficie" : "border-borde bg-transparent"}`}
           >

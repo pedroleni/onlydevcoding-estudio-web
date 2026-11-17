@@ -69,4 +69,19 @@ describe("BarraEscenas", () => {
     await userEvent.click(screen.getByRole("button", { name: "E04" }));
     expect(alElegir).toHaveBeenCalledWith(1);
   });
+
+  it("se puede desactivar entera", () => {
+    render(
+      <BarraEscenas
+        escenas={[escena("E03", "voz"), escena("E04", "voz")]}
+        indice={0}
+        grabadas={new Set()}
+        alElegir={vi.fn()}
+        desactivada
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "E03" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "E04" })).toBeDisabled();
+  });
 });

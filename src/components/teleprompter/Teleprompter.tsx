@@ -53,8 +53,6 @@ const urlTeleprompter = ({ curso, numero }: Seleccion) =>
 
 const mensaje = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-const esperar = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 const planDe = (escena: EscenaTeleprompter, ritmo: number): Plan =>
   calcularPlan(
     escena.cues.map((cue) => ({ texto: cue.texto, pausa: cue.pausa ?? 0 })),
@@ -79,9 +77,11 @@ function ponerTexto(elemento: HTMLElement | null, texto: string) {
 
 // Todo lo que cambia en cada fotograma o pertenece al navegador vive fuera del estado de React.
 type Vivo = {
+  cerrado: boolean;
   enMarcha: boolean;
   ejecucion: number;
   animacion: number;
+  espera: { temporizador: ReturnType<typeof setTimeout>; soltar: () => void } | null;
   elementos: Array<HTMLElement | null>;
   inicio: number;
   ultimaLinea: number;
@@ -90,15 +90,22 @@ type Vivo = {
   grabacion: Grabacion | null;
   grabando: boolean;
   guardando: boolean;
+  // Micrófono: un solo flujo abierto y, como mucho, una apertura en curso que se reutiliza.
   flujo: MediaStream | null;
+  microAbierto: string;
+  abriendo: Promise<MediaStream> | null;
+  microAbriendo: string;
+  generacionMicro: number;
   contexto: AudioContext | null;
   pararNivel: (() => void) | null;
 };
 
 const crearVivo = (): Vivo => ({
+  cerrado: false,
   enMarcha: false,
   ejecucion: 0,
   animacion: 0,
+  espera: null,
   elementos: [],
   inicio: 0,
   ultimaLinea: -1,
@@ -108,9 +115,35 @@ const crearVivo = (): Vivo => ({
   grabando: false,
   guardando: false,
   flujo: null,
+  microAbierto: "",
+  abriendo: null,
+  microAbriendo: "",
+  generacionMicro: 0,
   contexto: null,
   pararNivel: null,
 });
+
+const pararPistas = (flujo: MediaStream | null) =>
+  flujo?.getTracks().forEach((pista) => pista.stop());
+
+// Espera de la cuenta atrás que se puede cortar: al parar o al desmontar no queda ningún temporizador.
+function esperar(v: Vivo, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const temporizador = setTimeout(() => {
+      v.espera = null;
+      resolve();
+    }, ms);
+    v.espera = { temporizador, soltar: resolve };
+  });
+}
+
+function cortarEspera(v: Vivo) {
+  const espera = v.espera;
+  if (!espera) return;
+  v.espera = null;
+  clearTimeout(espera.temporizador);
+  espera.soltar();
+}
 
 // Mantiene la palabra que toca al 35 % de la altura del teleprompter.
 function mantenerALaVista(v: Vivo, caja: HTMLElement, elemento: HTMLElement) {
@@ -246,6 +279,8 @@ export function Teleprompter({
   );
 }
 
+type Pendiente = { escena: string; wav: Blob };
+
 function SesionTeleprompter({
   datos,
   lecciones,
@@ -262,6 +297,8 @@ function SesionTeleprompter({
     [datos.escenas],
   );
   const [tomas, setTomas] = useState<Record<string, TomaGuardada>>({});
+  // Tomas convertidas a WAV cuya subida falló: se conservan para reintentar.
+  const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const grabadas = useMemo(
     () =>
       new Set([
@@ -281,6 +318,8 @@ function SesionTeleprompter({
     estadoInicial(escena, Boolean(escena?.grabada)),
   );
   const [enMarcha, setEnMarcha] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const ocupado = enMarcha || guardando;
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [micros, setMicros] = useState<Microfono[]>([]);
   const plan = useMemo(() => (escena ? planDe(escena, pref.ritmo) : null), [escena, pref.ritmo]);
@@ -288,30 +327,39 @@ function SesionTeleprompter({
   const prompterRef = useRef<HTMLDivElement>(null);
   const relojRef = useRef<HTMLSpanElement>(null);
   const nivelRef = useRef<HTMLSpanElement>(null);
-  const vivo = useRef<Vivo>(crearVivo());
+  const vivoRef = useRef<Vivo | null>(null);
+  // Se crea la primera vez que hace falta, nunca durante el render.
+  const vivo = (): Vivo => (vivoRef.current ??= crearVivo());
 
   useEffect(() => {
-    const v = vivo.current;
+    const v = vivo();
+    v.cerrado = false;
     return () => {
+      v.cerrado = true;
       v.enMarcha = false;
       v.ejecucion++;
+      v.generacionMicro++;
+      cortarEspera(v);
       cancelAnimationFrame(v.animacion);
       clearInterval(v.reloj);
       v.pararNivel?.();
-      v.flujo?.getTracks().forEach((pista) => pista.stop());
+      v.pararNivel = null;
+      v.grabacion = null;
+      v.grabando = false;
+      pararPistas(v.flujo);
+      v.flujo = null;
+      v.abriendo = null;
       v.contexto?.close().catch(() => undefined);
+      v.contexto = null;
     };
   }, []);
 
-  useEffect(() => {
-    prompterRef.current?.scrollTo?.({ top: 0, behavior: "instant" });
-  }, [indice]);
-
   // ---------- teleprompter ----------
   function detener() {
-    const v = vivo.current;
+    const v = vivo();
     v.enMarcha = false;
     v.ejecucion++;
+    cortarEspera(v);
     cancelAnimationFrame(v.animacion);
     clearInterval(v.reloj);
     v.ultimaLinea = -1;
@@ -343,7 +391,7 @@ function SesionTeleprompter({
   async function cuentaAtras(textos: Cuenta[], sigue: () => boolean) {
     for (const [texto, sub, ms] of textos) {
       setAviso({ texto, sub });
-      await esperar(ms);
+      await esperar(vivo(), ms);
       if (!sigue()) return;
     }
     setAviso(null);
@@ -351,7 +399,7 @@ function SesionTeleprompter({
 
   function empezarAnimacion(actualEscena: EscenaTeleprompter) {
     animarTexto(
-      vivo.current,
+      vivo(),
       prompterRef.current,
       planDe(actualEscena, leerPreferencias().ritmo),
       () => void terminar(actualEscena),
@@ -359,17 +407,17 @@ function SesionTeleprompter({
   }
 
   async function terminar(actualEscena: EscenaTeleprompter) {
-    if (vivo.current.grabando) {
+    if (vivo().grabando) {
       detener();
-      await pararGrabacion(false, actualEscena);
+      await pararGrabacion(actualEscena);
     }
     pararTodo(false);
   }
 
   async function arrancar(conGrabacion: boolean) {
-    const v = vivo.current;
+    const v = vivo();
     const actualEscena = escena;
-    if (!actualEscena || v.enMarcha || v.guardando) return;
+    if (!actualEscena || v.enMarcha || v.guardando || v.cerrado) return;
     const ejecucion = ++v.ejecucion;
     const sigue = () => v.enMarcha && v.ejecucion === ejecucion;
     v.enMarcha = true;
@@ -393,18 +441,20 @@ function SesionTeleprompter({
 
     if (conGrabacion) {
       setEstado("Abriendo el micrófono… acepta el permiso si el navegador te lo pide.");
+      let flujo: MediaStream;
       try {
-        await empezarGrabacion();
+        flujo = await abrirMicroConNivel();
       } catch (error) {
+        if (v.cerrado) return;
         setEstado(`No se puede usar el micrófono: ${mensaje(error)}`);
         if (v.ejecucion === ejecucion) pararTodo(true);
         return;
       }
-      // Si se paró mientras el navegador pedía el permiso, lo grabado no vale.
-      if (!sigue()) {
-        await pararGrabacion(true, actualEscena);
-        return;
-      }
+      // Si se paró mientras el navegador pedía el permiso, esta ejecución ya no graba:
+      // el flujo se queda abierto para la siguiente y la grabadora solo la crea la ejecución viva.
+      if (!sigue()) return;
+      v.grabacion = grabar(flujo);
+      v.grabando = true;
       await cuentaAtras(
         [
           ["Silencio", "dos segundos sin hablar ni moverte (sirve para limpiar el ruido)", 2000],
@@ -430,21 +480,24 @@ function SesionTeleprompter({
   }
 
   async function parar() {
-    const v = vivo.current;
+    const v = vivo();
     if (v.guardando) return;
     if (v.grabando && escena) {
       detener();
-      await pararGrabacion(false, escena);
+      await pararGrabacion(escena);
+    } else if (v.abriendo && escena) {
+      // Aún no se graba nada: se deja de esperar al permiso y no se pierde ninguna toma.
+      setEstado(estadoInicial(escena, grabadas.has(escena.id)));
     }
     pararTodo(false);
   }
 
   async function repetir() {
-    const v = vivo.current;
+    const v = vivo();
     if (v.guardando) return;
     if (v.grabando && escena) {
       detener();
-      await pararGrabacion(true, escena);
+      await pararGrabacion(escena, true);
     }
     mostrarEscena(indice);
     void arrancar(voz);
@@ -459,14 +512,7 @@ function SesionTeleprompter({
     caja.classList.toggle("alto", pico > 0.95);
   }
 
-  async function abrirMicroConNivel(): Promise<MediaStream> {
-    const v = vivo.current;
-    if (v.flujo) return v.flujo;
-    const flujo = await abrirMicro(leerPreferencias().micro);
-    v.flujo = flujo;
-    v.contexto ??= new AudioContext();
-    v.pararNivel?.();
-    v.pararNivel = medirNivel(v.contexto, flujo, pintarNivel);
+  async function listarMicros() {
     try {
       const dispositivos = await navigator.mediaDevices.enumerateDevices();
       setMicros(
@@ -477,22 +523,79 @@ function SesionTeleprompter({
     } catch {
       // La lista de micrófonos es una ayuda: sin ella se graba con el predeterminado.
     }
-    return flujo;
   }
 
-  async function empezarGrabacion() {
-    const v = vivo.current;
-    const flujo = await abrirMicroConNivel();
-    v.grabacion = grabar(flujo);
-    v.grabando = true;
+  // Devuelve el flujo del micrófono elegido. Nunca hay dos aperturas a la vez: la que está en
+  // curso se reutiliza, y una apertura que llega tarde (sesión cerrada o micrófono cambiado)
+  // cierra su flujo en vez de quedarse con él.
+  function abrirMicroConNivel(): Promise<MediaStream> {
+    const v = vivo();
+    if (v.cerrado) return Promise.reject(new Error("El teleprompter se ha cerrado"));
+    const micro = leerPreferencias().micro;
+    if (v.flujo && v.microAbierto === micro) return Promise.resolve(v.flujo);
+    if (v.abriendo && v.microAbriendo === micro) return v.abriendo;
+
+    // Otro micrófono: lo abierto o lo que se estaba abriendo deja de valer.
+    v.generacionMicro++;
+    pararPistas(v.flujo);
+    v.flujo = null;
+    v.pararNivel?.();
+    v.pararNivel = null;
+
+    const generacion = v.generacionMicro;
+    const apertura: Promise<MediaStream> = abrirMicro(micro).then(
+      (flujo) => {
+        if (v.abriendo === apertura) v.abriendo = null;
+        if (v.cerrado) {
+          pararPistas(flujo);
+          throw new Error("El teleprompter se ha cerrado");
+        }
+        if (generacion !== v.generacionMicro) {
+          pararPistas(flujo);
+          return abrirMicroConNivel();
+        }
+        v.flujo = flujo;
+        v.microAbierto = micro;
+        v.contexto ??= new AudioContext();
+        v.pararNivel = medirNivel(v.contexto, flujo, pintarNivel);
+        void listarMicros();
+        return flujo;
+      },
+      (error: unknown) => {
+        if (v.abriendo === apertura) v.abriendo = null;
+        throw error;
+      },
+    );
+    v.abriendo = apertura;
+    v.microAbriendo = micro;
+    return apertura;
   }
 
-  async function pararGrabacion(tirar: boolean, actualEscena: EscenaTeleprompter) {
-    const v = vivo.current;
+  async function subir(wav: Blob, idEscena: string) {
+    const v = vivo();
+    setEstado("Guardando…");
+    try {
+      const toma = await subirToma(datos.curso, datos.numero, idEscena, wav);
+      setPendientes((actuales) => actuales.filter((p) => p.escena !== idEscena));
+      setTomas((anteriores) => ({ ...anteriores, [idEscena]: toma }));
+      setEstado(`Guardada: ${idEscena}.wav. Escúchala o pasa a la siguiente con →.`);
+      if (!v.cerrado) router.refresh();
+    } catch (error) {
+      setPendientes((actuales) => [
+        ...actuales.filter((p) => p.escena !== idEscena),
+        { escena: idEscena, wav },
+      ]);
+      setEstado(`No se pudo guardar: ${mensaje(error)}`);
+    }
+  }
+
+  async function pararGrabacion(actualEscena: EscenaTeleprompter, tirar = false) {
+    const v = vivo();
     const grabacion = v.grabacion;
     if (!grabacion) return;
     v.grabacion = null;
     v.guardando = true;
+    setGuardando(true);
     try {
       const audio = await grabacion.parar();
       v.grabando = false;
@@ -501,39 +604,60 @@ function SesionTeleprompter({
         return;
       }
       setEstado("Guardando…");
-      v.contexto ??= new AudioContext();
-      const wav = await aWav(audio, v.contexto);
-      const toma = await subirToma(datos.curso, datos.numero, actualEscena.id, wav);
-      setTomas((anteriores) => ({ ...anteriores, [actualEscena.id]: toma }));
-      setEstado(`Guardada: ${actualEscena.id}.wav. Escúchala o pasa a la siguiente con →.`);
-      router.refresh();
+      // Si la sesión se cerró mientras tanto, se decodifica con un contexto propio que se cierra al acabar.
+      const contexto = !v.cerrado && v.contexto ? v.contexto : new AudioContext();
+      let wav: Blob;
+      try {
+        wav = await aWav(audio, contexto);
+      } finally {
+        if (contexto !== v.contexto) contexto.close().catch(() => undefined);
+      }
+      await subir(wav, actualEscena.id);
     } catch (error) {
       setEstado(`No se pudo guardar: ${mensaje(error)}`);
     } finally {
       v.grabando = false;
       v.guardando = false;
+      setGuardando(false);
+    }
+  }
+
+  async function reintentar() {
+    const v = vivo();
+    if (v.enMarcha || v.guardando || pendientes.length === 0) return;
+    v.guardando = true;
+    setGuardando(true);
+    try {
+      for (const { escena: idEscena, wav } of pendientes) await subir(wav, idEscena);
+    } finally {
+      v.guardando = false;
+      setGuardando(false);
     }
   }
 
   async function cambiarMicro(micro: string) {
-    const v = vivo.current;
+    const v = vivo();
     guardarPreferencias({ micro });
-    // Con una toma en marcha se cambia en la siguiente, para no cortarla.
-    if (!v.flujo || v.grabando) return;
-    v.flujo.getTracks().forEach((pista) => pista.stop());
-    v.flujo = null;
-    v.pararNivel?.();
-    v.pararNivel = null;
+    // Grabando, se aplica en la siguiente toma para no cortarla; sin micrófono abierto, al abrirlo.
+    if (v.grabando || (!v.flujo && !v.abriendo)) return;
     try {
       await abrirMicroConNivel();
     } catch (error) {
-      setEstado(`No se puede usar el micrófono: ${mensaje(error)}`);
+      if (!v.cerrado) setEstado(`No se puede usar el micrófono: ${mensaje(error)}`);
     }
   }
 
   function cambiarRitmo(ritmo: number) {
     guardarPreferencias({ ritmo });
     if (!enMarcha) mostrarEscena(indice);
+  }
+
+  function cambiarLeccion(valor: string) {
+    if (ocupado) return;
+    if (pendientes.length > 0 && !window.confirm("Hay una toma sin guardar. ¿Descartarla?")) {
+      return;
+    }
+    alCambiarLeccion(valor);
   }
 
   // ---------- teclado ----------
@@ -557,9 +681,9 @@ function SesionTeleprompter({
       void parar();
     } else if (evento.key === "r" || evento.key === "R") {
       if (enMarcha) void repetir();
-    } else if (evento.code === "ArrowRight" && !enMarcha) {
+    } else if (evento.code === "ArrowRight" && !ocupado) {
       mostrarEscena(indice + 1);
-    } else if (evento.code === "ArrowLeft" && !enMarcha) {
+    } else if (evento.code === "ArrowLeft" && !ocupado) {
       mostrarEscena(indice - 1);
     }
   });
@@ -591,7 +715,8 @@ function SesionTeleprompter({
       <BarraAjustes
         lecciones={lecciones}
         leccion={valorLeccion(datos)}
-        alCambiarLeccion={alCambiarLeccion}
+        alCambiarLeccion={cambiarLeccion}
+        bloqueada={ocupado}
         ritmo={pref.ritmo}
         alCambiarRitmo={cambiarRitmo}
         letra={pref.letra}
@@ -605,8 +730,9 @@ function SesionTeleprompter({
         escenas={escenas}
         indice={indice}
         grabadas={grabadas}
+        desactivada={ocupado}
         alElegir={(i) => {
-          if (!enMarcha) mostrarEscena(i);
+          if (!ocupado) mostrarEscena(i);
         }}
       />
 
@@ -654,6 +780,9 @@ function SesionTeleprompter({
       <PieControles
         voz={voz}
         enMarcha={enMarcha}
+        guardando={guardando}
+        pendiente={pendientes.length > 0}
+        alReintentar={() => void reintentar()}
         alEnsayar={() => void arrancar(false)}
         alGrabar={() => void arrancar(true)}
         alParar={() => void parar()}

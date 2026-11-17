@@ -23,10 +23,12 @@ export function SelectorLeccion({
   lecciones,
   leccion,
   alCambiarLeccion,
+  desactivado = false,
 }: {
   lecciones: OpcionLeccion[];
   leccion: string;
   alCambiarLeccion: (valor: string) => void;
+  desactivado?: boolean;
 }) {
   const id = useId();
   const conocida = lecciones.some((opcion) => valorLeccion(opcion) === leccion);
@@ -37,8 +39,9 @@ export function SelectorLeccion({
       <select
         id={id}
         value={conocida ? leccion : ""}
+        disabled={desactivado}
         onChange={(evento) => alCambiarLeccion(evento.target.value)}
-        className={`${SELECTOR} flex-1 sm:max-w-[24rem]`}
+        className={`${SELECTOR} flex-1 disabled:opacity-40 sm:max-w-[24rem]`}
       >
         {conocida ? null : (
           <option value="" disabled>
@@ -59,6 +62,7 @@ export function BarraAjustes({
   lecciones,
   leccion,
   alCambiarLeccion,
+  bloqueada,
   ritmo,
   alCambiarRitmo,
   letra,
@@ -71,6 +75,7 @@ export function BarraAjustes({
   lecciones: OpcionLeccion[];
   leccion: string;
   alCambiarLeccion: (valor: string) => void;
+  bloqueada: boolean;
   ritmo: number;
   alCambiarRitmo: (ritmo: number) => void;
   letra: number;
@@ -89,6 +94,7 @@ export function BarraAjustes({
         lecciones={lecciones}
         leccion={leccion}
         alCambiarLeccion={alCambiarLeccion}
+        desactivado={bloqueada}
       />
 
       <div className={AJUSTE}>
