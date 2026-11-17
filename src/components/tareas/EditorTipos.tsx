@@ -45,18 +45,23 @@ function FilaTipo({ tipo }: { tipo: TipoTarea }) {
   const [color, setColor] = useState(tipo.color);
   const [orden, setOrden] = useState(String(tipo.orden));
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [guardado, setGuardado] = useState(false);
   const [pendiente, iniciar] = useTransition();
+  const valido = nombre.trim() !== "" && orden.trim() !== "";
 
   function guardar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+    if (!valido) return;
     setMensaje(null);
+    setGuardado(false);
     iniciar(async () => {
       const resultado = await editarTipoTarea(tipo.id, {
         nombre: nombre.trim(),
         color,
         orden: Number(orden),
       });
-      if (!resultado.ok) setMensaje(resultado.mensaje);
+      if (resultado.ok) setGuardado(true);
+      else setMensaje(resultado.mensaje);
     });
   }
 
@@ -89,7 +94,11 @@ function FilaTipo({ tipo }: { tipo: TipoTarea }) {
           />
         </label>
         <div className="flex gap-2">
-          <button type="submit" disabled={pendiente} className={`${claseBoton} border-marca text-texto`}>
+          <button
+            type="submit"
+            disabled={pendiente || !valido}
+            className={`${claseBoton} border-marca text-texto`}
+          >
             Guardar
           </button>
           <button
@@ -101,7 +110,12 @@ function FilaTipo({ tipo }: { tipo: TipoTarea }) {
             Borrar
           </button>
         </div>
-        <p className="font-mono text-xs text-tenue md:col-span-4">{tipo.id}</p>
+        <p className="flex gap-3 font-mono text-xs text-tenue md:col-span-4">
+          {tipo.id}
+          <span role="status" className="font-sans text-[#4BC98C]">
+            {guardado ? "Guardado" : ""}
+          </span>
+        </p>
         {mensaje ? (
           <p role="alert" className="text-[#E5534B] md:col-span-4">
             {mensaje}

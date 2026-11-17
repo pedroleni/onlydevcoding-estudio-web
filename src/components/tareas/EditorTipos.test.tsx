@@ -100,4 +100,16 @@ describe("EditorTipos", () => {
 
     expect(borrarTipoTarea).not.toHaveBeenCalled();
   });
+
+  it("confirma el guardado y no deja guardar sin orden", async () => {
+    vi.mocked(editarTipoTarea).mockResolvedValue({ ok: true });
+    render(<EditorTipos tipos={tipos} />);
+
+    const publicar = fila("Publicar");
+    await userEvent.click(within(publicar).getByRole("button", { name: "Guardar" }));
+    expect(await within(publicar).findByRole("status")).toHaveTextContent("Guardado");
+
+    await userEvent.clear(within(publicar).getByLabelText("Orden"));
+    expect(within(publicar).getByRole("button", { name: "Guardar" })).toBeDisabled();
+  });
 });
