@@ -4,6 +4,7 @@ import { diasDeSemana, fechaLegible } from "@/lib/fechas";
 import type { TareaVista, TipoTarea } from "@/lib/tipos";
 import {
   COLOR_DESCONOCIDO,
+  colorSeguro,
   compararTareas,
   filtrarTareas,
   hrefTareas,
@@ -49,7 +50,7 @@ export function VistaSemana({
                   <li
                     key={tarea.id}
                     className="flex min-w-0 items-baseline gap-1.5 border-l-2 pl-2 text-xs"
-                    style={{ borderLeftColor: tipoDe(tarea.tipo)?.color ?? COLOR_DESCONOCIDO }}
+                    style={{ borderLeftColor: colorSeguro(tipoDe(tarea.tipo)?.color ?? COLOR_DESCONOCIDO) }}
                   >
                     <span className="sr-only">
                       {`${tipoDe(tarea.tipo)?.nombre ?? tarea.tipo}${tarea.hecha ? ", hecha" : ""}:`}

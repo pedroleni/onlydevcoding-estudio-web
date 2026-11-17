@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { Curso, TareaVista, TipoTarea } from "@/lib/tipos";
 import {
+  COLOR_DESCONOCIDO,
   agruparDia,
+  colorSeguro,
   etiquetaEnlace,
   filtrarTareas,
   hrefEnlace,
@@ -175,6 +177,32 @@ describe("etiquetaEnlace", () => {
         }),
       ),
     ).toBe("Python");
+  });
+});
+
+describe("endurecimiento", () => {
+  it("ignora una semana que se sale del calendario", () => {
+    expect(leerParametrosTareas({ vista: "semana", dia: "9999-12-31" }, HOY).dia).toBe(HOY);
+    expect(leerParametrosTareas({ vista: "dia", dia: "9999-12-31" }, HOY).dia).toBe("9999-12-31");
+  });
+
+  it("no enlaza con un número de lección o un curso que no son válidos", () => {
+    expect(
+      hrefEnlace(tarea({ id: 1, enlace: { curso: "react", numero: "//evil.example/x" as unknown as number } })),
+    ).toBeNull();
+    expect(hrefEnlace(tarea({ id: 2, enlace: { curso: "react", numero: 1000 } }))).toBeNull();
+    expect(hrefEnlace(tarea({ id: 3, enlace: { curso: "../x" } }))).toBeNull();
+  });
+
+  it("solo acepta colores de la lista cerrada", () => {
+    expect(colorSeguro("#E5534B")).toBe("#E5534B");
+    expect(colorSeguro("red;background-image:url(http://evil.example/t)")).toBe(COLOR_DESCONOCIDO);
+    const grupos = agruparDia(
+      [tarea({ id: 1, tipo: "raro" })],
+      [],
+      [{ id: "raro", nombre: "Raro", color: "red;x:y" as TipoTarea["color"], orden: 1 }],
+    );
+    expect(grupos[0].tipos[0].tipo.color).toBe(COLOR_DESCONOCIDO);
   });
 });
 

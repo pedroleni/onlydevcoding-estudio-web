@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { FilaTarea } from "@/components/tareas/FilaTarea";
 import type { Curso, TareaVista, TipoTarea } from "@/lib/tipos";
-import { agruparDia, COLOR_DESCONOCIDO } from "@/lib/vista-tareas";
+import { agruparDia, COLOR_DESCONOCIDO, colorSeguro } from "@/lib/vista-tareas";
 
 export function VistaDia({
   tareas,
@@ -20,7 +20,7 @@ export function VistaDia({
   editar?: (tarea: TareaVista) => ReactNode;
 }) {
   const colorDe = (id: string) =>
-    tipos.find((tipo) => tipo.id === id)?.color ?? COLOR_DESCONOCIDO;
+    colorSeguro(tipos.find((tipo) => tipo.id === id)?.color ?? COLOR_DESCONOCIDO);
   const grupos = agruparDia(tareas, cursos, tipos);
   const verAtrasadas = esHoy && atrasadas.length > 0;
 

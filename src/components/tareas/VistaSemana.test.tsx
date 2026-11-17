@@ -139,4 +139,18 @@ describe("VistaSemana", () => {
     const fila = screen.getByText("Render").closest("li") as HTMLElement;
     expect(within(fila).getByText("Publicar, hecha:")).toHaveClass("sr-only");
   });
+
+  it("no pinta un color fuera de la lista cerrada", () => {
+    render(
+      <VistaSemana
+        tareas={[tarea({ id: 1, texto: "Hostil", tipo: "raro" })]}
+        tipos={[{ id: "raro", nombre: "Raro", color: "red;background:url(x)" as TipoTarea["color"], orden: 1 }]}
+        parametros={parametros}
+      />,
+    );
+
+    const fila = screen.getByText("Hostil").closest("li") as HTMLElement;
+    expect(fila.getAttribute("style")).not.toContain("url(");
+    expect(fila).toHaveStyle({ borderLeftColor: "#9B9BA4" });
+  });
 });

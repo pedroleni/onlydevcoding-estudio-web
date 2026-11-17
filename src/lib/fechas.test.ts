@@ -38,8 +38,18 @@ describe("utilidades de fechas de tareas", () => {
     expect(fechaLegible("2026-11-16")).toBe("lun 16 nov");
   });
 
-  it("usa el día local, no UTC, en ambos extremos del día", () => {
-    expect(fechaLocal(new Date(2026, 10, 16, 23, 59))).toBe("2026-11-16");
-    expect(fechaLocal(new Date(2026, 10, 17, 0, 1))).toBe("2026-11-17");
-  });
+  it.each(["America/Los_Angeles", "Pacific/Auckland"])(
+    "usa el día local, no UTC, en ambos extremos del día (%s)",
+    (zona) => {
+      // Con zonas lejos de UTC, toISOString() daría otro día y el test fallaría.
+      const anterior = process.env.TZ;
+      process.env.TZ = zona;
+      try {
+        expect(fechaLocal(new Date(2026, 10, 16, 23, 59))).toBe("2026-11-16");
+        expect(fechaLocal(new Date(2026, 10, 17, 0, 1))).toBe("2026-11-17");
+      } finally {
+        process.env.TZ = anterior;
+      }
+    },
+  );
 });

@@ -6,6 +6,7 @@ import { borrarTipoTarea, crearTipoTarea, editarTipoTarea } from "@/lib/acciones
 import { COLORES_TAREA } from "@/lib/colores-tareas";
 import { idDesdeNombre } from "@/lib/ids";
 import type { TipoTarea } from "@/lib/tipos";
+import { colorSeguro } from "@/lib/vista-tareas";
 
 const claseCampo =
   "min-h-10 w-full border border-borde bg-fondo px-3 text-texto focus-visible:outline-2 focus-visible:outline-marca";
@@ -24,7 +25,7 @@ function SelectorColor({
     <div className="grid gap-1 text-tenue">
       <label htmlFor={`${idCampo}-color`}>Color</label>
       <span className="flex items-center gap-2">
-        <span aria-hidden="true" className="size-4 shrink-0 rounded-full" style={{ backgroundColor: valor }} />
+        <span aria-hidden="true" className="size-4 shrink-0 rounded-full" style={{ backgroundColor: colorSeguro(valor) }} />
         <select
           id={`${idCampo}-color`}
           value={valor}
@@ -45,7 +46,7 @@ function SelectorColor({
 function FilaTipo({ tipo }: { tipo: TipoTarea }) {
   const idCampo = useId();
   const [nombre, setNombre] = useState(tipo.nombre);
-  const [color, setColor] = useState(tipo.color);
+  const [color, setColor] = useState(colorSeguro(tipo.color));
   const [orden, setOrden] = useState(String(tipo.orden));
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);

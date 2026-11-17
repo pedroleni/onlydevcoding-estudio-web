@@ -1,9 +1,17 @@
+import { COLORES_TAREA } from "@/lib/colores-tareas";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
-import { esFechaValida } from "@/lib/fechas";
+import { esFechaValida, lunesDe, sumarDias } from "@/lib/fechas";
 import type { Curso, TareaVista, TipoTarea } from "@/lib/tipos";
 
 export const SIN_CURSO = "sin-curso";
 export const COLOR_DESCONOCIDO = "#9B9BA4";
+
+const COLORES_VALIDOS = new Set<string>(COLORES_TAREA.map(({ valor }) => valor));
+
+// El color va a un atributo style: solo se aceptan los de la lista cerrada.
+export function colorSeguro(color: string): TipoTarea["color"] {
+  return COLORES_VALIDOS.has(color) ? (color as TipoTarea["color"]) : COLOR_DESCONOCIDO;
+}
 
 const TIPO_VALIDO = /^[a-z0-9-]{1,30}$/;
 const FECHA = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
@@ -40,9 +48,15 @@ export function leerParametrosTareas(consulta: Consulta, hoy: string): Parametro
   const curso = primero(consulta.curso);
   const tipo = primero(consulta.tipo);
 
+  const vistaFinal: VistaTareas = vista === "semana" ? "semana" : "dia";
+  const diaValido = dia !== undefined && FECHA.test(dia) && esFechaValida(dia);
+  // Una semana que acaba después del 9999-12-31 no se puede pedir a la API.
+  const semanaValida =
+    !diaValido || vistaFinal !== "semana" || FECHA.test(sumarDias(lunesDe(dia), 6));
+
   return {
-    vista: vista === "semana" ? "semana" : "dia",
-    dia: dia !== undefined && FECHA.test(dia) && esFechaValida(dia) ? dia : hoy,
+    vista: vistaFinal,
+    dia: diaValido && semanaValida ? dia : hoy,
     curso:
       curso !== undefined && (curso === SIN_CURSO || CURSO_VALIDO.test(curso)) ? curso : null,
     tipo: tipo !== undefined && TIPO_VALIDO.test(tipo) ? tipo : null,
@@ -116,7 +130,9 @@ export function agruparDia(
 
     const grupos = [...porTipo.entries()]
       .map(([id, lista]) => ({
-        tipo: tiposPorId.get(id) ?? tipoDesconocido(id),
+        tipo: ((tipo) => ({ ...tipo, color: colorSeguro(tipo.color) }))(
+          tiposPorId.get(id) ?? tipoDesconocido(id),
+        ),
         tareas: [...lista].sort(compararTareas),
       }))
       .sort((a, b) => a.tipo.orden - b.tipo.orden || a.tipo.id.localeCompare(b.tipo.id));
@@ -135,10 +151,14 @@ export function agruparDia(
 export function hrefEnlace(tarea: TareaVista): string | null {
   const enlace = tarea.enlace;
   if (enlace === null || tarea.enlace_vista?.roto) return null;
+  if (!CURSO_VALIDO.test(enlace.curso)) return null;
 
   const curso = encodeURIComponent(enlace.curso);
   if (enlace.numero === null || enlace.numero === undefined) {
     return `/cursos/${curso}`;
+  }
+  if (!Number.isInteger(enlace.numero) || enlace.numero < 1 || enlace.numero > 999) {
+    return null;
   }
 
   const base = `/cursos/${curso}/${enlace.numero}`;
