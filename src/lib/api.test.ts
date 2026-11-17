@@ -6,6 +6,8 @@ import {
   obtenerCursos,
   obtenerLeccion,
   obtenerPublicacion,
+  obtenerTareas,
+  obtenerTiposTarea,
 } from "@/lib/api";
 
 function fetchFalla() {
@@ -106,6 +108,30 @@ describe("cliente de la API local", () => {
     fetchCon(404);
 
     await expect(obtenerPublicacion("react", 99)).resolves.toBeNull();
+  });
+
+  it("obtiene tareas con el rango y la opción de atrasadas", async () => {
+    const datos = { tareas: [], atrasadas: [] };
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(datos));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(obtenerTareas("2026-11-16", "2026-11-22", true)).resolves.toEqual(datos);
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/tareas?desde=2026-11-16&hasta=2026-11-22&atrasadas=true",
+      { cache: "no-store" },
+    );
+  });
+
+  it("obtiene los tipos de tarea", async () => {
+    const tipos = [{ id: "otro", nombre: "Otro", color: "#9B9BA4", orden: 4 }];
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(tipos));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(obtenerTiposTarea()).resolves.toEqual(tipos);
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/tipos-tarea",
+      { cache: "no-store" },
+    );
   });
 
   it.each([Number.NaN, 1.5])(

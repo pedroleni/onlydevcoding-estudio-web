@@ -14,6 +14,12 @@ vi.mock("next/server", () => ({
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock("@/lib/acciones-tareas", () => ({
+  crearCurso: vi.fn(),
+  borrarCurso: vi.fn(),
 }));
 
 vi.mock("@/lib/acciones", () => ({
@@ -115,6 +121,7 @@ beforeEach(() => {
       nombre: "Curso ficticio",
       carpeta: "curso-ficticio",
       lecciones: 1,
+      en_disco: true,
     },
   ]);
   vi.mocked(obtenerPublicacion).mockResolvedValue(null);

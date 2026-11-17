@@ -1,0 +1,222 @@
+"use client";
+
+import { useId, useState, useTransition, type FormEvent } from "react";
+
+import { borrarTipoTarea, crearTipoTarea, editarTipoTarea } from "@/lib/acciones-tareas";
+import { COLORES_TAREA } from "@/lib/colores-tareas";
+import { idDesdeNombre } from "@/lib/ids";
+import type { TipoTarea } from "@/lib/tipos";
+import { colorSeguro } from "@/lib/vista-tareas";
+
+const claseCampo =
+  "min-h-10 w-full border border-borde bg-fondo px-3 text-texto focus-visible:outline-2 focus-visible:outline-marca";
+const claseBoton =
+  "inline-flex min-h-10 items-center border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca disabled:opacity-50";
+
+function SelectorColor({
+  valor,
+  onCambio,
+}: {
+  valor: TipoTarea["color"];
+  onCambio: (color: TipoTarea["color"]) => void;
+}) {
+  const idCampo = useId();
+  return (
+    <div className="grid gap-1 text-tenue">
+      <label htmlFor={`${idCampo}-color`}>Color</label>
+      <span className="flex items-center gap-2">
+        <span aria-hidden="true" className="size-4 shrink-0 rounded-full" style={{ backgroundColor: colorSeguro(valor) }} />
+        <select
+          id={`${idCampo}-color`}
+          value={valor}
+          onChange={(evento) => onCambio(evento.target.value as TipoTarea["color"])}
+          className={claseCampo}
+        >
+          {COLORES_TAREA.map((color) => (
+            <option key={color.valor} value={color.valor}>
+              {color.nombre}
+            </option>
+          ))}
+        </select>
+      </span>
+    </div>
+  );
+}
+
+function FilaTipo({ tipo }: { tipo: TipoTarea }) {
+  const idCampo = useId();
+  const [nombre, setNombre] = useState(tipo.nombre);
+  const [color, setColor] = useState(colorSeguro(tipo.color));
+  const [orden, setOrden] = useState(String(tipo.orden));
+  const [mensaje, setMensaje] = useState<string | null>(null);
+  const [guardado, setGuardado] = useState(false);
+  const [pendiente, iniciar] = useTransition();
+  const valido = nombre.trim() !== "" && orden.trim() !== "";
+
+  function guardar(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!valido) return;
+    setMensaje(null);
+    setGuardado(false);
+    iniciar(async () => {
+      const resultado = await editarTipoTarea(tipo.id, {
+        nombre: nombre.trim(),
+        color,
+        orden: Number(orden),
+      });
+      if (resultado.ok) setGuardado(true);
+      else setMensaje(resultado.mensaje);
+    });
+  }
+
+  function borrar() {
+    if (!window.confirm(`¿Borrar el tipo «${tipo.nombre}»?`)) return;
+    setMensaje(null);
+    iniciar(async () => {
+      const resultado = await borrarTipoTarea(tipo.id);
+      if (!resultado.ok) setMensaje(resultado.mensaje);
+    });
+  }
+
+  return (
+    <form onSubmit={guardar} className="border border-borde bg-superficie p-4">
+      <fieldset aria-label={`Tipo ${tipo.nombre}`} className="grid gap-3 text-sm md:grid-cols-[1fr_12rem_6rem_auto] md:items-end">
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-nombre`}>Nombre</label>
+          <input
+            id={`${idCampo}-nombre`}
+            value={nombre}
+            onChange={(evento) => setNombre(evento.target.value)}
+            className={claseCampo}
+          />
+        </div>
+        <SelectorColor valor={color} onCambio={setColor} />
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-orden`}>Orden</label>
+          <input
+            id={`${idCampo}-orden`}
+            type="number"
+            min={0}
+            max={10000}
+            value={orden}
+            onChange={(evento) => setOrden(evento.target.value)}
+            className={claseCampo}
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={pendiente || !valido}
+            className={`${claseBoton} border-marca text-texto`}
+          >
+            Guardar
+          </button>
+          <button
+            type="button"
+            onClick={borrar}
+            disabled={pendiente}
+            className={`${claseBoton} border-borde text-tenue hover:text-texto`}
+          >
+            Borrar
+          </button>
+        </div>
+        <p className="flex gap-3 font-mono text-xs text-tenue md:col-span-4">
+          {tipo.id}
+          <span role="status" className="font-sans text-[#4BC98C]">
+            {guardado ? "Guardado" : ""}
+          </span>
+        </p>
+        {mensaje ? (
+          <p role="alert" className="text-[#E5534B] md:col-span-4">
+            {mensaje}
+          </p>
+        ) : null}
+      </fieldset>
+    </form>
+  );
+}
+
+function NuevoTipo({ siguienteOrden }: { siguienteOrden: number }) {
+  const idCampo = useId();
+  const [nombre, setNombre] = useState("");
+  const [id, setId] = useState("");
+  const [idManual, setIdManual] = useState(false);
+  const [color, setColor] = useState<TipoTarea["color"]>(COLORES_TAREA[0].valor);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+  const [pendiente, iniciar] = useTransition();
+
+  const idFinal = idManual ? id : idDesdeNombre(nombre, 30);
+
+  function crear(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setMensaje(null);
+    iniciar(async () => {
+      const resultado = await crearTipoTarea({
+        id: idFinal,
+        nombre: nombre.trim(),
+        color,
+        orden: siguienteOrden,
+      });
+      if (resultado.ok) {
+        setNombre("");
+        setId("");
+        setIdManual(false);
+      } else {
+        setMensaje(resultado.mensaje);
+      }
+    });
+  }
+
+  return (
+    <form onSubmit={crear} className="border border-dashed border-borde p-4">
+      <fieldset aria-label="Nuevo tipo" className="grid gap-3 text-sm md:grid-cols-[1fr_12rem_12rem_auto] md:items-end">
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-nombre`}>Nombre</label>
+          <input
+            id={`${idCampo}-nombre`}
+            value={nombre}
+            onChange={(evento) => setNombre(evento.target.value)}
+            className={claseCampo}
+          />
+        </div>
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-id`}>Id</label>
+          <input
+            id={`${idCampo}-id`}
+            value={idFinal}
+            onChange={(evento) => {
+              setIdManual(true);
+              setId(evento.target.value);
+            }}
+            className={`${claseCampo} font-mono`}
+          />
+        </div>
+        <SelectorColor valor={color} onCambio={setColor} />
+        <button
+          type="submit"
+          disabled={pendiente || nombre.trim() === "" || idFinal === ""}
+          className={`${claseBoton} border-marca bg-marca text-white`}
+        >
+          Crear tipo
+        </button>
+        {mensaje ? (
+          <p role="alert" className="text-[#E5534B] md:col-span-4">
+            {mensaje}
+          </p>
+        ) : null}
+      </fieldset>
+    </form>
+  );
+}
+
+export function EditorTipos({ tipos }: { tipos: TipoTarea[] }) {
+  const siguienteOrden = Math.min(10000, Math.max(0, ...tipos.map(({ orden }) => orden)) + 1);
+  return (
+    <div className="grid gap-3">
+      {tipos.map((tipo) => (
+        <FilaTipo key={`${tipo.id}-${tipo.nombre}-${tipo.color}-${tipo.orden}`} tipo={tipo} />
+      ))}
+      <NuevoTipo siguienteOrden={siguienteOrden} />
+    </div>
+  );
+}

@@ -8,6 +8,11 @@ vi.mock("next/server", () => ({
   connection: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/acciones-tareas", () => ({
+  crearCurso: vi.fn(),
+  borrarCurso: vi.fn(),
+}));
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/api")>();
 

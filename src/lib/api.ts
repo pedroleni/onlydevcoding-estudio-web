@@ -2,6 +2,8 @@ import type {
   Curso,
   Leccion,
   LeccionResumen,
+  TareasDelRango,
+  TipoTarea,
   VistaPublicacion,
 } from "@/lib/tipos";
 
@@ -72,6 +74,23 @@ async function pedir<T>(
 
 export function obtenerCursos(): Promise<Curso[]> {
   return pedir<Curso[]>("/api/cursos");
+}
+
+export function obtenerTareas(
+  desde: string,
+  hasta: string,
+  atrasadas: boolean,
+): Promise<TareasDelRango> {
+  const parametros = new URLSearchParams({
+    desde,
+    hasta,
+    atrasadas: String(atrasadas),
+  });
+  return pedir<TareasDelRango>(`/api/tareas?${parametros}`);
+}
+
+export function obtenerTiposTarea(): Promise<TipoTarea[]> {
+  return pedir<TipoTarea[]>("/api/tipos-tarea");
 }
 
 export async function obtenerLecciones(

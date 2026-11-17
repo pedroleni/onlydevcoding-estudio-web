@@ -2,6 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { AvisoApi } from "@/components/AvisoApi";
+import { FormularioCurso } from "@/components/FormularioCurso";
 import { ApiNoDisponible, ErrorApi, obtenerCursos } from "@/lib/api";
 
 export default async function PaginaCursos() {
@@ -20,13 +21,16 @@ export default async function PaginaCursos() {
 
   return (
     <section className="py-10 md:py-16">
-      <header className="max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-[-0.035em] md:text-5xl">
-          Cursos
-        </h1>
-        <p className="mt-3 leading-7 text-tenue">
-          Elige un curso para revisar sus lecciones y el estado de producción.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div className="max-w-2xl">
+          <h1 className="text-3xl font-semibold tracking-[-0.035em] md:text-5xl">
+            Cursos
+          </h1>
+          <p className="mt-3 leading-7 text-tenue">
+            Elige un curso para revisar sus lecciones y el estado de producción.
+          </p>
+        </div>
+        <FormularioCurso />
       </header>
 
       {cursos.length > 0 ? (
@@ -41,8 +45,9 @@ export default async function PaginaCursos() {
                 {curso.nombre}
               </h2>
               <p className="mt-8 font-mono text-sm text-tenue">
-                {curso.lecciones}{" "}
-                {curso.lecciones === 1 ? "lección" : "lecciones"}
+                {curso.en_disco
+                  ? `${curso.lecciones} ${curso.lecciones === 1 ? "lección" : "lecciones"}`
+                  : "Sin carpeta todavía"}
               </p>
             </Link>
           ))}

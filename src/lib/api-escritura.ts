@@ -16,6 +16,7 @@ function sinBarraFinal(url: string): string {
 export async function escribir(
   ruta: string,
   cuerpo: unknown,
+  metodo: "PUT" | "POST" | "DELETE" = "PUT",
 ): Promise<ResultadoEscritura> {
   const token = process.env.ESTUDIO_TOKEN;
 
@@ -23,14 +24,14 @@ export async function escribir(
     return { ok: false, mensaje: MENSAJE_TOKEN_AUSENTE };
   }
 
-  const cuerpoJson = JSON.stringify(cuerpo);
+  const cuerpoJson = JSON.stringify(metodo === "DELETE" ? {} : cuerpo);
   if (new TextEncoder().encode(cuerpoJson).byteLength > LIMITE_CUERPO_BYTES) {
     return { ok: false, mensaje: "El cuerpo supera el límite de 256 KB" };
   }
 
   const api = sinBarraFinal(process.env.API_URL ?? API_LOCAL);
   const respuesta = await fetch(`${api}${ruta}`, {
-    method: "PUT",
+    method: metodo,
     headers: {
       "Content-Type": "application/json",
       "X-Estudio-Token": token,

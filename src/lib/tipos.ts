@@ -50,8 +50,60 @@ export interface Leccion extends LeccionResumen {
 export interface Curso {
   id: string;
   nombre: string;
-  carpeta: string;
+  carpeta: string | null;
   lecciones: number;
+  en_disco: boolean;
+}
+
+export interface EnlaceTarea {
+  curso: string;
+  numero?: number | null;
+  pieza?: string | null;
+  red?: RedVista["red"] | null;
+}
+
+export interface EnlaceVista {
+  curso_nombre: string | null;
+  leccion_titulo: string | null;
+  pieza_titulo: string | null;
+  roto: boolean;
+}
+
+export interface TareaNueva {
+  fecha: string;
+  hora?: string | null;
+  texto: string;
+  tipo: string;
+  enlace?: EnlaceTarea | null;
+}
+
+export interface TareaVista extends Omit<TareaNueva, "hora" | "enlace"> {
+  id: number;
+  hora: string | null;
+  hecha: boolean;
+  hecha_en: string | null;
+  enlace: EnlaceTarea | null;
+  enlace_vista: EnlaceVista | null;
+}
+
+export interface TipoTarea {
+  id: string;
+  nombre: string;
+  color:
+    | "#299BC6"
+    | "#4BC98C"
+    | "#E8A33D"
+    | "#E5534B"
+    | "#A371F7"
+    | "#6CCBEF"
+    | "#F778BA"
+    | "#9B9BA4";
+  orden: number;
+}
+
+export interface TareasDelRango {
+  tareas: TareaVista[];
+  atrasadas: TareaVista[];
 }
 
 export interface TextosRed {
