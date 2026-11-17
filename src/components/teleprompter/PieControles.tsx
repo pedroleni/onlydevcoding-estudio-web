@@ -82,7 +82,12 @@ export function PieControles({
         </button>
       ) : null}
       {editando ? null : (
-        <button type="button" onClick={alEditar} disabled={enMarcha} className={NORMAL}>
+        <button
+          type="button"
+          onClick={alEditar}
+          disabled={enMarcha || guardando}
+          className={NORMAL}
+        >
           Editar texto
         </button>
       )}

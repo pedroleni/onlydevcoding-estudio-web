@@ -143,37 +143,91 @@ describe("EditorTextos", () => {
     expect(vi.mocked(guardarTextos).mock.calls[0][2]).toBe(VERSION);
   });
 
-  it("con un conflicto muestra el mensaje, conserva lo escrito y ofrece Recargar", async () => {
-    vi.mocked(guardarTextos).mockResolvedValue({
+  async function enConflicto() {
+    vi.mocked(guardarTextos).mockResolvedValueOnce({
       ok: false,
       mensaje: "El guion ha cambiado fuera de la app. Recarga antes de guardar.",
       conflicto: true,
     });
-    const { alGuardado, alCancelar } = pintar();
+    const alGuardado = vi.fn();
+    const alCancelar = vi.fn();
+    const props = { curso: "react", numero: 4, escena: voz, alGuardado, alCancelar };
+    const resultado = render(<EditorTextos {...props} version={VERSION} />);
 
     const frase = screen.getByLabelText("Frase 1");
     await userEvent.clear(frase);
     await userEvent.type(frase, "Texto que no se pierde.");
     await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
+    await screen.findByText("El guion ha cambiado fuera de la app. Recarga antes de guardar.");
+    return { ...resultado, props, alGuardado, alCancelar };
+  }
 
-    expect(
-      await screen.findByText("El guion ha cambiado fuera de la app. Recarga antes de guardar."),
-    ).toBeInTheDocument();
+  it("con un conflicto muestra el mensaje, conserva lo escrito y ofrece Recargar", async () => {
+    const { alGuardado } = await enConflicto();
+
     expect(screen.getByLabelText("Frase 1")).toHaveValue("Texto que no se pierde.");
+    expect(screen.getByRole("button", { name: "Recargar" })).toBeInTheDocument();
     expect(alGuardado).not.toHaveBeenCalled();
+  });
 
-    const confirmar = vi
-      .spyOn(window, "confirm")
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
-    await userEvent.click(screen.getByRole("button", { name: "Recargar" }));
-    expect(confirmar).toHaveBeenCalledTimes(1);
-    expect(router.refresh).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Frase 1")).toHaveValue("Texto que no se pierde.");
+  it("Recargar pide el guion nuevo sin cerrar el editor y no deja guardar con la versión vieja", async () => {
+    const { alCancelar } = await enConflicto();
 
     await userEvent.click(screen.getByRole("button", { name: "Recargar" }));
+
     expect(router.refresh).toHaveBeenCalledTimes(1);
+    expect(alCancelar).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Frase 1")).toHaveValue("Texto que no se pierde.");
+    expect(screen.getByRole("button", { name: "Guardar texto" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
+    expect(guardarTextos).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando el guion nuevo…");
+  });
+
+  it("al llegar el guion nuevo pregunta: descartar lo escrito cierra el editor", async () => {
+    const { rerender, props, alCancelar } = await enConflicto();
+    await userEvent.click(screen.getByRole("button", { name: "Recargar" }));
+
+    rerender(<EditorTextos {...props} version={"d".repeat(64)} />);
+
+    expect(screen.getByText("Ha llegado el guion nuevo. ¿Descartas lo que has escrito?")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Descartar lo escrito" }));
     expect(alCancelar).toHaveBeenCalled();
+  });
+
+  it("mientras espera y pregunta, lo escrito sigue a la vista, seleccionable y sin poder seguir con ello", async () => {
+    const { rerender, props } = await enConflicto();
+    await userEvent.click(screen.getByRole("button", { name: "Recargar" }));
+
+    const frase = screen.getByLabelText("Frase 1") as HTMLTextAreaElement;
+    expect(frase).toHaveValue("Texto que no se pierde.");
+    expect(frase).toBeEnabled();
+    expect(frase).toHaveAttribute("readonly");
+    frase.select();
+    expect(frase.selectionEnd - frase.selectionStart).toBe("Texto que no se pierde.".length);
+
+    rerender(<EditorTextos {...props} version={"d".repeat(64)} />);
+
+    expect(screen.getByLabelText("Frase 1")).toHaveValue("Texto que no se pierde.");
+    expect(screen.getByLabelText("Frase 1")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Descartar lo escrito" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Seguir con lo mío" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar texto" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
+    expect(guardarTextos).toHaveBeenCalledTimes(1);
+  });
+
+  it("con texto sin guardar, salir de la página avisa", async () => {
+    pintar();
+    const salir = () => {
+      const evento = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(evento);
+      return evento.defaultPrevented;
+    };
+
+    expect(salir()).toBe(false);
+    await userEvent.type(screen.getByLabelText("Frase 2"), " cambiada");
+    expect(salir()).toBe(true);
   });
 
   it("otros errores se dicen sin Recargar", async () => {

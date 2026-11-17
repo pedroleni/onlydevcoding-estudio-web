@@ -28,6 +28,7 @@ import {
 } from "@/components/teleprompter/sincroniaPrevia";
 import { TextoConRitmo } from "@/components/teleprompter/TextoConRitmo";
 import { ponerTexto, useLectura } from "@/components/teleprompter/useLectura";
+import { useSeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPrevia";
 import { mensaje, useSesionGrabacion } from "@/components/teleprompter/useSesionGrabacion";
 import { urlMedio } from "@/lib/medios";
 import {
@@ -177,9 +178,9 @@ function SesionTeleprompter({
   const escena = escenas.at(indice);
   const voz = escena?.modo === "voz";
   const puntos = !voz && pref.vistaCamara === "puntos";
-  const [estado, setEstado] = useState(() =>
-    estadoInicial(escena, Boolean(escena?.grabada), pref.vistaCamara),
-  );
+  // null: el estado inicial de la escena, que se calcula al pintar con las preferencias ya
+  // leídas (tras hidratar), así que la vista «puntos» guardada se refleja desde el principio.
+  const [estadoPropio, setEstado] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
   const plan = useMemo(() => (escena ? planDe(escena, pref.ritmo) : null), [escena, pref.ritmo]);
 
@@ -196,6 +197,12 @@ function SesionTeleprompter({
     alEstado: setEstado,
     alGuardar: () => router.refresh(),
   });
+  // El trabajo de la vista previa se sigue aquí, aunque el panel esté oculto.
+  const seguimiento = useSeguimientoPrevia({
+    curso: guion.curso,
+    numero: guion.numero,
+    previa: guion.previa,
+  });
   const { enMarcha, aviso } = lectura;
   const { tomas, pendientes, guardando, micros } = sesion;
   const ocupado = enMarcha || guardando;
@@ -208,6 +215,9 @@ function SesionTeleprompter({
       ]),
     [escenas, tomas],
   );
+  const estado =
+    estadoPropio ??
+    estadoInicial(escena, Boolean(escena && grabadas.has(escena.id)), pref.vistaCamara);
   const montaje = guion.montaje;
   const escenaMontajeDe = (id: string | undefined) =>
     montaje?.escenas.find((candidata) => candidata.id === id);
@@ -251,13 +261,7 @@ function SesionTeleprompter({
     cancelAnimationFrame(bucleTomaRef.current);
     const nuevo = Math.max(0, Math.min(escenas.length - 1, i));
     setIndice(nuevo);
-    setEstado(
-      estadoInicial(
-        escenas[nuevo],
-        grabadas.has(escenas[nuevo].id),
-        leerPreferencias().vistaCamara,
-      ),
-    );
+    setEstado(null);
     ponerTexto(relojRef.current, "0:00");
     prompterRef.current?.scrollTo?.({ top: 0, behavior: "instant" });
     colocarPrevia(escenas[nuevo].id);
@@ -365,7 +369,7 @@ function SesionTeleprompter({
       await sesion.pararGrabacion(escena.id);
     } else if (sesion.abriendoAhora() && escena) {
       // Aún no se graba nada: se deja de esperar al permiso y no se pierde ninguna toma.
-      setEstado(estadoInicial(escena, grabadas.has(escena.id), leerPreferencias().vistaCamara));
+      setEstado(null);
     }
     pararTodo(false);
   }
@@ -408,7 +412,7 @@ function SesionTeleprompter({
 
   // ---------- edición del texto ----------
   function editar() {
-    if (!escena || lectura.enMarchaAhora()) return;
+    if (!escena || lectura.enMarchaAhora() || sesion.guardandoAhora()) return;
     pararTodo(true);
     setEditando(true);
     setEstado("Corrige el texto y pulsa Guardar texto.");
@@ -548,9 +552,8 @@ function SesionTeleprompter({
           ) : null}
           {conPrevia ? (
             <PanelPrevia
-              curso={guion.curso}
-              numero={guion.numero}
               previa={guion.previa}
+              seguimiento={seguimiento}
               montaje={montaje}
               escena={escena.id}
               videoRef={videoRef}

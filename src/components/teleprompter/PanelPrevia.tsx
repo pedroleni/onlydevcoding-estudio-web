@@ -1,125 +1,38 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useEffectEvent, useState, useTransition, type Ref } from "react";
+import type { Ref } from "react";
 
-import { generarPreviaGrabacion } from "@/lib/acciones-teleprompter";
+import type { SeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPrevia";
 import { urlMedio } from "@/lib/medios";
-import type { EstadoPrevia, Montaje, Trabajo } from "@/lib/tipos";
-import { leerTrabajo } from "@/lib/trabajos";
-
-const CONSULTA_MS = 2000;
+import type { EstadoPrevia, Montaje } from "@/lib/tipos";
 
 const BOTON =
   "inline-flex cursor-pointer items-center justify-self-center rounded-[10px] border border-marca bg-marca px-4 py-2.5 font-semibold text-white transition-colors hover:enabled:border-tenue disabled:cursor-default disabled:opacity-40";
 
-// Consulta el trabajo cada 2 s mientras está en marcha y la página se ve. Para al desmontar.
-function useSeguirTrabajo(
-  id: number | null,
-  alLeer: (trabajo: Trabajo) => void,
-) {
-  const avisar = useEffectEvent(alLeer);
-
-  useEffect(() => {
-    if (id === null) return;
-    let vivo = true;
-    let consultando = false;
-    let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-    const programar = () => {
-      clearTimeout(temporizador);
-      temporizador = undefined;
-      if (vivo && !consultando && document.visibilityState === "visible") {
-        temporizador = setTimeout(consultar, CONSULTA_MS);
-      }
-    };
-
-    async function consultar() {
-      temporizador = undefined;
-      if (document.visibilityState !== "visible") return;
-      consultando = true;
-      let trabajo: Trabajo | null = null;
-      try {
-        trabajo = await leerTrabajo(id as number);
-      } catch {
-        // Un fallo suelto de la API no detiene el seguimiento: se vuelve a probar.
-      }
-      consultando = false;
-      if (!vivo) return;
-      if (trabajo) avisar(trabajo);
-      if (!trabajo || trabajo.estado === "en_marcha") programar();
-    }
-
-    const alCambiarVisibilidad = () => {
-      if (document.visibilityState === "visible") programar();
-      else {
-        clearTimeout(temporizador);
-        temporizador = undefined;
-      }
-    };
-
-    programar();
-    document.addEventListener("visibilitychange", alCambiarVisibilidad);
-    return () => {
-      vivo = false;
-      clearTimeout(temporizador);
-      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
-    };
-  }, [id]);
-}
-
+// Solo pinta: el seguimiento del trabajo vive en la sesión (`useSeguimientoPrevia`), así que
+// sigue aunque el panel se oculte.
 export function PanelPrevia({
-  curso,
-  numero,
   previa,
   montaje,
   escena,
+  seguimiento,
   videoRef,
   alCargarVideo,
 }: {
-  curso: string;
-  numero: number;
   previa: EstadoPrevia;
   montaje: Montaje | null;
   escena: string;
+  seguimiento: SeguimientoPrevia;
   videoRef?: Ref<HTMLVideoElement>;
   alCargarVideo?: () => void;
 }) {
-  const router = useRouter();
-  // El trabajo que se sigue desde aquí; al llegar datos nuevos de la página manda el suyo.
-  const [seguido, setSeguido] = useState<Trabajo | null>(null);
-  const [previaAnterior, setPreviaAnterior] = useState(previa);
-  const [mensaje, setMensaje] = useState<string | null>(null);
-  const [pidiendo, iniciar] = useTransition();
-  if (previa !== previaAnterior) {
-    setPreviaAnterior(previa);
-    setSeguido(null);
-  }
-
-  const trabajo = seguido ?? previa.trabajo;
-  // Hecho, pero aún sin los datos nuevos de la página: se sigue enseñando el avance completo.
-  const generando =
-    trabajo?.estado === "en_marcha" || (seguido !== null && seguido.estado === "hecho");
+  const { trabajo, generando, perdida, pidiendo, mensaje, generar } = seguimiento;
   const escenaMontaje = montaje?.escenas.find(({ id }) => id === escena);
-  const hay = Boolean(previa.existe && previa.ruta && escenaMontaje) && !generando;
+  const hay = Boolean(previa.existe && previa.ruta && escenaMontaje) && !generando && !perdida;
   const fallo =
     trabajo && (trabajo.estado === "error" || trabajo.estado === "interrumpido")
       ? (trabajo.error ?? "se interrumpió")
       : null;
-
-  useSeguirTrabajo(trabajo?.estado === "en_marcha" ? trabajo.id : null, (leido) => {
-    setSeguido(leido);
-    if (leido.estado === "hecho") router.refresh();
-  });
-
-  function generar() {
-    setMensaje(null);
-    iniciar(async () => {
-      const resultado = await generarPreviaGrabacion(curso, numero);
-      if (resultado.ok) setSeguido(resultado.trabajo);
-      else setMensaje(resultado.mensaje);
-    });
-  }
 
   const fuente =
     previa.ruta === null
@@ -166,6 +79,14 @@ export function PanelPrevia({
                   style={{ width: `${porcentaje}%` }}
                 />
               </span>
+            </>
+          ) : perdida ? (
+            <>
+              <span>La vista previa no se ha encontrado al terminar.</span>
+              <button type="button" onClick={generar} disabled={pidiendo} className={BOTON}>
+                Regenerar
+              </button>
+              {mensaje ? <span role="alert" className="text-ambar">{mensaje}</span> : null}
             </>
           ) : (
             <>

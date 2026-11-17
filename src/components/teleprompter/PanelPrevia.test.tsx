@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PanelPrevia } from "@/components/teleprompter/PanelPrevia";
+import { useSeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPrevia";
 import { generarPreviaGrabacion } from "@/lib/acciones-teleprompter";
 import { urlMedio } from "@/lib/medios";
 import type { EstadoPrevia, Montaje, Trabajo } from "@/lib/tipos";
@@ -61,19 +62,51 @@ function trabajo(cambios: Partial<Trabajo> = {}): Trabajo {
   };
 }
 
+// El seguimiento del trabajo vive en la sesión; aquí se monta igual, con el panel debajo.
+function ConSeguimiento({
+  previa,
+  montaje: datosMontaje,
+  escena,
+  alCargarVideo,
+}: {
+  previa: EstadoPrevia;
+  montaje: Montaje | null;
+  escena: string;
+  alCargarVideo: () => void;
+}) {
+  const seguimiento = useSeguimientoPrevia({ curso: "react", numero: 4, previa });
+  return (
+    <PanelPrevia
+      previa={previa}
+      montaje={datosMontaje}
+      escena={escena}
+      seguimiento={seguimiento}
+      alCargarVideo={alCargarVideo}
+    />
+  );
+}
+
 function pintar(previa: EstadoPrevia, datosMontaje: Montaje | null = montaje, escena = "E03") {
   const alCargarVideo = vi.fn();
   const resultado = render(
-    <PanelPrevia
-      curso="react"
-      numero={4}
+    <ConSeguimiento
       previa={previa}
       montaje={datosMontaje}
       escena={escena}
       alCargarVideo={alCargarVideo}
     />,
   );
-  return { ...resultado, alCargarVideo };
+  // Simula la llegada de datos nuevos de la página (un objeto nuevo, como tras router.refresh()).
+  const llegan = (nueva: EstadoPrevia) =>
+    resultado.rerender(
+      <ConSeguimiento
+        previa={{ ...nueva }}
+        montaje={datosMontaje}
+        escena={escena}
+        alCargarVideo={alCargarVideo}
+      />,
+    );
+  return { ...resultado, alCargarVideo, llegan };
 }
 
 let visibilidad: DocumentVisibilityState = "visible";
@@ -254,5 +287,87 @@ describe("PanelPrevia", () => {
 
     expect(generarPreviaGrabacion).toHaveBeenCalledWith("react", 4);
     expect(await screen.findByText("0 %")).toBeInTheDocument();
+  });
+
+  describe("tras acabar en hecho", () => {
+    function enHecho() {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      vi.mocked(leerTrabajo).mockResolvedValueOnce(trabajo({ estado: "hecho", progreso: 1 }));
+      return pintar({ ...sinPrevia, trabajo: trabajo() });
+    }
+
+    it("cuando llega la previa nueva, pone el vídeo", async () => {
+      const { llegan, container } = enHecho();
+      await avanzar(2000);
+      expect(router.refresh).toHaveBeenCalledTimes(1);
+
+      llegan({ ...conPrevia, trabajo: trabajo({ estado: "hecho", progreso: 1 }) });
+      await avanzar(0);
+
+      expect(container.querySelector("video")).not.toBeNull();
+      expect(screen.queryByText("100 %")).not.toBeInTheDocument();
+      await avanzar(20_000);
+      expect(router.refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("si tras 3 refrescos sigue sin previa, deja de esperar y ofrece Regenerar", async () => {
+      vi.mocked(generarPreviaGrabacion).mockResolvedValue({
+        ok: true,
+        trabajo: trabajo({ id: 13, progreso: 0 }),
+      });
+      const { llegan } = enHecho();
+      await avanzar(2000);
+      const sinNada = { ...sinPrevia, trabajo: trabajo({ estado: "hecho", progreso: 1 }) };
+
+      llegan(sinNada);
+      await avanzar(0);
+      expect(router.refresh).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("100 %")).toBeInTheDocument();
+      llegan(sinNada);
+      await avanzar(0);
+      expect(router.refresh).toHaveBeenCalledTimes(3);
+      llegan(sinNada);
+      await avanzar(0);
+
+      expect(router.refresh).toHaveBeenCalledTimes(3);
+      expect(screen.queryByText("100 %")).not.toBeInTheDocument();
+      expect(screen.getByText("La vista previa no se ha encontrado al terminar.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Generar vista previa" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Regenerar" }));
+      await avanzar(0);
+      expect(generarPreviaGrabacion).toHaveBeenCalledWith("react", 4);
+      expect(screen.getByText("0 %")).toBeInTheDocument();
+    });
+
+    it("con la misma versión de antes tampoco da la previa por buena", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      vi.mocked(leerTrabajo).mockResolvedValueOnce(trabajo({ estado: "hecho", progreso: 1 }));
+      const { llegan, container } = pintar({ ...conPrevia, trabajo: trabajo() });
+      await avanzar(2000);
+
+      for (let i = 0; i < 3; i++) {
+        llegan({ ...conPrevia, trabajo: trabajo({ estado: "hecho", progreso: 1 }) });
+        await avanzar(0);
+      }
+
+      expect(router.refresh).toHaveBeenCalledTimes(3);
+      expect(screen.getByText("La vista previa no se ha encontrado al terminar.")).toBeInTheDocument();
+      expect(container.querySelector("video")).toBeNull();
+    });
+
+    it("si el refresco no trae datos, vuelve a pedirlos a los 5 s, hasta 3 veces", async () => {
+      enHecho();
+      await avanzar(2000);
+      expect(router.refresh).toHaveBeenCalledTimes(1);
+
+      await avanzar(5000);
+      expect(router.refresh).toHaveBeenCalledTimes(2);
+      await avanzar(5000);
+      expect(router.refresh).toHaveBeenCalledTimes(3);
+      await avanzar(5000);
+
+      expect(router.refresh).toHaveBeenCalledTimes(3);
+      expect(screen.getByText("La vista previa no se ha encontrado al terminar.")).toBeInTheDocument();
+    });
   });
 });

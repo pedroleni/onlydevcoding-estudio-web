@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type CSSProperties } from "react";
+import { useEffect, useState, useTransition, type CSSProperties } from "react";
 
 import { guardarTextos, type TextosEscena } from "@/lib/acciones-teleprompter";
 import type { EscenaTeleprompter, Teleprompter } from "@/lib/tipos";
@@ -35,19 +35,36 @@ export function EditorTextos({
 }) {
   const router = useRouter();
   const voz = escena.modo === "voz";
-  const [versionInicial] = useState(version);
-  const [textos, setTextos] = useState(() =>
-    voz ? escena.cues.map(({ texto }) => texto) : [...escena.puntos],
-  );
+  const textosDe = (de: EscenaTeleprompter) =>
+    de.modo === "voz" ? de.cues.map(({ texto }) => texto) : [...de.puntos];
+  // La base de la edición: la versión con la que se guarda y los textos con los que se compara.
+  const [base] = useState(() => ({ version, originales: textosDe(escena) }));
+  const [textos, setTextos] = useState(base.originales);
   const [error, setError] = useState<{ mensaje: string; conflicto: boolean } | null>(null);
+  // Tras «Recargar», hasta que llega el guion nuevo no se puede guardar con la versión vieja.
+  const [recargando, setRecargando] = useState(false);
   const [guardando, iniciar] = useTransition();
   const etiqueta = voz ? "Frase" : "Punto";
+  const llegoNuevo = recargando && version !== base.version;
+  const sinGuardar = textos.some((texto, i) => texto !== base.originales[i]);
+
+  // Salir de la página con texto sin guardar lo perdería: el navegador pregunta.
+  useEffect(() => {
+    if (!sinGuardar) return;
+    const alSalir = (evento: BeforeUnloadEvent) => {
+      evento.preventDefault();
+      evento.returnValue = "";
+    };
+    window.addEventListener("beforeunload", alSalir);
+    return () => window.removeEventListener("beforeunload", alSalir);
+  }, [sinGuardar]);
 
   function cambiar(i: number, valor: string) {
     setTextos((actuales) => actuales.map((texto, j) => (j === i ? sinSaltos(valor) : texto)));
   }
 
   function guardar() {
+    if (recargando) return;
     const limpios = textos.map(limpio);
     if (!limpios.every(valido)) {
       setError({ mensaje: "Cada texto tiene que tener entre 1 y 1000 caracteres.", conflicto: false });
@@ -58,7 +75,7 @@ export function EditorTextos({
       ? { id: escena.id, cues: limpios }
       : { id: escena.id, puntos: limpios };
     iniciar(async () => {
-      const resultado = await guardarTextos(curso, numero, versionInicial, [cambio]);
+      const resultado = await guardarTextos(curso, numero, base.version, [cambio]);
       if (resultado.ok) {
         alGuardado(resultado.teleprompter);
       } else if (resultado.conflicto) {
@@ -69,12 +86,13 @@ export function EditorTextos({
     });
   }
 
+  // Pide el guion nuevo sin cerrar el editor. Nunca se pisa un cambio hecho fuera de la app: al
+  // llegar solo se puede descartar lo escrito, que mientras tanto sigue a la vista y se puede
+  // seleccionar para copiarlo.
   function recargar() {
-    if (!window.confirm("Se perderá lo que has escrito y se cargará el guion nuevo. ¿Recargar?")) {
-      return;
-    }
+    setError(null);
+    setRecargando(true);
     router.refresh();
-    alCancelar();
   }
 
   return (
@@ -83,7 +101,7 @@ export function EditorTextos({
         <button
           type="button"
           onClick={guardar}
-          disabled={guardando}
+          disabled={guardando || recargando}
           className={`${BOTON} border-marca bg-marca text-white`}
         >
           Guardar texto
@@ -96,6 +114,23 @@ export function EditorTextos({
         >
           Cancelar
         </button>
+        {recargando && !llegoNuevo ? (
+          <p role="status" className="m-0 text-tenue">
+            Cargando el guion nuevo…
+          </p>
+        ) : null}
+        {llegoNuevo ? (
+          <p role="alert" className="m-0 flex flex-wrap items-center gap-2.5 text-ambar">
+            Ha llegado el guion nuevo. ¿Descartas lo que has escrito?
+            <button
+              type="button"
+              onClick={alCancelar}
+              className={`${BOTON} min-h-9 border-ambar bg-transparent px-3 py-1.5 text-sm text-ambar`}
+            >
+              Descartar lo escrito
+            </button>
+          </p>
+        ) : null}
         {error ? (
           <p role="alert" className="m-0 flex flex-wrap items-center gap-2.5 text-ambar">
             {error.mensaje}
@@ -118,6 +153,7 @@ export function EditorTextos({
           rows={1}
           value={texto}
           disabled={guardando}
+          readOnly={recargando}
           onChange={(evento) => cambiar(i, evento.target.value)}
           onKeyDown={(evento) => {
             if (evento.key === "Enter") evento.preventDefault();

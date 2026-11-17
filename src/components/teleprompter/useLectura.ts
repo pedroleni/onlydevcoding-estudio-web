@@ -218,6 +218,5 @@ export function useLectura({
     cuentaAtras,
     animar,
     enMarchaAhora: () => vivo().enMarcha,
-    cerrada: () => vivo().cerrado,
   };
 }

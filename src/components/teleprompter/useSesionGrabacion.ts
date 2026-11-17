@@ -79,13 +79,15 @@ export function useSesionGrabacion({
   // Tomas convertidas a WAV cuya subida falló: se conservan para reintentar.
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [guardando, setGuardando] = useState(false);
+  // Copia en estado de `vivo.grabando`, para avisar al salir de la página.
+  const [grabando, setGrabando] = useState(false);
   const [micros, setMicros] = useState<Microfono[]>([]);
   const vivoRef = useRef<Vivo | null>(null);
   // Se crea la primera vez que hace falta, nunca durante el render.
   const vivo = (): Vivo => (vivoRef.current ??= crearVivo());
 
-  // Salir de la página con una toma sin subir (o subiéndose) la perdería: el navegador pregunta.
-  const tomaSinSubir = pendientes.length > 0 || guardando;
+  // Salir de la página con una toma grabándose, sin subir o subiéndose la perdería: el navegador pregunta.
+  const tomaSinSubir = grabando || pendientes.length > 0 || guardando;
   useEffect(() => {
     if (!tomaSinSubir) return;
     const alSalir = (evento: BeforeUnloadEvent) => {
@@ -186,6 +188,7 @@ export function useSesionGrabacion({
     const v = vivo();
     v.grabacion = grabar(flujo);
     v.grabando = true;
+    setGrabando(true);
   }
 
   async function subir(wav: Blob, idEscena: string): Promise<Subida> {
@@ -218,6 +221,7 @@ export function useSesionGrabacion({
     try {
       const audio = await grabacion.parar();
       v.grabando = false;
+      setGrabando(false);
       if (tirar) {
         alEstado("Toma descartada.");
         return;
@@ -236,6 +240,7 @@ export function useSesionGrabacion({
       alEstado(`No se pudo guardar: ${mensaje(error)}`);
     } finally {
       v.grabando = false;
+      setGrabando(false);
       v.guardando = false;
       setGuardando(false);
     }
