@@ -4,9 +4,11 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
+import { BotonBorrarCurso } from "@/components/FormularioCurso";
 import {
   ApiNoDisponible,
   ErrorApi,
+  obtenerCursos,
   obtenerLecciones,
 } from "@/lib/api";
 import { CURSO_VALIDO, estaPublicado, REDES } from "@/lib/curso";
@@ -30,9 +32,10 @@ async function ContenidoCurso({
   }
 
   let lecciones;
+  let cursos;
 
   try {
-    lecciones = await obtenerLecciones(curso);
+    [lecciones, cursos] = await Promise.all([obtenerLecciones(curso), obtenerCursos()]);
   } catch (error) {
     if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
       return <AvisoApi error={error} />;
@@ -45,7 +48,8 @@ async function ContenidoCurso({
     notFound();
   }
 
-  const nombreCurso = lecciones[0]?.curso ?? curso.replaceAll("-", " ");
+  const datosCurso = cursos.find(({ id }) => id === curso);
+  const nombreCurso = datosCurso?.nombre ?? lecciones[0]?.curso ?? curso.replaceAll("-", " ");
 
   return (
     <>
@@ -62,6 +66,11 @@ async function ContenidoCurso({
         <p className="mt-3 text-tenue">
           {lecciones.length} {lecciones.length === 1 ? "lección" : "lecciones"}
         </p>
+        {datosCurso && !datosCurso.en_disco ? (
+          <div className="mt-5">
+            <BotonBorrarCurso curso={curso} nombre={nombreCurso} />
+          </div>
+        ) : null}
       </header>
 
       {lecciones.length > 0 ? (
@@ -106,7 +115,7 @@ async function ContenidoCurso({
         </div>
       ) : (
         <p className="mt-8 border border-borde bg-superficie p-6 text-tenue">
-          Este curso todavía no tiene lecciones.
+          Este curso aún no tiene lecciones en disco
         </p>
       )}
     </>

@@ -77,6 +77,9 @@ export function CabeceraTareas({
               );
             })}
           </nav>
+          <Link href="/tareas/tipos" className={`${claseBoton} text-tenue`}>
+            Tipos
+          </Link>
           {accion}
         </div>
       </div>

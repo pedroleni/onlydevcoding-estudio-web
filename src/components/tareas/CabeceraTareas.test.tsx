@@ -35,6 +35,7 @@ describe("CabeceraTareas", () => {
       "/tareas?vista=semana&dia=2026-11-16&curso=react",
     );
     expect(screen.getByRole("link", { name: "Día" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Tipos" })).toHaveAttribute("href", "/tareas/tipos");
   });
 
   it("no ofrece «Hoy» si ya se ve hoy, y salta de semana en semana", () => {

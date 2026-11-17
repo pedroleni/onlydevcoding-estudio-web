@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { obtenerLeccion, obtenerLecciones } from "@/lib/api";
 import { escribir } from "@/lib/api-escritura";
+import { COLORES_TAREA } from "@/lib/colores-tareas";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
 import { esFechaValida } from "@/lib/fechas";
 import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
@@ -14,16 +15,7 @@ const HORA_VALIDA = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const TIPO_VALIDO = /^[a-z0-9-]{1,30}$/;
 const PIEZA_VALIDA = /^(leccion|reel-salida(-[1-9][0-9]*)?|short-[1-9][0-9]*)$/;
 const REDES_VALIDAS = new Set<string>(REDES.map(([id]) => id));
-const COLORES_VALIDOS = new Set<TipoTarea["color"]>([
-  "#299BC6",
-  "#4BC98C",
-  "#E8A33D",
-  "#E5534B",
-  "#A371F7",
-  "#6CCBEF",
-  "#F778BA",
-  "#9B9BA4",
-]);
+const COLORES_VALIDOS = new Set<TipoTarea["color"]>(COLORES_TAREA.map(({ valor }) => valor));
 
 type MetodoEscritura = "PUT" | "POST" | "DELETE";
 
