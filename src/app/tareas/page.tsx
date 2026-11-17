@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AvisoApi } from "@/components/AvisoApi";
 import { CabeceraTareas } from "@/components/tareas/CabeceraTareas";
 import { VistaDia } from "@/components/tareas/VistaDia";
+import { VistaSemana } from "@/components/tareas/VistaSemana";
 import {
   ApiNoDisponible,
   ErrorApi,
@@ -11,7 +12,7 @@ import {
   obtenerTareas,
   obtenerTiposTarea,
 } from "@/lib/api";
-import { fechaLocal } from "@/lib/fechas";
+import { diasDeSemana, fechaLocal } from "@/lib/fechas";
 import { filtrarTareas, leerParametrosTareas } from "@/lib/vista-tareas";
 
 async function ContenidoTareas({
@@ -25,13 +26,17 @@ async function ContenidoTareas({
   const hoy = fechaLocal(new Date());
   const parametros = leerParametrosTareas(consulta, hoy);
   const esHoy = parametros.dia === hoy;
+  const semana = parametros.vista === "semana";
+  const dias = diasDeSemana(parametros.dia);
 
   let datos;
   let cursos;
   let tipos;
   try {
     [datos, cursos, tipos] = await Promise.all([
-      obtenerTareas(parametros.dia, parametros.dia, esHoy),
+      semana
+        ? obtenerTareas(dias[0], dias[6], false)
+        : obtenerTareas(parametros.dia, parametros.dia, esHoy),
       obtenerCursos(),
       obtenerTiposTarea(),
     ]);
@@ -46,13 +51,17 @@ async function ContenidoTareas({
     <>
       <CabeceraTareas parametros={parametros} hoy={hoy} cursos={cursos} tipos={tipos} />
       <div className="mt-8">
-        <VistaDia
-          tareas={filtrarTareas(datos.tareas, parametros.curso, parametros.tipo)}
-          atrasadas={filtrarTareas(datos.atrasadas, parametros.curso, parametros.tipo)}
-          cursos={cursos}
-          tipos={tipos}
-          esHoy={esHoy}
-        />
+        {semana ? (
+          <VistaSemana tareas={datos.tareas} tipos={tipos} parametros={parametros} />
+        ) : (
+          <VistaDia
+            tareas={filtrarTareas(datos.tareas, parametros.curso, parametros.tipo)}
+            atrasadas={filtrarTareas(datos.atrasadas, parametros.curso, parametros.tipo)}
+            cursos={cursos}
+            tipos={tipos}
+            esHoy={esHoy}
+          />
+        )}
       </div>
     </>
   );

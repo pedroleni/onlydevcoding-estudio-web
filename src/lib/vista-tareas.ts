@@ -72,7 +72,7 @@ export function filtrarTareas(
   });
 }
 
-function compararTareas(a: TareaVista, b: TareaVista): number {
+export function compararTareas(a: TareaVista, b: TareaVista): number {
   if (a.hora !== b.hora) {
     if (a.hora === null) return 1;
     if (b.hora === null) return -1;
