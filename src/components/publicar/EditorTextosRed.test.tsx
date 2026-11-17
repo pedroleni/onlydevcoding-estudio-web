@@ -50,7 +50,7 @@ describe("EditorTextosRed", () => {
     vi.mocked(guardarTextos).mockResolvedValue({ ok: true, vista });
   });
 
-  it("convierte los campos a TextosRed, quita vacíos y conserva el vídeo", async () => {
+  it("convierte los campos a TextosEditables, quita vacíos y no envía el vídeo", async () => {
     render(<EditorTextosRed {...props} />);
 
     fireEvent.change(screen.getByLabelText("Títulos, uno por línea"), {
@@ -84,11 +84,26 @@ describe("EditorTextosRed", () => {
           texto: null,
           comentario_fijado: "Comentario inicial",
           ajustes: ["Público", "Lista"],
-          video: "videos/pieza.mp4",
           notas: "Notas iniciales",
         },
       );
     });
+  });
+
+  it("desactiva Guardar mientras los textos preparados no cambian", () => {
+    render(<EditorTextosRed {...props} />);
+
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Títulos, uno por línea"), {
+      target: { value: "  Título inicial  \n\n" },
+    });
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Descripción"), {
+      target: { value: "Descripción modificada" },
+    });
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled();
   });
 
   it.each([
@@ -179,6 +194,9 @@ describe("EditorTextosRed", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.change(screen.getByLabelText("Descripción"), {
+      target: { value: "Descripción modificada" },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(
@@ -220,6 +238,9 @@ describe("EditorTextosRed", () => {
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.change(screen.getByLabelText("Descripción"), {
+      target: { value: "Descripción modificada" },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(

@@ -1,4 +1,4 @@
-import type { RedVista, TextosRed } from "@/lib/tipos";
+import type { RedVista, TextosEditables } from "@/lib/tipos";
 
 export const LIMITES_PUBLICACION = {
   tituloYoutube: 100,
@@ -36,7 +36,7 @@ export function limiteTextoRed(red: RedPublicacion): number | null {
 
 export function errorLimitesTextos(
   red: RedPublicacion,
-  textos: TextosRed,
+  textos: TextosEditables,
 ): string | null {
   if (red === "youtube") {
     if (

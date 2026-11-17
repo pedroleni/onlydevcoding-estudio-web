@@ -4,16 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { refreshSimulado } = vi.hoisted(() => ({
+const { headersSimulados, refreshSimulado } = vi.hoisted(() => ({
+  headersSimulados: vi.fn(),
   refreshSimulado: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ refresh: refreshSimulado }));
+vi.mock("next/headers", () => ({ headers: headersSimulados }));
 
 import {
   cambiarEstado,
   elegirPortada,
   guardarTextos,
 } from "@/lib/acciones";
+import type { TextosEditables } from "@/lib/tipos";
 
 const vista = {
   curso: "react",
@@ -39,7 +42,6 @@ const textosValidos = {
   texto: null,
   comentario_fijado: null,
   ajustes: [],
-  video: null,
   notas: null,
 };
 
@@ -53,6 +55,10 @@ function archivosDe(carpeta: string): string[] {
 describe("Server Actions de publicación", () => {
   beforeEach(() => {
     vi.stubEnv("ESTUDIO_TOKEN", "token-solo-para-el-test");
+    headersSimulados.mockResolvedValue(new Headers({
+      host: "127.0.0.1:3000",
+      origin: "http://127.0.0.1:3000",
+    }));
   });
 
   afterEach(() => {
@@ -86,9 +92,22 @@ describe("Server Actions de publicación", () => {
           ruta: "cursos/REACT/04/publicar/miniatura.jpg",
         }),
         cache: "no-store",
+        redirect: "error",
       },
     );
     expect(refreshSimulado).toHaveBeenCalledOnce();
+  });
+
+  it("impide que fetch siga redirecciones con el token de escritura", async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(vista));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await elegirPortada("react", 4, "leccion", "portadas/miniatura.jpg");
+
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ redirect: "error" }),
+    );
   });
 
   it("sin token devuelve un error y no llama a fetch", async () => {
@@ -122,12 +141,67 @@ describe("Server Actions de publicación", () => {
         texto: null,
         comentario_fijado: null,
         ajustes: [],
-        video: null,
         notas: null,
       }),
     ).resolves.toEqual({ ok: false, mensaje: "La pieza no es válida" });
     expect(fetchSimulado).not.toHaveBeenCalled();
   });
+
+  it("rechaza una URL de publicación peligrosa antes de llamar a fetch", async () => {
+    const fetchSimulado = vi.fn();
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(
+      cambiarEstado("react", 4, "leccion", "youtube", {
+        estado: "publicado",
+        fecha: null,
+        url: "javascript:alert(1)",
+      }),
+    ).resolves.toEqual({ ok: false, mensaje: "El estado no es válido" });
+    expect(fetchSimulado).not.toHaveBeenCalled();
+  });
+
+  const accionesValidas = [
+    ["elegirPortada", () => elegirPortada("react", 4, "leccion", "portadas/miniatura.jpg")],
+    ["cambiarEstado", () => cambiarEstado("react", 4, "leccion", "youtube", estadoValido)],
+    ["guardarTextos", () => guardarTextos("react", 4, "leccion", "youtube", textosValidos)],
+  ] as const;
+
+  it.each(accionesValidas)(
+    "bloquea %s con un host ajeno antes de llamar a fetch",
+    async (_nombre, ejecutarAccion) => {
+      headersSimulados.mockResolvedValueOnce(new Headers({
+        host: "sitio.ejemplo:3000",
+        origin: "http://127.0.0.1:3000",
+      }));
+      const fetchSimulado = vi.fn();
+      vi.stubGlobal("fetch", fetchSimulado);
+
+      await expect(ejecutarAccion()).resolves.toEqual({
+        ok: false,
+        mensaje: "Origen no permitido",
+      });
+      expect(fetchSimulado).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(accionesValidas)(
+    "bloquea %s con un origin ajeno antes de llamar a fetch",
+    async (_nombre, ejecutarAccion) => {
+      headersSimulados.mockResolvedValueOnce(new Headers({
+        host: "127.0.0.1:3000",
+        origin: "http://sitio.ejemplo:3000",
+      }));
+      const fetchSimulado = vi.fn();
+      vi.stubGlobal("fetch", fetchSimulado);
+
+      await expect(ejecutarAccion()).resolves.toEqual({
+        ok: false,
+        mensaje: "Origen no permitido",
+      });
+      expect(fetchSimulado).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ["cambiarEstado sin red", () => (cambiarEstado as CallableFunction)("react", 4, "leccion")],
@@ -162,6 +236,20 @@ describe("Server Actions de publicación", () => {
 
     expect(JSON.parse(fetchSimulado.mock.calls[0][1].body)).toEqual(estadoValido);
     expect(JSON.parse(fetchSimulado.mock.calls[1][1].body)).toEqual(textosValidos);
+  });
+
+  it("no envía video al guardar textos aunque el objeto de entrada lo incluya", async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(vista));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    const textosConVideo: TextosEditables & { video: string } = {
+      ...textosValidos,
+      video: "videos/no-debe-salir.mp4",
+    };
+    await guardarTextos("react", 4, "leccion", "youtube", textosConVideo);
+
+    expect(JSON.parse(fetchSimulado.mock.calls[0][1].body)).toEqual(textosValidos);
+    expect(fetchSimulado.mock.calls[0][1].body).not.toContain("video");
   });
 
   it("rechaza rutas de portada de más de 500 caracteres", async () => {
@@ -248,9 +336,9 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      guardarTextos("react", 4, "leccion", "youtube", {
+      guardarTextos("react", 4, "leccion", "instagram", {
         ...textosValidos,
-        video: "á".repeat(131_073),
+        titulos: Array.from({ length: 140_000 }, () => "á"),
       }),
     ).resolves.toEqual({
       ok: false,
@@ -259,35 +347,37 @@ describe("Server Actions de publicación", () => {
     expect(fetchSimulado).not.toHaveBeenCalled();
   });
 
-  it("traduce un 409 a un mensaje en castellano", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
+  it("muestra el detalle textual de un 409 y conserva el mensaje genérico sin él", async () => {
+    const fetchSimulado = vi
+      .fn()
+      .mockResolvedValueOnce(
         Response.json(
           { detail: "Arregla publicacion.json antes de editar desde la app" },
           { status: 409 },
         ),
-      ),
-    );
+      )
+      .mockResolvedValueOnce(
+        Response.json({ detail: { motivo: "contenido no mostrable" } }, { status: 409 }),
+      );
+    vi.stubGlobal("fetch", fetchSimulado);
 
-    const resultado = await guardarTextos(
+    await expect(guardarTextos(
       "react",
       4,
       "leccion",
       "youtube",
-      {
-        titulos: [],
-        descripcion: null,
-        etiquetas: [],
-        texto: null,
-        comentario_fijado: null,
-        ajustes: [],
-        video: null,
-        notas: null,
-      },
-    );
-
-    expect(resultado).toEqual({
+      textosValidos,
+    )).resolves.toEqual({
+      ok: false,
+      mensaje: "Arregla publicacion.json antes de editar desde la app",
+    });
+    await expect(guardarTextos(
+      "react",
+      4,
+      "leccion",
+      "youtube",
+      textosValidos,
+    )).resolves.toEqual({
       ok: false,
       mensaje: "No se puede guardar: publicacion.json está corrupto",
     });

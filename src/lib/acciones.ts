@@ -1,16 +1,19 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { headers } from "next/headers";
 
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
 import { errorLimitesTextos } from "@/lib/limites";
+import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
 import type {
   EstadoRed,
   RedVista,
-  TextosRed,
+  TextosEditables,
   VistaPublicacion,
 } from "@/lib/tipos";
+import { errorUrlPublicacion } from "@/lib/url-publicacion";
 
 const PIEZA_VALIDA = /^(leccion|reel-salida(-[1-9][0-9]*)?|short-[1-9][0-9]*)$/;
 const REDES_VALIDAS = new Set<string>(REDES.map(([id]) => id));
@@ -75,15 +78,16 @@ function esEstadoRed(valor: unknown): valor is EstadoRed {
     ESTADOS_VALIDOS.has(estado.estado) &&
     esCadenaONull(estado.fecha) &&
     (estado.fecha === null || FECHA_ISO.test(estado.fecha)) &&
-    esCadenaONull(estado.url)
+    esCadenaONull(estado.url) &&
+    (estado.url === null || errorUrlPublicacion(estado.url) === null)
   );
 }
 
-function sonTextosRed(valor: unknown): valor is TextosRed {
+function sonTextosEditables(valor: unknown): valor is TextosEditables {
   if (typeof valor !== "object" || valor === null) {
     return false;
   }
-  const textos = valor as Partial<TextosRed>;
+  const textos = valor as Partial<TextosEditables>;
   return (
     esListaDeCadenas(textos.titulos) &&
     esCadenaONull(textos.descripcion) &&
@@ -91,7 +95,6 @@ function sonTextosRed(valor: unknown): valor is TextosRed {
     esCadenaONull(textos.texto) &&
     esCadenaONull(textos.comentario_fijado) &&
     esListaDeCadenas(textos.ajustes) &&
-    esCadenaONull(textos.video) &&
     esCadenaONull(textos.notas)
   );
 }
@@ -122,7 +125,10 @@ async function resultadoDe(respuesta: Response): Promise<ResultadoAccion> {
   }
 
   const detalle = await detalleDe(respuesta);
-  if (respuesta.status === 422 && typeof detalle === "string") {
+  if (
+    (respuesta.status === 409 || respuesta.status === 422) &&
+    typeof detalle === "string"
+  ) {
     return { ok: false, mensaje: detalle };
   }
 
@@ -142,6 +148,14 @@ async function resultadoDe(respuesta: Response): Promise<ResultadoAccion> {
 }
 
 async function ejecutar(ruta: string, cuerpo: unknown): Promise<ResultadoAccion> {
+  const cabeceras = await headers();
+  if (
+    cabeceras.get("host") !== HOST_ESTUDIO ||
+    cabeceras.get("origin") !== ORIGEN_ESTUDIO
+  ) {
+    return { ok: false, mensaje: "Origen no permitido" };
+  }
+
   let escritura;
   try {
     escritura = await escribir(ruta, cuerpo);
@@ -207,24 +221,23 @@ export async function guardarTextos(
   numero: number,
   pieza: string,
   red: string,
-  textos: TextosRed,
+  textos: TextosEditables,
 ): Promise<ResultadoAccion> {
   const error = validarDestino(curso, numero, pieza, red);
   if (error) return error;
-  if (!sonTextosRed(textos)) {
+  if (!sonTextosEditables(textos)) {
     return { ok: false, mensaje: "Los textos no son válidos" };
   }
   const errorLimites = errorLimitesTextos(red as RedVista["red"], textos);
   if (errorLimites) return { ok: false, mensaje: errorLimites };
 
-  const cuerpo: TextosRed = {
+  const cuerpo: TextosEditables = {
     titulos: textos.titulos,
     descripcion: textos.descripcion,
     etiquetas: textos.etiquetas,
     texto: textos.texto,
     comentario_fijado: textos.comentario_fijado,
     ajustes: textos.ajustes,
-    video: textos.video,
     notas: textos.notas,
   };
 

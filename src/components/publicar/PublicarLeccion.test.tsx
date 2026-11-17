@@ -320,6 +320,21 @@ describe("pestaña Publicar", () => {
     ).toBeInTheDocument();
   });
 
+  it("muestra vista.error sin romper el resto de la página", () => {
+    render(
+      <PublicarLeccion
+        vista={{ ...vista, error: "No se pudo leer una parte de publicación" }}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No se pudo leer una parte de publicación",
+    );
+    expect(screen.getByRole("heading", { name: /Portada/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Estado" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Después de publicar" })).toBeInTheDocument();
+  });
+
   it("marca como publicado con la URL opcional", async () => {
     render(
       <EstadoPublicacion
@@ -347,6 +362,38 @@ describe("pestaña Publicar", () => {
         "leccion",
         "youtube",
         { estado: "publicado", fecha: null, url: "https://youtu.be/abc" },
+      );
+    });
+  });
+
+  it("conserva la fecha existente al volver a marcar un estado publicado", async () => {
+    const fechaPublicada = "2026-11-16T20:00";
+    render(
+      <EstadoPublicacion
+        curso="curso-ficticio"
+        numero={4}
+        pieza="leccion"
+        red="youtube"
+        nombreRed="YouTube"
+        estado={{ estado: "publicado", fecha: fechaPublicada, url: null }}
+        fechaPropuesta={null}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("URL de la publicación (opcional)"), {
+      target: { value: "https://youtu.be/abc" },
+    });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "✓ Marcar como publicado en YouTube" }),
+    );
+
+    await waitFor(() => {
+      expect(cambiarEstado).toHaveBeenCalledWith(
+        "curso-ficticio",
+        4,
+        "leccion",
+        "youtube",
+        { estado: "publicado", fecha: fechaPublicada, url: "https://youtu.be/abc" },
       );
     });
   });

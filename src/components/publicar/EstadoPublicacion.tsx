@@ -89,7 +89,7 @@ export function EstadoPublicacion({
     }
     ejecutar("publicar", {
       estado: "publicado",
-      fecha: null,
+      fecha: estado.estado === "publicado" ? estado.fecha : null,
       url: url === "" ? null : url,
     });
   }

@@ -65,6 +65,8 @@ export interface TextosRed {
   notas: string | null;
 }
 
+export type TextosEditables = Omit<TextosRed, "video">;
+
 export interface EstadoRed {
   estado: "pendiente" | "programado" | "publicado";
   fecha: string | null;

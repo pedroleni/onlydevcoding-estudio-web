@@ -37,6 +37,7 @@ export async function escribir(
     },
     body: cuerpoJson,
     cache: "no-store",
+    redirect: "error",
   });
   return { ok: true, respuesta };
 }

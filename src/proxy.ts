@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const HOST_CANONICO = "127.0.0.1:3000";
-const ORIGEN_CANONICO = "http://127.0.0.1:3000";
+import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
 
 function escaparHtml(texto: string): string {
   return texto
@@ -17,7 +16,7 @@ export function proxy(request: NextRequest): NextResponse {
   if (
     request.method !== "GET" &&
     request.method !== "HEAD" &&
-    request.headers.get("origin") !== ORIGEN_CANONICO
+    request.headers.get("origin") !== ORIGEN_ESTUDIO
   ) {
     return new NextResponse("Origin no permitido", {
       status: 403,
@@ -25,7 +24,7 @@ export function proxy(request: NextRequest): NextResponse {
     });
   }
 
-  if (host === HOST_CANONICO) {
+  if (host === HOST_ESTUDIO) {
     return NextResponse.next();
   }
 
@@ -35,7 +34,7 @@ export function proxy(request: NextRequest): NextResponse {
     // cabecera Host) y el navegador acabaría otra vez en localhost.
     const { pathname, search } = request.nextUrl;
     const destino = escaparHtml(
-      new URL(`${pathname}${search}`, ORIGEN_CANONICO).href,
+      new URL(`${pathname}${search}`, ORIGEN_ESTUDIO).href,
     );
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${destino}"><title>Estudio OnlyDevCoding</title></head><body><p>El estudio se abre en <a href="${destino}">${destino}</a>.</p></body></html>`;
     return new NextResponse(html, {

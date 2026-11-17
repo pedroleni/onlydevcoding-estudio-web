@@ -9,7 +9,7 @@ import {
   LIMITES_PUBLICACION,
   limiteTextoRed,
 } from "@/lib/limites";
-import type { RedVista, TextosRed } from "@/lib/tipos";
+import type { RedVista, TextosEditables, TextosRed } from "@/lib/tipos";
 
 function textoONull(valor: string): string | null {
   return valor.trim() === "" ? null : valor;
@@ -23,12 +23,12 @@ function lineasLimpias(valor: string): string[] {
 }
 
 function textosParaGuardar(
-  valores: Omit<TextosRed, "titulos" | "etiquetas" | "ajustes"> & {
+  valores: Omit<TextosEditables, "titulos" | "etiquetas" | "ajustes"> & {
     titulos: string;
     etiquetas: string;
     ajustes: string;
   },
-): TextosRed {
+): TextosEditables {
   return {
     titulos: lineasLimpias(valores.titulos),
     descripcion: textoONull(valores.descripcion ?? ""),
@@ -39,7 +39,6 @@ function textosParaGuardar(
     texto: textoONull(valores.texto ?? ""),
     comentario_fijado: textoONull(valores.comentario_fijado ?? ""),
     ajustes: lineasLimpias(valores.ajustes),
-    video: valores.video,
     notas: textoONull(valores.notas ?? ""),
   };
 }
@@ -91,7 +90,6 @@ export function EditorTextosRed({
     texto: null,
     comentario_fijado: null,
     ajustes: [],
-    video: null,
     notas: null,
   };
   const [valores, setValores] = useState({
@@ -101,12 +99,21 @@ export function EditorTextosRed({
     texto: iniciales.texto,
     comentario_fijado: iniciales.comentario_fijado,
     ajustes: iniciales.ajustes.join("\n"),
-    video: iniciales.video,
     notas: iniciales.notas,
   });
   const [pendiente, iniciarTransicion] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const preparados = textosParaGuardar(valores);
+  const originales: TextosEditables = {
+    titulos: iniciales.titulos,
+    descripcion: iniciales.descripcion,
+    etiquetas: iniciales.etiquetas,
+    texto: iniciales.texto,
+    comentario_fijado: iniciales.comentario_fijado,
+    ajustes: iniciales.ajustes,
+    notas: iniciales.notas,
+  };
+  const haCambiado = JSON.stringify(preparados) !== JSON.stringify(originales);
   const excedeLimite = errorLimitesTextos(red, preparados) !== null;
   const limiteTexto = limiteTextoRed(red);
   const lineasTitulos = valores.titulos.split(/\r?\n/);
@@ -346,7 +353,7 @@ export function EditorTextosRed({
         </button>
         <button
           type="button"
-          disabled={pendiente || excedeLimite}
+          disabled={pendiente || excedeLimite || !haCambiado}
           onClick={guardar}
           className="min-h-11 bg-marca px-5 text-sm font-bold text-fondo transition-colors hover:bg-texto disabled:cursor-not-allowed disabled:opacity-60"
         >
