@@ -55,6 +55,29 @@ describe("CabeceraTareas", () => {
     );
   });
 
+  it("actualiza los filtros al navegar sin desmontar la cabecera", () => {
+    const { rerender } = render(
+      <CabeceraTareas
+        parametros={{ vista: "dia", dia: "2026-11-16", curso: "react", tipo: "grabar" }}
+        hoy="2026-11-17"
+        cursos={cursos}
+        tipos={tipos}
+      />,
+    );
+
+    rerender(
+      <CabeceraTareas
+        parametros={{ vista: "dia", dia: "2026-11-16", curso: null, tipo: null }}
+        hoy="2026-11-17"
+        cursos={cursos}
+        tipos={tipos}
+      />,
+    );
+
+    expect(screen.getByLabelText("Curso")).toHaveValue("");
+    expect(screen.getByLabelText("Tipo")).toHaveValue("");
+  });
+
   it("filtra con un formulario GET que conserva la vista y el día", () => {
     const { container } = render(
       <CabeceraTareas

@@ -81,7 +81,13 @@ export function CabeceraTareas({
         </div>
       </div>
 
-      <form method="get" action="/tareas" className="flex flex-wrap items-end gap-3 text-sm">
+      {/* La clave reinicia los <select> no controlados al navegar entre filtros. */}
+      <form
+        key={`${parametros.curso ?? ""}|${parametros.tipo ?? ""}`}
+        method="get"
+        action="/tareas"
+        className="flex flex-wrap items-end gap-3 text-sm"
+      >
         <input type="hidden" name="vista" value={parametros.vista} />
         <input type="hidden" name="dia" value={parametros.dia} />
         <label className="grid gap-1 text-tenue">
