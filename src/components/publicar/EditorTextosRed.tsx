@@ -164,13 +164,15 @@ export function EditorTextosRed({
             contador={
               red === "youtube" ? (
                 <span className="flex flex-wrap justify-end gap-2">
-                  {lineasTitulos.map((titulo, indice) => (
-                    <Contador
-                      key={indice}
-                      valor={titulo.trim()}
-                      limite={LIMITES_PUBLICACION.tituloYoutube}
-                    />
-                  ))}
+                  {lineasTitulos
+                    .filter((titulo) => titulo.trim() !== "")
+                    .map((titulo, indice) => (
+                      <Contador
+                        key={indice}
+                        valor={titulo.trim()}
+                        limite={LIMITES_PUBLICACION.tituloYoutube}
+                      />
+                    ))}
                 </span>
               ) : undefined
             }
@@ -299,13 +301,15 @@ export function EditorTextosRed({
             className={claseCampo}
           />
           <div className="mt-2 flex flex-wrap gap-2">
-            {lineasAjustes.map((linea, indice) => (
-              <Contador
-                key={indice}
-                valor={linea.trim()}
-                limite={LIMITES_PUBLICACION.caracteresPorLinea}
-              />
-            ))}
+            {lineasAjustes
+              .filter((linea) => linea.trim() !== "")
+              .map((linea, indice) => (
+                <Contador
+                  key={indice}
+                  valor={linea.trim()}
+                  limite={LIMITES_PUBLICACION.caracteresPorLinea}
+                />
+              ))}
           </div>
         </div>
 
