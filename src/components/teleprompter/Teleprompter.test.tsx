@@ -3,10 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Teleprompter } from "@/components/teleprompter/Teleprompter";
+import { guardarTextos } from "@/lib/acciones-teleprompter";
 import { subirToma } from "@/lib/teleprompter/grabadora";
 import { CLAVE_PREFERENCIAS } from "@/lib/teleprompter/preferencias";
+import { objetivoToma } from "@/lib/teleprompter/previa";
 import { calcularPlan } from "@/lib/teleprompter/ritmo";
-import type { EscenaTeleprompter, Teleprompter as DatosTeleprompter } from "@/lib/tipos";
+import type {
+  EscenaTeleprompter,
+  Montaje,
+  Teleprompter as DatosTeleprompter,
+} from "@/lib/tipos";
 
 const router = { replace: vi.fn(), push: vi.fn(), refresh: vi.fn() };
 
@@ -18,6 +24,15 @@ vi.mock("@/lib/teleprompter/grabadora", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/teleprompter/grabadora")>();
   return { ...original, subirToma: vi.fn() };
 });
+
+vi.mock("@/lib/acciones-teleprompter", () => ({
+  guardarTextos: vi.fn(),
+  generarPreviaGrabacion: vi.fn(),
+}));
+
+vi.mock("@/lib/trabajos", () => ({
+  leerTrabajo: vi.fn(),
+}));
 
 function escena(
   id: string,
@@ -181,8 +196,8 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-function pintar() {
-  return render(<Teleprompter datos={datos} lecciones={lecciones} seleccion={seleccion} />);
+function pintar(datosPrueba: DatosTeleprompter = datos) {
+  return render(<Teleprompter datos={datosPrueba} lecciones={lecciones} seleccion={seleccion} />);
 }
 
 describe("Teleprompter", () => {
@@ -255,17 +270,13 @@ describe("Teleprompter", () => {
   it("una escena a cámara se ve con su texto y no deja grabar", async () => {
     pintar();
 
-    await userEvent.click(screen.getByRole("button", { name: "E02" }));
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
 
     expect(screen.getByText("Cámara · con tus palabras")).toBeInTheDocument();
     expect(screen.getByText(/se graba con tu cámara: E02\.mov$/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Grabar/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Empezar/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Editar texto" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Editar texto" })).toHaveAttribute(
-      "title",
-      "Llega con la siguiente tarea",
-    );
+    expect(screen.getByRole("button", { name: "Editar texto" })).toBeEnabled();
   });
 
   it("si se deniega el micrófono lo dice y los botones vuelven a su estado", async () => {
@@ -721,5 +732,458 @@ describe("Teleprompter con temporizadores falsos", () => {
 
     expect(pista.stop).toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// ---------- tarea 8 ----------
+
+const montaje: Montaje = {
+  fps: 30,
+  duracion: 1200,
+  escenas: [
+    { id: "E01", modo: "animacion", inicio: 0, duracion: 150, cues: [] },
+    { id: "E02", modo: "camara", inicio: 150, duracion: 150, cues: [0] },
+    { id: "E03", modo: "voz", inicio: 300, duracion: 150, cues: [0] },
+    { id: "E04", modo: "voz", inicio: 450, duracion: 300, cues: [0, 150] },
+    { id: "E05", modo: "voz", inicio: 750, duracion: 150, cues: [0] },
+  ],
+};
+
+const conPrevia: DatosTeleprompter = {
+  ...datos,
+  montaje,
+  previa: {
+    ruta: "out/previas-grabacion/curso-ficticio-04.mp4",
+    existe: true,
+    desactualizada: false,
+    version: 5,
+    trabajo: null,
+  },
+};
+
+// jsdom no reproduce vídeo: se simulan las propiedades que usa la sincronía.
+function medioFalso(elemento: HTMLMediaElement, propiedades: Record<string, unknown> = {}) {
+  const estado = { paused: true, currentTime: 0, playbackRate: 1, readyState: 4, ...propiedades };
+  for (const clave of Object.keys(estado) as Array<keyof typeof estado>) {
+    Object.defineProperty(elemento, clave, {
+      configurable: true,
+      get: () => estado[clave],
+      set: (valor) => {
+        (estado as Record<string, unknown>)[clave] = valor;
+      },
+    });
+  }
+  const play = vi.fn(async () => {
+    estado.paused = false;
+  });
+  const pause = vi.fn(() => {
+    estado.paused = true;
+  });
+  Object.defineProperty(elemento, "play", { configurable: true, value: play });
+  Object.defineProperty(elemento, "pause", { configurable: true, value: pause });
+  return { estado, play, pause };
+}
+
+describe("Teleprompter: escenas a cámara", () => {
+  it("muestran 🎥, sus puntos y la línea de cámara; Grabar y Entregar están desactivados", async () => {
+    pintar({
+      ...datos,
+      escenas: datos.escenas.map((e) => (e.id === "E02" ? { ...e, grabada: true } : e)),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥 ✓" }));
+
+    expect(screen.getByText("🎥 Se graba con la cámara · horizontal")).toBeInTheDocument();
+    expect(screen.getByText("Un punto inventado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Grabar/ })).toBeDisabled();
+    const entregar = screen.getByRole("button", { name: "⬆ Entregar los vídeos de la cámara" });
+    expect(entregar).toBeDisabled();
+    expect(entregar).toHaveAttribute("title", "Llega en la fase 6");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Pulsa Empezar y dale a grabar en tu cámara durante la cuenta atrás.",
+    );
+  });
+
+  it("las escenas de voz no ofrecen Entregar ni cambiar la vista", () => {
+    pintar();
+
+    expect(
+      screen.queryByRole("button", { name: "⬆ Entregar los vídeos de la cámara" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ver solo puntos" })).not.toBeInTheDocument();
+  });
+
+  it("Empezar hace la cuenta atrás de cámara", async () => {
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+
+    await userEvent.click(screen.getByRole("button", { name: /Empezar/ }));
+
+    expect(await screen.findByText("dale a grabar en la cámara")).toBeInTheDocument();
+  });
+
+  it("«Ver solo puntos» cambia la vista, la recuerda y Empezar solo pone el cronómetro", async () => {
+    const { container } = pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver solo puntos" }));
+
+    expect(screen.getByRole("button", { name: "Ver guion con ritmo" })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_PREFERENCIAS) ?? "{}")).toMatchObject({
+      vistaCamara: "puntos",
+    });
+    expect(container.querySelectorAll(".p")).toHaveLength(0);
+    expect(screen.getByText("Un punto inventado")).toBeInTheDocument();
+    expect(screen.getByText(/^objetivo ≈ \d+:\d{2} · se graba con tu cámara: E02\.mov$/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Empezar pone en marcha el cronómetro.");
+
+    await userEvent.click(screen.getByRole("button", { name: /Empezar/ }));
+    expect(screen.getByRole("status")).toHaveTextContent("Cronómetro en marcha.");
+    expect(screen.queryByText("dale a grabar en la cámara")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Parar/ }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver guion con ritmo" }));
+    expect(container.querySelectorAll(".p").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Ver solo puntos" })).toBeInTheDocument();
+  });
+});
+
+describe("Teleprompter: edición del texto", () => {
+  const nuevaVersion = "1".repeat(64);
+
+  function devuelto(textos: string[]): DatosTeleprompter {
+    return {
+      ...datos,
+      version: nuevaVersion,
+      escenas: datos.escenas.map((e) =>
+        e.id === "E04" ? { ...e, cues: e.cues.map((cue, i) => ({ ...cue, texto: textos[i] })) } : e,
+      ),
+    };
+  }
+
+  it("Editar texto pasa las frases a campos y bloquea ensayar, grabar y los atajos", async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+
+    expect(screen.getAllByRole("textbox")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /Ensayar/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Grabar/ })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Corrige el texto y pulsa Guardar texto.");
+
+    act(() => (document.activeElement as HTMLElement | null)?.blur());
+    await userEvent.keyboard(" ");
+    expect(screen.queryByText("ensayo: no se graba")).not.toBeInTheDocument();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("E04 ·");
+    expect(screen.getByRole("button", { name: "E05" })).toBeDisabled();
+  });
+
+  it("al guardar usa el guion devuelto sin esperar a refrescar, también su versión", async () => {
+    vi.mocked(guardarTextos).mockResolvedValueOnce({
+      ok: true,
+      teleprompter: devuelto(["Frase cambiada a mano.", "Segunda frase inventada."]),
+    });
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+    const frase = screen.getByLabelText("Frase 1");
+    await userEvent.clear(frase);
+    await userEvent.type(frase, "Frase cambiada a mano.");
+    await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
+
+    expect(guardarTextos).toHaveBeenCalledWith("curso-ficticio", 4, "0".repeat(64), [
+      { id: "E04", cues: ["Frase cambiada a mano.", "Segunda frase inventada."] },
+    ]);
+    expect(await screen.findByText("Texto guardado en el guion.")).toBeInTheDocument();
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    expect(screen.getByText("cambiada")).toHaveClass("p");
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Ensayar/ })).toBeEnabled();
+
+    vi.mocked(guardarTextos).mockResolvedValueOnce({
+      ok: true,
+      teleprompter: devuelto(["Otra vez.", "Segunda frase inventada."]),
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+    await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
+    expect(vi.mocked(guardarTextos).mock.calls[1][2]).toBe(nuevaVersion);
+  });
+
+  it("Cancelar vuelve al texto sin guardar", async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    expect(screen.getByRole("status")).toHaveTextContent("Pulsa Grabar cuando estés listo.");
+    expect(guardarTextos).not.toHaveBeenCalled();
+  });
+
+  it("en una escena a cámara edita los puntos", async () => {
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+
+    expect(screen.getByLabelText("Punto 1")).toHaveValue("Un punto inventado");
+    expect(screen.getByRole("button", { name: "Ver solo puntos" })).toBeDisabled();
+  });
+});
+
+describe("Teleprompter: vista previa", () => {
+  it("por defecto es Mediana, y Oculta quita el panel y el margen del texto", async () => {
+    pintar(conPrevia);
+
+    const selector = screen.getByLabelText("Vista previa");
+    expect(selector).toHaveValue("440");
+    expect(
+      within(selector).getAllByRole("option").map((opcion) => opcion.textContent),
+    ).toEqual(["Oculta", "Pequeña", "Mediana", "Grande"]);
+    expect(screen.getByRole("complementary", { name: "Vista previa de la escena" })).toBeInTheDocument();
+    expect(screen.getByTestId("prompter")).toHaveAttribute("data-con-previa");
+
+    await userEvent.selectOptions(selector, "0");
+
+    expect(screen.queryByRole("complementary", { name: "Vista previa de la escena" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("prompter")).not.toHaveAttribute("data-con-previa");
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_PREFERENCIAS) ?? "{}")).toMatchObject({
+      tamPrevia: 0,
+    });
+  });
+
+  it("sin montaje el panel lo dice", () => {
+    pintar();
+
+    expect(screen.getByText("Esta lección aún no tiene montaje.")).toBeInTheDocument();
+  });
+
+  it("coloca el vídeo al inicio de la escena al cargar y al cambiar de escena", async () => {
+    const { container } = pintar(conPrevia);
+    const video = container.querySelector("video")!;
+    const { estado } = medioFalso(video);
+
+    fireEvent.loadedMetadata(video);
+    expect(estado.currentTime).toBeCloseTo(450 / 30 + 0.05);
+
+    await userEvent.keyboard("{ArrowRight}");
+    expect(estado.currentTime).toBeCloseTo(750 / 30 + 0.05);
+  });
+
+  it("al escuchar la toma, la vista previa la acompaña con objetivoToma", async () => {
+    const { container } = pintar(conPrevia);
+    await userEvent.click(screen.getByRole("button", { name: "E03 ✓" }));
+    const video = container.querySelector("video")!;
+    const previa = medioFalso(video);
+    const audio = screen.getByTestId("toma") as HTMLAudioElement;
+    const toma = medioFalso(audio, { duration: 10, currentTime: 4, paused: false });
+
+    fireEvent.play(audio);
+
+    const esperado = objetivoToma({
+      tiempoToma: 4,
+      duracionToma: 10,
+      escenaMontaje: montaje.escenas[2],
+      fps: 30,
+    })!;
+    expect(previa.estado.currentTime).toBeCloseTo(esperado.tiempo);
+    expect(previa.estado.playbackRate).toBeCloseTo(esperado.ritmo);
+    expect(previa.play).toHaveBeenCalled();
+
+    toma.estado.paused = true;
+    fireEvent.pause(audio);
+    expect(previa.pause).toHaveBeenCalled();
+  });
+});
+
+describe("Teleprompter: vista previa con temporizadores falsos", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "performance",
+      ],
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const avanzar = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("mientras se lee, el vídeo sigue el texto con objetivoLectura y se para al parar", async () => {
+    const { container } = pintar(conPrevia);
+    const video = container.querySelector("video")!;
+    const previa = medioFalso(video, { currentTime: 450 / 30 + 0.05 });
+    const plan = calcularPlan(
+      datos.escenas[3].cues.map((cue) => ({ texto: cue.texto, pausa: cue.pausa ?? 0 })),
+      150,
+    );
+    const inicioSegunda = plan.pasos.find((paso) => paso.c === 1)!.desde;
+    const ritmo = Math.min(4, Math.max(0.25, 150 / 30 / inicioSegunda));
+
+    fireEvent.click(screen.getByRole("button", { name: /Ensayar/ }));
+    await avanzar(2100 + 1000);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Ensayando…");
+    expect(previa.play).toHaveBeenCalled();
+    expect(previa.estado.playbackRate).toBeCloseTo(ritmo);
+    expect(previa.estado.currentTime).toBeGreaterThan(450 / 30 + 0.05);
+    expect(previa.estado.currentTime).toBeLessThanOrEqual(450 / 30 + ritmo * 1.05);
+
+    fireEvent.click(screen.getByRole("button", { name: /Parar/ }));
+    expect(previa.pause).toHaveBeenCalled();
+  });
+});
+
+describe("Teleprompter: tomas pendientes", () => {
+  async function grabarYParar() {
+    await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+    await screen.findByText("Silencio");
+    await userEvent.click(screen.getByRole("button", { name: /Parar/ }));
+  }
+
+  function salir() {
+    const evento = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(evento);
+    return evento.defaultPrevented;
+  }
+
+  it("con varias pendientes, Reintentar dice cuántas se han subido y cuántas quedan", async () => {
+    vi.mocked(subirToma)
+      .mockRejectedValueOnce(new Error("La API no responde"))
+      .mockRejectedValueOnce(new Error("La API no responde"))
+      .mockResolvedValueOnce({ escena: "E04", ruta: "grabaciones/E04.wav", version: 3, bytes: 52 })
+      .mockRejectedValueOnce(new Error("Sigue sin responder"))
+      .mockResolvedValueOnce({ escena: "E05", ruta: "grabaciones/E05.wav", version: 1, bytes: 52 });
+    pintar();
+
+    await grabarYParar();
+    await screen.findByText("No se pudo guardar: La API no responde");
+    await userEvent.keyboard("{ArrowRight}");
+    await grabarYParar();
+    await screen.findByText("No se pudo guardar: La API no responde");
+
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar subida" }));
+    expect(
+      await screen.findByText(
+        "Subidas: 1 de 2 tomas; queda 1 pendiente. Último error: Sigue sin responder",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "E04 ✓" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar subida" }));
+    expect(await screen.findByText("Guardada: E05.wav. Escúchala o pasa a la siguiente con →.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reintentar subida" })).not.toBeInTheDocument();
+  });
+
+  it("si todas las pendientes suben, lo dice", async () => {
+    vi.mocked(subirToma)
+      .mockRejectedValueOnce(new Error("La API no responde"))
+      .mockRejectedValueOnce(new Error("La API no responde"))
+      .mockResolvedValueOnce({ escena: "E04", ruta: "grabaciones/E04.wav", version: 3, bytes: 52 })
+      .mockResolvedValueOnce({ escena: "E05", ruta: "grabaciones/E05.wav", version: 1, bytes: 52 });
+    pintar();
+
+    await grabarYParar();
+    await screen.findByText("No se pudo guardar: La API no responde");
+    await userEvent.keyboard("{ArrowRight}");
+    await grabarYParar();
+    await screen.findByText("No se pudo guardar: La API no responde");
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar subida" }));
+
+    expect(await screen.findByText("Subidas las 2 tomas pendientes.")).toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("salir de la página con una toma sin subir avisa", async () => {
+    vi.mocked(subirToma).mockRejectedValueOnce(new Error("La API no responde"));
+    pintar();
+
+    expect(salir()).toBe(false);
+    await grabarYParar();
+    await screen.findByRole("button", { name: "Reintentar subida" });
+
+    expect(salir()).toBe(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar subida" }));
+    await screen.findByText("Guardada: E04.wav. Escúchala o pasa a la siguiente con →.");
+    expect(salir()).toBe(false);
+  });
+
+  it("salir mientras se sube una toma también avisa", async () => {
+    const subida = diferido<Awaited<ReturnType<typeof subirToma>>>();
+    vi.mocked(subirToma).mockReturnValueOnce(subida.promesa);
+    pintar();
+
+    await grabarYParar();
+    await waitFor(() => expect(subirToma).toHaveBeenCalled());
+    expect(salir()).toBe(true);
+
+    await act(async () =>
+      subida.resolver({ escena: "E04", ruta: "grabaciones/E04.wav", version: 3, bytes: 52 }),
+    );
+    expect(salir()).toBe(false);
+  });
+});
+
+describe("Teleprompter: subida con tiempo máximo", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "performance",
+      ],
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const avanzar = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("si la subida no acaba en 120 s, cuenta como fallo y deja Reintentar subida", async () => {
+    const real = await vi.importActual<typeof import("@/lib/teleprompter/grabadora")>(
+      "@/lib/teleprompter/grabadora",
+    );
+    vi.mocked(subirToma).mockImplementation(real.subirToma);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, opciones: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            opciones.signal?.addEventListener("abort", () =>
+              reject(new DOMException("Abortado", "AbortError")),
+            );
+          }),
+      ),
+    );
+    pintar();
+
+    fireEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+    await avanzar(2000 + 700 * 3 + 500);
+    fireEvent.click(screen.getByRole("button", { name: /Parar/ }));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    await avanzar(119_000);
+    expect(screen.queryByRole("button", { name: "Reintentar subida" })).not.toBeInTheDocument();
+
+    await avanzar(1000);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "No se pudo guardar: La subida ha tardado más de 2 minutos y se ha cortado",
+    );
+    expect(screen.getByRole("button", { name: "Reintentar subida" })).toBeEnabled();
   });
 });

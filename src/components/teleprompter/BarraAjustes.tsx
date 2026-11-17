@@ -1,6 +1,6 @@
 import { useId, type Ref } from "react";
 
-import { LETRA, RITMO } from "@/lib/teleprompter/preferencias";
+import { LETRA, RITMO, TAMANOS_PREVIA, type Preferencias } from "@/lib/teleprompter/preferencias";
 import { textoLegible } from "@/lib/texto-legible";
 
 export type OpcionLeccion = {
@@ -14,6 +14,13 @@ export type Microfono = { id: string; nombre: string };
 
 export const valorLeccion = ({ curso, numero }: { curso: string; numero: number }) =>
   `${curso}/${numero}`;
+
+const NOMBRES_PREVIA: Record<Preferencias["tamPrevia"], string> = {
+  0: "Oculta",
+  320: "Pequeña",
+  440: "Mediana",
+  600: "Grande",
+};
 
 const AJUSTE = "flex min-w-0 items-center gap-2 text-sm text-tenue";
 const SELECTOR =
@@ -71,6 +78,8 @@ export function BarraAjustes({
   micros,
   alCambiarMicro,
   nivelRef,
+  tamPrevia,
+  alCambiarTamPrevia,
 }: {
   lecciones: OpcionLeccion[];
   leccion: string;
@@ -84,6 +93,8 @@ export function BarraAjustes({
   micros: Microfono[];
   alCambiarMicro: (micro: string) => void;
   nivelRef: Ref<HTMLSpanElement>;
+  tamPrevia: Preferencias["tamPrevia"];
+  alCambiarTamPrevia: (tam: Preferencias["tamPrevia"]) => void;
 }) {
   const id = useId();
   const microConocido = micro === "" || micros.some(({ id: valor }) => valor === micro);
@@ -152,6 +163,25 @@ export function BarraAjustes({
         >
           <i className="block h-full w-0 bg-verde transition-[width] duration-[60ms] ease-linear group-[.alto]:bg-rojo" />
         </span>
+      </div>
+
+      <div className={AJUSTE}>
+        <label htmlFor={`${id}-previa`}>Vista previa</label>
+        <select
+          id={`${id}-previa`}
+          value={tamPrevia}
+          onChange={(evento) => {
+            const tam = TAMANOS_PREVIA.find((valor) => valor === Number(evento.target.value));
+            if (tam !== undefined) alCambiarTamPrevia(tam);
+          }}
+          className={SELECTOR}
+        >
+          {TAMANOS_PREVIA.map((tam) => (
+            <option key={tam} value={tam}>
+              {NOMBRES_PREVIA[tam]}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );

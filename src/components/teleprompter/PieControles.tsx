@@ -12,16 +12,23 @@ function Tecla({ children }: { children: ReactNode }) {
   );
 }
 
+export type EventoToma = "play" | "parada";
+
 export function PieControles({
   voz,
   enMarcha,
   guardando,
   pendiente,
+  editando,
+  vistaCamara,
   alReintentar,
   alEnsayar,
   alGrabar,
   alParar,
   alRepetir,
+  alEditar,
+  alCambiarVista,
+  alEventoToma,
   relojRef,
   estado,
   toma,
@@ -30,11 +37,17 @@ export function PieControles({
   enMarcha: boolean;
   guardando: boolean;
   pendiente: boolean;
+  editando: boolean;
+  // Solo en las escenas a cámara: la vista que se está usando.
+  vistaCamara: "guion" | "puntos" | null;
   alReintentar: () => void;
   alEnsayar: () => void;
   alGrabar: () => void;
   alParar: () => void;
   alRepetir: () => void;
+  alEditar: () => void;
+  alCambiarVista: () => void;
+  alEventoToma: (audio: HTMLAudioElement, evento: EventoToma) => void;
   relojRef: Ref<HTMLSpanElement>;
   estado: string;
   toma: string | null;
@@ -44,7 +57,7 @@ export function PieControles({
       <button
         type="button"
         onClick={alEnsayar}
-        disabled={enMarcha || guardando}
+        disabled={enMarcha || guardando || editando}
         className={`${BOTON} border-marca bg-marca text-white`}
       >
         {voz ? "Ensayar" : "Empezar"} <Tecla>Espacio</Tecla>
@@ -52,7 +65,7 @@ export function PieControles({
       <button
         type="button"
         onClick={alGrabar}
-        disabled={enMarcha || guardando || !voz}
+        disabled={enMarcha || guardando || editando || !voz}
         className={`${BOTON} border-rojo bg-rojo text-white`}
       >
         ● Grabar <Tecla>Intro</Tecla>
@@ -63,9 +76,21 @@ export function PieControles({
       <button type="button" onClick={alRepetir} disabled={!enMarcha} className={NORMAL}>
         ↺ Repetir <Tecla>R</Tecla>
       </button>
-      <button type="button" disabled title="Llega con la siguiente tarea" className={NORMAL}>
-        Editar texto
-      </button>
+      {vistaCamara ? (
+        <button type="button" onClick={alCambiarVista} disabled={editando} className={NORMAL}>
+          {vistaCamara === "puntos" ? "Ver guion con ritmo" : "Ver solo puntos"}
+        </button>
+      ) : null}
+      {editando ? null : (
+        <button type="button" onClick={alEditar} disabled={enMarcha} className={NORMAL}>
+          Editar texto
+        </button>
+      )}
+      {voz ? null : (
+        <button type="button" disabled title="Llega en la fase 6" className={NORMAL}>
+          ⬆ Entregar los vídeos de la cámara
+        </button>
+      )}
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 text-sm text-tenue sm:ml-auto sm:w-auto">
         <span ref={relojRef} className="min-w-[6ch] font-mono text-xl text-texto">
           0:00
@@ -90,6 +115,10 @@ export function PieControles({
             controls
             preload="none"
             src={toma}
+            onPlay={(evento) => alEventoToma(evento.currentTarget, "play")}
+            onPause={(evento) => alEventoToma(evento.currentTarget, "parada")}
+            onEnded={(evento) => alEventoToma(evento.currentTarget, "parada")}
+            onSeeked={(evento) => alEventoToma(evento.currentTarget, "parada")}
             className="h-[34px] max-w-full"
           />
         ) : null}

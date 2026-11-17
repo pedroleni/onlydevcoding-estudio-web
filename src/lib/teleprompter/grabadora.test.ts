@@ -95,6 +95,7 @@ describe("grabadora", () => {
       method: "PUT",
       body: wav,
       headers: { "Content-Type": "audio/wav" },
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -115,5 +116,62 @@ describe("grabadora", () => {
     await expect(
       subirToma("curso-ficticio", 4, "E03", new Blob([], { type: "audio/wav" })),
     ).rejects.toThrow("Error 502");
+  });
+
+  describe("tiempo máximo de la subida", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    // Un fetch que no responde nunca, pero que se corta al abortar su señal.
+    function fetchColgado() {
+      return vi.fn(
+        (_url: string, opciones: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            opciones.signal?.addEventListener("abort", () =>
+              reject(new DOMException("Abortado", "AbortError")),
+            );
+          }),
+      );
+    }
+
+    it("a los 120 s corta la subida y lanza un error que lo dice", async () => {
+      vi.useFakeTimers();
+      const fetchFalso = fetchColgado();
+      vi.stubGlobal("fetch", fetchFalso);
+
+      const subida = subirToma("curso-ficticio", 4, "E03", new Blob([], { type: "audio/wav" }));
+      const resultado = subida.catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(119_999);
+      expect(fetchFalso.mock.calls[0][1].signal?.aborted).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchFalso.mock.calls[0][1].signal?.aborted).toBe(true);
+      const error = await resultado;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        "La subida ha tardado más de 2 minutos y se ha cortado",
+      );
+    });
+
+    it("si responde a tiempo no deja el temporizador puesto", async () => {
+      vi.useFakeTimers();
+      const toma = { escena: "E03", ruta: "grabaciones/E03.wav", version: 2, bytes: 44 };
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(toma, { status: 201 })));
+
+      await expect(
+        subirToma("curso-ficticio", 4, "E03", new Blob([], { type: "audio/wav" })),
+      ).resolves.toEqual(toma);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("un error de red que no es el tiempo máximo se lanza tal cual", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+      await expect(
+        subirToma("curso-ficticio", 4, "E03", new Blob([], { type: "audio/wav" })),
+      ).rejects.toThrow("Failed to fetch");
+    });
   });
 });

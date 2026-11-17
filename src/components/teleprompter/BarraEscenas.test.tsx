@@ -36,23 +36,24 @@ describe("BarraEscenas", () => {
     expect(screen.getByRole("button", { name: "E03 ✓" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "E04" })).toHaveAttribute("aria-current", "true");
     expect(screen.getByRole("button", { name: "E03 ✓" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("button", { name: "E02" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "E02 🎥" })).toHaveAttribute(
       "title",
       "Escena ficticia E02",
     );
   });
 
-  it("no marca como grabada una escena a cámara", () => {
+  it("las escenas a cámara llevan 🎥, y ✓ si ya están grabadas", () => {
     render(
       <BarraEscenas
-        escenas={[escena("E02", "camara", true)]}
+        escenas={[escena("E02", "camara", true), escena("E05", "camara")]}
         indice={0}
         grabadas={new Set(["E02"])}
         alElegir={vi.fn()}
       />,
     );
 
-    expect(screen.getByRole("button", { name: "E02" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "E02 🎥 ✓" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "E05 🎥" })).toBeInTheDocument();
   });
 
   it("avisa del índice elegido", async () => {

@@ -21,7 +21,7 @@ export function BarraEscenas({
     >
       {escenas.map((escena, i) => {
         const actual = i === indice;
-        const hecha = escena.modo === "voz" && grabadas.has(escena.id);
+        const hecha = grabadas.has(escena.id);
 
         return (
           <button
@@ -36,6 +36,7 @@ export function BarraEscenas({
             } ${actual ? "border-texto bg-superficie" : "border-borde bg-transparent"}`}
           >
             {escena.id}
+            {escena.modo === "camara" ? " 🎥" : null}
             {hecha ? (
               <>
                 {" "}

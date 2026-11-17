@@ -21,6 +21,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
 
+vi.mock("@/lib/acciones-teleprompter", () => ({
+  guardarTextos: vi.fn(),
+  generarPreviaGrabacion: vi.fn(),
+}));
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/api")>();
   return {

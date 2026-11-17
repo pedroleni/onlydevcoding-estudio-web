@@ -73,21 +73,40 @@ export async function aWav(blob: Blob, contexto: BaseAudioContext): Promise<Blob
   return new Blob([codificarWav(canales, audio.sampleRate)], { type: "audio/wav" });
 }
 
+// Una subida que no acaba en este tiempo se corta y cuenta como fallida (se puede reintentar).
+export const LIMITE_SUBIDA_MS = 120_000;
+
 export async function subirToma(
   curso: string,
   numero: number,
   escena: string,
   wav: Blob,
 ): Promise<TomaGuardada> {
-  const respuesta = await fetch(
-    `/grabar/${encodeURIComponent(curso)}/${numero}/${encodeURIComponent(escena)}`,
-    {
-      method: "PUT",
-      body: wav,
-      headers: { "Content-Type": "audio/wav" },
-    },
-  );
-  const datos: unknown = await respuesta.json().catch(() => null);
+  const control = new AbortController();
+  const limite = setTimeout(() => control.abort(), LIMITE_SUBIDA_MS);
+  let respuesta: Response;
+  let datos: unknown;
+  try {
+    respuesta = await fetch(
+      `/grabar/${encodeURIComponent(curso)}/${numero}/${encodeURIComponent(escena)}`,
+      {
+        method: "PUT",
+        body: wav,
+        headers: { "Content-Type": "audio/wav" },
+        signal: control.signal,
+      },
+    );
+    datos = await respuesta.json().catch(() => null);
+    // Si se cortó mientras se leía la respuesta, tampoco vale.
+    control.signal.throwIfAborted();
+  } catch (error) {
+    if (control.signal.aborted) {
+      throw new Error("La subida ha tardado más de 2 minutos y se ha cortado");
+    }
+    throw error;
+  } finally {
+    clearTimeout(limite);
+  }
 
   if (!respuesta.ok) {
     const detalle =
