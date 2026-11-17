@@ -1,4 +1,9 @@
-import type { Curso, Leccion, LeccionResumen } from "@/lib/tipos";
+import type {
+  Curso,
+  Leccion,
+  LeccionResumen,
+  VistaPublicacion,
+} from "@/lib/tipos";
 
 const API_LOCAL = "http://127.0.0.1:8000";
 
@@ -92,6 +97,20 @@ export async function obtenerLeccion(
 
   return pedir<Leccion>(
     `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}`,
+    { nullEn404: true },
+  );
+}
+
+export async function obtenerPublicacion(
+  curso: string,
+  numero: number,
+): Promise<VistaPublicacion | null> {
+  if (!Number.isInteger(numero) || numero < 1 || numero > 999) {
+    return null;
+  }
+
+  return pedir<VistaPublicacion>(
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/publicacion`,
     { nullEn404: true },
   );
 }

@@ -5,6 +5,7 @@ import {
   ErrorApi,
   obtenerCursos,
   obtenerLeccion,
+  obtenerPublicacion,
   urlMedio,
 } from "@/lib/api";
 
@@ -79,6 +80,33 @@ describe("cliente de la API local", () => {
     fetchCon(404);
 
     expect(await obtenerLeccion("react", 99)).toBeNull();
+  });
+
+  it("obtiene la vista de publicación por su ruta real", async () => {
+    const vista = {
+      curso: "react",
+      numero: 4,
+      piezas: [],
+      despues_de_publicar: [],
+      notas: null,
+      error: null,
+      guia: null,
+      aviso: null,
+    };
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(vista));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(obtenerPublicacion("react", 4)).resolves.toEqual(vista);
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/cursos/react/lecciones/4/publicacion",
+      { cache: "no-store" },
+    );
+  });
+
+  it("devuelve null si la publicación no existe", async () => {
+    fetchCon(404);
+
+    await expect(obtenerPublicacion("react", 99)).resolves.toBeNull();
   });
 
   it.each([Number.NaN, 1.5])(

@@ -86,7 +86,8 @@ trabajo e indica los pasos manuales pendientes.
 - El repositorio es público. No incluyas rutas absolutas, emails, tomas ni
   textos reales de lecciones. Los valores privados solo viven en `.env`, que
   está ignorado.
-- La fase 1 no escribe en las carpetas del estudio ni de cursos.
+- La web solo escribe datos de publicación mediante las Server Actions de
+  `src/lib/acciones.ts`; el acceso a disco sigue perteneciendo a la API local.
 - La web solo llama a la API local. `API_URL` y `NEXT_PUBLIC_API_URL` usan por
   defecto `http://127.0.0.1:8000`.
 - `next dev` y `next start` escuchan únicamente en `127.0.0.1:3000`. El Proxy
@@ -98,8 +99,8 @@ trabajo e indica los pasos manuales pendientes.
   estudio` (`next build && next start`), donde los endpoints `__nextjs` no
   existen. Se usa `127.0.0.1` también para que la web y la API sean del mismo
   sitio: la API rechaza los medios pedidos con `Sec-Fetch-Site: cross-site`.
-- En fases futuras, toda escritura mediante Server Actions o rutas `POST`
-  necesitará una cabecera o un token propio. Comprobar `Origin` no es defensa
+- Toda escritura mediante Server Actions exige `X-Estudio-Token`, leído de
+  `ESTUDIO_TOKEN` solo en el servidor. Comprobar `Origin` no es defensa
   suficiente contra DNS rebinding.
 - Nunca expongas secretos en variables `NEXT_PUBLIC_*`.
 - Renderiza textos externos mediante JSX normal. No uses

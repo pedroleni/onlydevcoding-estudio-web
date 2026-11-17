@@ -33,9 +33,11 @@ ruta de explotación concreta.
   los medios pedidos con `Sec-Fetch-Site: cross-site`. No se usa
   `Cross-Origin-Resource-Policy: same-site` (Chromium bloquea con ella los
   medios entre los puertos 3000 y 8000).
-- La fase 1 solo lee. Cualquier Server Action o ruta `POST` futura que escriba
-  debe requerir una cabecera o un token propio; validar `Origin` no basta ante
-  DNS rebinding.
+- Las escrituras de publicación pasan por Server Actions que validan sus
+  argumentos. `src/lib/api-escritura.ts` es `server-only`, lee `ESTUDIO_TOKEN`
+  y lo envía a la API local en `X-Estudio-Token`; el secreto no puede aparecer
+  en código cliente ni en `NEXT_PUBLIC_*`. Validar `Origin` no basta ante DNS
+  rebinding.
 
 ## Hallazgos prioritarios
 
