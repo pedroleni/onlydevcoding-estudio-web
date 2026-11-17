@@ -223,4 +223,73 @@ describe("FormularioTarea", () => {
       }),
     );
   });
+
+  it("devuelve el foco al botón y mantiene el tabulador dentro del diálogo", async () => {
+    render(<BotonNuevaTarea cursos={cursos} tipos={tipos} fecha="2026-11-17" />);
+    const abrir = screen.getByRole("button", { name: "+ Tarea" });
+    await userEvent.click(abrir);
+
+    expect(screen.getByLabelText("Texto")).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(abrir).toHaveFocus();
+  });
+
+  it("Escape cierra aunque el foco haya salido del diálogo", async () => {
+    await abrirNueva();
+    (document.activeElement as HTMLElement).blur();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("al editar una tarea con el enlace roto empieza sin enlace y lo avisa", async () => {
+    vi.mocked(editarTarea).mockResolvedValue({ ok: true });
+    const tarea: TareaVista = {
+      id: 4,
+      fecha: "2026-11-18",
+      hora: null,
+      texto: "Publicar short",
+      tipo: "publicar",
+      hecha: false,
+      hecha_en: null,
+      enlace: { curso: "react", numero: 9, pieza: "short-3", red: "tiktok" },
+      enlace_vista: { curso_nombre: "React", leccion_titulo: null, pieza_titulo: null, roto: true },
+    };
+    render(<BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />);
+    await userEvent.click(screen.getByRole("button", { name: "Editar «Publicar short»" }));
+
+    expect(screen.getByText(/El enlace anterior ya no existe/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Curso")).toHaveValue("");
+    expect(opcionesLecciones).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(editarTarea).toHaveBeenCalled());
+    expect(vi.mocked(editarTarea).mock.calls[0][1].enlace).toBeNull();
+  });
+
+  it("ignora las lecciones de un curso anterior que llegan tarde", async () => {
+    let resolverReact: (valor: { numero: number; titulo: string }[]) => void = () => {};
+    vi.mocked(opcionesLecciones).mockImplementation((curso) =>
+      curso === "react"
+        ? new Promise((resolver) => {
+            resolverReact = resolver;
+          })
+        : Promise.resolve([{ numero: 1, titulo: "Intro de Vue" }]),
+    );
+    await abrirNueva();
+
+    await userEvent.selectOptions(screen.getByLabelText("Curso"), "react");
+    await userEvent.selectOptions(screen.getByLabelText("Curso"), "vue");
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: "1 · Intro de Vue" })).toBeInTheDocument(),
+    );
+    resolverReact([{ numero: 4, titulo: "Importar y exportar" }]);
+    await new Promise((resolver) => setTimeout(resolver, 0));
+
+    expect(screen.queryByRole("option", { name: "4 · Importar y exportar" })).toBeNull();
+  });
 });

@@ -40,22 +40,29 @@ function Formulario({
   onCerrar: () => void;
 }) {
   const id = useId();
+  const dialogoRef = useRef<HTMLDivElement>(null);
   const textoRef = useRef<HTMLInputElement>(null);
+  const pendienteRef = useRef(false);
   const peticionLecciones = useRef(0);
   const peticionPiezas = useRef(0);
   const [pendiente, iniciar] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  // Un enlace que ya no existe no se puede mostrar en los selectores: se empieza sin enlace y se avisa.
+  const enlaceRoto =
+    inicial?.enlace != null &&
+    (inicial.enlace_vista?.roto === true ||
+      !cursos.some(({ id: idCurso }) => idCurso === inicial.enlace?.curso));
+  const enlaceInicial = enlaceRoto ? null : (inicial?.enlace ?? null);
+
   const [texto, setTexto] = useState(inicial?.texto ?? "");
   const [dia, setDia] = useState(inicial?.fecha ?? fecha);
   const [hora, setHora] = useState(inicial?.hora ?? "");
   const [tipo, setTipo] = useState(inicial?.tipo ?? tipos[0]?.id ?? "");
-  const [curso, setCurso] = useState(inicial?.enlace?.curso ?? "");
-  const [numero, setNumero] = useState(
-    inicial?.enlace?.numero ? String(inicial.enlace.numero) : "",
-  );
-  const [pieza, setPieza] = useState(inicial?.enlace?.pieza ?? "");
-  const [red, setRed] = useState(inicial?.enlace?.red ?? "");
+  const [curso, setCurso] = useState(enlaceInicial?.curso ?? "");
+  const [numero, setNumero] = useState(enlaceInicial?.numero ? String(enlaceInicial.numero) : "");
+  const [pieza, setPieza] = useState(enlaceInicial?.pieza ?? "");
+  const [red, setRed] = useState(enlaceInicial?.red ?? "");
   const [lecciones, setLecciones] = useState<Opcion[]>([]);
   const [piezas, setPiezas] = useState<Opcion[]>([]);
 
@@ -78,8 +85,49 @@ function Formulario({
   }
 
   useEffect(() => {
+    pendienteRef.current = pendiente;
+  }, [pendiente]);
+
+  useEffect(() => {
+    const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     textoRef.current?.focus();
-    const enlace = inicial?.enlace;
+
+    function alPulsar(evento: KeyboardEvent) {
+      if (evento.key === "Escape" && !pendienteRef.current) {
+        evento.preventDefault();
+        onCerrar();
+        return;
+      }
+      if (evento.key !== "Tab" || !dialogoRef.current) return;
+      const enfocables = Array.from(
+        dialogoRef.current.querySelectorAll<HTMLElement>(
+          "input:not([disabled]), select:not([disabled]), button:not([disabled])",
+        ),
+      );
+      if (enfocables.length === 0) return;
+      const primero = enfocables[0];
+      const ultimo = enfocables[enfocables.length - 1];
+      const dentro = dialogoRef.current.contains(document.activeElement);
+      if (evento.shiftKey && (document.activeElement === primero || !dentro)) {
+        evento.preventDefault();
+        ultimo.focus();
+      } else if (!evento.shiftKey && (document.activeElement === ultimo || !dentro)) {
+        evento.preventDefault();
+        primero.focus();
+      }
+    }
+
+    document.addEventListener("keydown", alPulsar);
+    return () => {
+      document.removeEventListener("keydown", alPulsar);
+      anterior?.focus();
+    };
+    // Solo al abrir y cerrar el diálogo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const enlace = enlaceInicial;
     if (!enlace || !cursos.find(({ id: idCurso }) => idCurso === enlace.curso)?.en_disco) return;
     void cargarLecciones(enlace.curso);
     if (enlace.numero) void cargarPiezas(enlace.curso, enlace.numero);
@@ -154,12 +202,10 @@ function Formulario({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
       <div
+        ref={dialogoRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${id}-titulo`}
-        onKeyDown={(evento) => {
-          if (evento.key === "Escape") onCerrar();
-        }}
         className="max-h-[90dvh] w-full max-w-lg overflow-y-auto border border-borde bg-superficie p-5 md:p-6"
       >
         <h2 id={`${id}-titulo`} className="text-xl font-semibold">
@@ -220,6 +266,11 @@ function Formulario({
 
           <fieldset className="grid gap-3 border border-borde p-3">
             <legend className="px-1 text-tenue">Enlace (opcional)</legend>
+            {enlaceRoto ? (
+              <p className="text-[#E8A33D]">
+                El enlace anterior ya no existe. Elige otro o guarda la tarea sin enlace.
+              </p>
+            ) : null}
             <label className="grid gap-1 text-tenue">
               Curso
               <select
