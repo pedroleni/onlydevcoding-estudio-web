@@ -1,15 +1,78 @@
-export default function Teleprompter() {
+import { notFound } from "next/navigation";
+import { connection } from "next/server";
+import { Suspense } from "react";
+
+import { AvisoApi } from "@/components/AvisoApi";
+import { Teleprompter, type OpcionLeccion } from "@/components/teleprompter/Teleprompter";
+import {
+  ApiNoDisponible,
+  ErrorApi,
+  obtenerCursos,
+  obtenerLecciones,
+  obtenerTeleprompter,
+} from "@/lib/api";
+import { CURSO_VALIDO } from "@/lib/curso";
+
+const NUMERO_VALIDO = /^[1-9]\d{0,2}$/;
+
+const primero = (valor: string | string[] | undefined) =>
+  Array.isArray(valor) ? valor[0] : valor;
+
+async function ContenidoTeleprompter({
+  searchParams,
+}: {
+  searchParams: PageProps<"/teleprompter">["searchParams"];
+}) {
+  const consulta = await searchParams;
+  await connection();
+
+  const curso = primero(consulta.curso);
+  const leccion = primero(consulta.leccion);
+  let seleccion: { curso: string; numero: number } | null = null;
+
+  // Si falta algún parámetro, el componente cliente abre la última lección usada.
+  if (curso !== undefined && leccion !== undefined) {
+    if (!CURSO_VALIDO.test(curso) || !NUMERO_VALIDO.test(leccion)) {
+      notFound();
+    }
+    seleccion = { curso, numero: Number(leccion) };
+  }
+
+  let datos;
+  let lecciones: OpcionLeccion[];
+  try {
+    const [cursos, teleprompter] = await Promise.all([
+      obtenerCursos(),
+      seleccion ? obtenerTeleprompter(seleccion.curso, seleccion.numero) : null,
+    ]);
+    const listas = await Promise.all(cursos.map(({ id }) => obtenerLecciones(id)));
+    datos = teleprompter;
+    lecciones = cursos.flatMap(({ nombre }, i) =>
+      (listas[i] ?? [])
+        .filter(({ estado }) => estado.guion)
+        .map(({ curso: id, numero, titulo }) => ({
+          curso: id,
+          numero,
+          titulo,
+          nombreCurso: nombre,
+        })),
+    );
+  } catch (error) {
+    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+      return <AvisoApi error={error} />;
+    }
+    throw error;
+  }
+
+  return <Teleprompter datos={datos} lecciones={lecciones} seleccion={seleccion} />;
+}
+
+export default function PaginaTeleprompter({ searchParams }: PageProps<"/teleprompter">) {
   return (
-    <section className="flex min-h-[calc(100dvh-4rem)] items-center py-16">
-      <div className="max-w-xl border-l-2 border-marca pl-6 md:pl-8">
-        <p className="mb-3 text-sm font-medium text-marca">Teleprompter</p>
-        <h1 className="text-3xl font-semibold tracking-[-0.03em] md:text-5xl">
-          Llega en la fase 4
-        </h1>
-        <p className="mt-4 max-w-[52ch] text-base leading-7 text-tenue">
-          Aquí prepararás y seguirás el guion durante la grabación.
-        </p>
-      </div>
+    <section>
+      <Suspense fallback={<p className="py-8 text-sm text-tenue">Cargando teleprompter…</p>}>
+        <ContenidoTeleprompter searchParams={searchParams} />
+      </Suspense>
     </section>
   );
 }

@@ -266,13 +266,12 @@ async function ContenidoLeccion({
             ) : null}
           </div>
 
-          <span
-            aria-disabled="true"
-            title="Disponible en la fase 4"
-            className="pointer-events-none inline-flex min-h-11 shrink-0 items-center border border-borde bg-carbon px-4 text-sm font-medium text-tenue opacity-70"
+          <Link
+            href={`/teleprompter?curso=${encodeURIComponent(curso)}&leccion=${numero}`}
+            className="inline-flex min-h-11 shrink-0 items-center border border-marca bg-carbon px-4 text-sm font-medium text-texto transition-colors hover:bg-marca"
           >
             Abrir en el teleprompter
-          </span>
+          </Link>
         </div>
       </header>
 

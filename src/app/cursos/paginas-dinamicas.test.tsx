@@ -167,13 +167,15 @@ describe("shell de las páginas dinámicas", () => {
     },
   );
 
-  it("renderiza el teleprompter desactivado sin enlace", async () => {
+  it("enlaza la lección con el teleprompter", async () => {
     render(await renderizarContenidoLeccion());
 
-    const control = screen.getByText("Abrir en el teleprompter");
-    expect(control.tagName).toBe("SPAN");
-    expect(control).toHaveAttribute("aria-disabled", "true");
-    expect(control).not.toHaveAttribute("href");
+    const control = screen.getByRole("link", { name: "Abrir en el teleprompter" });
+    expect(control).toHaveAttribute(
+      "href",
+      "/teleprompter?curso=curso-ficticio&leccion=1",
+    );
+    expect(control).not.toHaveAttribute("aria-disabled");
   });
 
   it("usa guion cuando la pestaña solicitada no existe", async () => {
