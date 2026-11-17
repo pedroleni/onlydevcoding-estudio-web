@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type FormEvent } from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
 
 import { borrarCurso, crearCurso } from "@/lib/acciones-tareas";
 import { idDesdeNombre } from "@/lib/ids";
@@ -12,6 +12,7 @@ const claseBoton =
   "inline-flex min-h-10 items-center border px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca disabled:opacity-50";
 
 export function FormularioCurso() {
+  const idCampo = useId();
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [id, setId] = useState("");
@@ -53,18 +54,20 @@ export function FormularioCurso() {
 
   return (
     <form onSubmit={guardar} className="grid w-full gap-3 border border-borde bg-superficie p-4 text-sm md:grid-cols-[1fr_14rem_auto] md:items-end">
-      <label className="grid gap-1 text-tenue">
-        Nombre
+      <div className="grid gap-1 text-tenue">
+        <label htmlFor={`${idCampo}-nombre`}>Nombre</label>
         <input
+          id={`${idCampo}-nombre`}
           autoFocus
           value={nombre}
           onChange={(evento) => setNombre(evento.target.value)}
           className={claseCampo}
         />
-      </label>
-      <label className="grid gap-1 text-tenue">
-        Id
+      </div>
+      <div className="grid gap-1 text-tenue">
+        <label htmlFor={`${idCampo}-id`}>Id</label>
         <input
+          id={`${idCampo}-id`}
           value={idFinal}
           onChange={(evento) => {
             setIdManual(true);
@@ -72,7 +75,7 @@ export function FormularioCurso() {
           }}
           className={`${claseCampo} font-mono`}
         />
-      </label>
+      </div>
       <div className="flex gap-2">
         <button
           type="button"

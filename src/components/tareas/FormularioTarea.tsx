@@ -233,36 +233,43 @@ function Formulario({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-tenue">
-              Fecha
+            <div className="grid gap-1 text-tenue">
+              <label htmlFor={`${id}-fecha`}>Fecha</label>
               <input
+                id={`${id}-fecha`}
                 type="date"
                 value={dia}
                 onChange={(evento) => setDia(evento.target.value)}
                 className={claseCampo}
               />
-            </label>
-            <label className="grid gap-1 text-tenue">
-              Hora
+            </div>
+            <div className="grid gap-1 text-tenue">
+              <label htmlFor={`${id}-hora`}>Hora</label>
               <input
+                id={`${id}-hora`}
                 type="time"
                 value={hora}
                 onChange={(evento) => setHora(evento.target.value)}
                 className={claseCampo}
               />
-            </label>
+            </div>
           </div>
 
-          <label className="grid gap-1 text-tenue">
-            Tipo
-            <select value={tipo} onChange={(evento) => setTipo(evento.target.value)} className={claseCampo}>
+          <div className="grid gap-1 text-tenue">
+            <label htmlFor={`${id}-tipo`}>Tipo</label>
+            <select
+              id={`${id}-tipo`}
+              value={tipo}
+              onChange={(evento) => setTipo(evento.target.value)}
+              className={claseCampo}
+            >
               {tipos.map((opcion) => (
                 <option key={opcion.id} value={opcion.id}>
                   {opcion.nombre}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
           <fieldset className="grid gap-3 border border-borde p-3">
             <legend className="px-1 text-tenue">Enlace (opcional)</legend>
@@ -271,9 +278,10 @@ function Formulario({
                 El enlace anterior ya no existe. Elige otro o guarda la tarea sin enlace.
               </p>
             ) : null}
-            <label className="grid gap-1 text-tenue">
-              Curso
+            <div className="grid gap-1 text-tenue">
+              <label htmlFor={`${id}-curso`}>Curso</label>
               <select
+                id={`${id}-curso`}
                 value={curso}
                 onChange={(evento) => elegirCurso(evento.target.value)}
                 className={claseCampo}
@@ -285,10 +293,11 @@ function Formulario({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="grid gap-1 text-tenue">
-              Lección
+            </div>
+            <div className="grid gap-1 text-tenue">
+              <label htmlFor={`${id}-leccion`}>Lección</label>
               <select
+                id={`${id}-leccion`}
                 value={numero}
                 onChange={(evento) => elegirLeccion(evento.target.value)}
                 disabled={!cursoEnDisco || lecciones.length === 0}
@@ -301,10 +310,11 @@ function Formulario({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="grid gap-1 text-tenue">
-              Pieza
+            </div>
+            <div className="grid gap-1 text-tenue">
+              <label htmlFor={`${id}-pieza`}>Pieza</label>
               <select
+                id={`${id}-pieza`}
                 value={pieza}
                 onChange={(evento) => elegirPieza(evento.target.value)}
                 disabled={!numero || piezas.length === 0}
@@ -317,10 +327,11 @@ function Formulario({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="grid gap-1 text-tenue">
-              Red
+            </div>
+            <div className="grid gap-1 text-tenue">
+              <label htmlFor={`${id}-red`}>Red</label>
               <select
+                id={`${id}-red`}
                 value={red}
                 onChange={(evento) => setRed(evento.target.value)}
                 disabled={!pieza}
@@ -333,7 +344,7 @@ function Formulario({
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </fieldset>
 
           {error ? (

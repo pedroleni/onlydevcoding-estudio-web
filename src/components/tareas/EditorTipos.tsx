@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
 
 import { borrarTipoTarea, crearTipoTarea, editarTipoTarea } from "@/lib/acciones-tareas";
 import { COLORES_TAREA } from "@/lib/colores-tareas";
@@ -19,12 +19,14 @@ function SelectorColor({
   valor: TipoTarea["color"];
   onCambio: (color: TipoTarea["color"]) => void;
 }) {
+  const idCampo = useId();
   return (
-    <label className="grid gap-1 text-tenue">
-      Color
+    <div className="grid gap-1 text-tenue">
+      <label htmlFor={`${idCampo}-color`}>Color</label>
       <span className="flex items-center gap-2">
         <span aria-hidden="true" className="size-4 shrink-0 rounded-full" style={{ backgroundColor: valor }} />
         <select
+          id={`${idCampo}-color`}
           value={valor}
           onChange={(evento) => onCambio(evento.target.value as TipoTarea["color"])}
           className={claseCampo}
@@ -36,11 +38,12 @@ function SelectorColor({
           ))}
         </select>
       </span>
-    </label>
+    </div>
   );
 }
 
 function FilaTipo({ tipo }: { tipo: TipoTarea }) {
+  const idCampo = useId();
   const [nombre, setNombre] = useState(tipo.nombre);
   const [color, setColor] = useState(tipo.color);
   const [orden, setOrden] = useState(String(tipo.orden));
@@ -77,14 +80,20 @@ function FilaTipo({ tipo }: { tipo: TipoTarea }) {
   return (
     <form onSubmit={guardar} className="border border-borde bg-superficie p-4">
       <fieldset aria-label={`Tipo ${tipo.nombre}`} className="grid gap-3 text-sm md:grid-cols-[1fr_12rem_6rem_auto] md:items-end">
-        <label className="grid gap-1 text-tenue">
-          Nombre
-          <input value={nombre} onChange={(evento) => setNombre(evento.target.value)} className={claseCampo} />
-        </label>
-        <SelectorColor valor={color} onCambio={setColor} />
-        <label className="grid gap-1 text-tenue">
-          Orden
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-nombre`}>Nombre</label>
           <input
+            id={`${idCampo}-nombre`}
+            value={nombre}
+            onChange={(evento) => setNombre(evento.target.value)}
+            className={claseCampo}
+          />
+        </div>
+        <SelectorColor valor={color} onCambio={setColor} />
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-orden`}>Orden</label>
+          <input
+            id={`${idCampo}-orden`}
             type="number"
             min={0}
             max={10000}
@@ -92,7 +101,7 @@ function FilaTipo({ tipo }: { tipo: TipoTarea }) {
             onChange={(evento) => setOrden(evento.target.value)}
             className={claseCampo}
           />
-        </label>
+        </div>
         <div className="flex gap-2">
           <button
             type="submit"
@@ -127,6 +136,7 @@ function FilaTipo({ tipo }: { tipo: TipoTarea }) {
 }
 
 function NuevoTipo({ siguienteOrden }: { siguienteOrden: number }) {
+  const idCampo = useId();
   const [nombre, setNombre] = useState("");
   const [id, setId] = useState("");
   const [idManual, setIdManual] = useState(false);
@@ -159,13 +169,19 @@ function NuevoTipo({ siguienteOrden }: { siguienteOrden: number }) {
   return (
     <form onSubmit={crear} className="border border-dashed border-borde p-4">
       <fieldset aria-label="Nuevo tipo" className="grid gap-3 text-sm md:grid-cols-[1fr_12rem_12rem_auto] md:items-end">
-        <label className="grid gap-1 text-tenue">
-          Nombre
-          <input value={nombre} onChange={(evento) => setNombre(evento.target.value)} className={claseCampo} />
-        </label>
-        <label className="grid gap-1 text-tenue">
-          Id
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-nombre`}>Nombre</label>
           <input
+            id={`${idCampo}-nombre`}
+            value={nombre}
+            onChange={(evento) => setNombre(evento.target.value)}
+            className={claseCampo}
+          />
+        </div>
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={`${idCampo}-id`}>Id</label>
+          <input
+            id={`${idCampo}-id`}
             value={idFinal}
             onChange={(evento) => {
               setIdManual(true);
@@ -173,7 +189,7 @@ function NuevoTipo({ siguienteOrden }: { siguienteOrden: number }) {
             }}
             className={`${claseCampo} font-mono`}
           />
-        </label>
+        </div>
         <SelectorColor valor={color} onCambio={setColor} />
         <button
           type="submit"

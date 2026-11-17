@@ -93,9 +93,10 @@ export function CabeceraTareas({
       >
         <input type="hidden" name="vista" value={parametros.vista} />
         <input type="hidden" name="dia" value={parametros.dia} />
-        <label className="grid gap-1 text-tenue">
-          Curso
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={"filtro-curso"}>Curso</label>
           <select
+            id={"filtro-curso"}
             name="curso"
             defaultValue={parametros.curso ?? ""}
             className="min-h-10 border border-borde bg-superficie px-2 text-texto"
@@ -108,10 +109,11 @@ export function CabeceraTareas({
             ))}
             <option value={SIN_CURSO}>Sin curso</option>
           </select>
-        </label>
-        <label className="grid gap-1 text-tenue">
-          Tipo
+        </div>
+        <div className="grid gap-1 text-tenue">
+          <label htmlFor={"filtro-tipo"}>Tipo</label>
           <select
+            id={"filtro-tipo"}
             name="tipo"
             defaultValue={parametros.tipo ?? ""}
             className="min-h-10 border border-borde bg-superficie px-2 text-texto"
@@ -123,7 +125,7 @@ export function CabeceraTareas({
               </option>
             ))}
           </select>
-        </label>
+        </div>
         <button type="submit" className={`${claseBoton} text-texto`}>
           Filtrar
         </button>
