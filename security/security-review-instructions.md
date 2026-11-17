@@ -34,10 +34,13 @@ ruta de explotación concreta.
   `Cross-Origin-Resource-Policy: same-site` (Chromium bloquea con ella los
   medios entre los puertos 3000 y 8000).
 - Las escrituras de publicación pasan por Server Actions que validan sus
-  argumentos. `src/lib/api-escritura.ts` es `server-only`, lee `ESTUDIO_TOKEN`
-  y lo envía a la API local en `X-Estudio-Token`; el secreto no puede aparecer
-  en código cliente ni en `NEXT_PUBLIC_*`. Validar `Origin` no basta ante DNS
-  rebinding.
+  argumentos. El salto del navegador a la Server Action está protegido por el
+  Proxy: exige el `Host` exacto `127.0.0.1:3000` y, salvo para GET y HEAD, el
+  `Origin` exacto `http://127.0.0.1:3000`; Next comprueba además `Origin` frente
+  a `Host`. No se debe relajar esta cobertura del Proxy. Después,
+  `src/lib/api-escritura.ts` es `server-only`, lee `ESTUDIO_TOKEN` y lo envía a
+  la API local en `X-Estudio-Token`; ese token protege la llamada de la web a
+  la API y no puede aparecer en código cliente ni en `NEXT_PUBLIC_*`.
 
 ## Hallazgos prioritarios
 

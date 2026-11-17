@@ -99,9 +99,13 @@ trabajo e indica los pasos manuales pendientes.
   estudio` (`next build && next start`), donde los endpoints `__nextjs` no
   existen. Se usa `127.0.0.1` también para que la web y la API sean del mismo
   sitio: la API rechaza los medios pedidos con `Sec-Fetch-Site: cross-site`.
-- Toda escritura mediante Server Actions exige `X-Estudio-Token`, leído de
-  `ESTUDIO_TOKEN` solo en el servidor. Comprobar `Origin` no es defensa
-  suficiente contra DNS rebinding.
+- El salto del navegador a una Server Action está protegido por el Proxy, que
+  no se debe relajar: exige el `Host` exacto `127.0.0.1:3000` y, para métodos
+  distintos de GET y HEAD, el `Origin` exacto `http://127.0.0.1:3000`. Next
+  comprueba además que `Origin` coincida con `Host`. El `X-Estudio-Token`, leído
+  de `ESTUDIO_TOKEN` solo en el servidor, protege el salto posterior de la web
+  a la API local; no es una credencial que envíe el navegador a la Server
+  Action.
 - Nunca expongas secretos en variables `NEXT_PUBLIC_*`.
 - Renderiza textos externos mediante JSX normal. No uses
   `dangerouslySetInnerHTML`.

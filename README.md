@@ -64,9 +64,13 @@ producción los endpoints `__nextjs` de desarrollo no existen.
 
 Si la API no está en marcha, las pantallas muestran un aviso en lugar de
 quedarse en blanco. Las escrituras de publicación se realizan mediante Server
-Actions que validan sus argumentos y envían `X-Estudio-Token` a la API local
-desde el servidor. Validar `Origin` no basta frente a DNS rebinding, por lo que
-la API rechaza toda escritura sin ese token.
+Actions que validan sus argumentos. El salto del navegador a la Server Action
+está protegido por el Proxy, que exige el `Host` exacto `127.0.0.1:3000` y, en
+todo método distinto de GET y HEAD, el `Origin` exacto
+`http://127.0.0.1:3000`; Next comprueba además que `Origin` coincida con
+`Host`. No se debe relajar esa protección del Proxy. Desde el servidor, la web
+envía `X-Estudio-Token` a la API local: ese token protege la llamada de la web
+a la API, no el salto del navegador a la Server Action.
 
 ## Comprobaciones
 

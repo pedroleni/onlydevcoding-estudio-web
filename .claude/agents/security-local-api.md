@@ -18,6 +18,8 @@
    y la API rechaza los medios pedidos con `Sec-Fetch-Site: cross-site`. No se
    usa `Cross-Origin-Resource-Policy: same-site`: Chromium bloquea con ella los
    medios entre los puertos 3000 y 8000.
-9. Si una fase futura añade escrituras mediante Server Actions o rutas `POST`,
-   debe exigir además una cabecera o un token propio. `Origin` por sí solo no
-   protege contra DNS rebinding.
+9. El salto del navegador a una Server Action exige el `Host` exacto
+   `127.0.0.1:3000` y, salvo en GET y HEAD, el `Origin` exacto
+   `http://127.0.0.1:3000`; Next comprueba además `Origin` frente a `Host`. No
+   se debe relajar el Proxy. El token propio protege el salto posterior de la
+   web a la API local, no la petición del navegador a la Server Action.

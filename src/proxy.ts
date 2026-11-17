@@ -14,6 +14,17 @@ function escaparHtml(texto: string): string {
 export function proxy(request: NextRequest): NextResponse {
   const host = request.headers.get("host");
 
+  if (
+    request.method !== "GET" &&
+    request.method !== "HEAD" &&
+    request.headers.get("origin") !== ORIGEN_CANONICO
+  ) {
+    return new NextResponse("Origin no permitido", {
+      status: 403,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
   if (host === HOST_CANONICO) {
     return NextResponse.next();
   }

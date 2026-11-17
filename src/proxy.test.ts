@@ -3,15 +3,55 @@ import { describe, expect, it } from "vitest";
 
 import { config, proxy } from "@/proxy";
 
-function crearPeticion(host: string, ruta = "/cursos/demo?filtro=pendiente") {
+function crearPeticion(
+  host: string,
+  ruta = "/cursos/demo?filtro=pendiente",
+  opciones?: { method?: string; origin?: string },
+) {
   return new NextRequest(`http://${host}${ruta}`, {
-    headers: { host },
+    method: opciones?.method,
+    headers: {
+      host,
+      ...(opciones?.origin === undefined ? {} : { origin: opciones.origin }),
+    },
   });
 }
 
 describe("proxy", () => {
   it("deja pasar el host local canónico", () => {
     const respuesta = proxy(crearPeticion("127.0.0.1:3000"));
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("rechaza un POST sin Origin", async () => {
+    const respuesta = proxy(
+      crearPeticion("127.0.0.1:3000", "/cursos/demo", { method: "POST" }),
+    );
+
+    expect(respuesta.status).toBe(403);
+    expect(await respuesta.text()).toBe("Origin no permitido");
+  });
+
+  it("rechaza un POST con un Origin ajeno", async () => {
+    const respuesta = proxy(
+      crearPeticion("127.0.0.1:3000", "/cursos/demo", {
+        method: "POST",
+        origin: "http://sitio.ejemplo",
+      }),
+    );
+
+    expect(respuesta.status).toBe(403);
+  });
+
+  it("deja pasar un POST con el Origin canónico", () => {
+    const respuesta = proxy(
+      crearPeticion("127.0.0.1:3000", "/cursos/demo", {
+        method: "POST",
+        origin: "http://127.0.0.1:3000",
+      }),
+    );
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.headers.get("x-middleware-next")).toBe("1");

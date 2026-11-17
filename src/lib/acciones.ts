@@ -14,17 +14,15 @@ const PIEZA_VALIDA = /^(leccion|reel-salida(-[1-9][0-9]*)?|short-[1-9][0-9]*)$/;
 const REDES_VALIDAS = new Set<string>(REDES.map(([id]) => id));
 const ESTADOS_VALIDOS = new Set(["pendiente", "programado", "publicado"]);
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/;
-const MENSAJE_TOKEN_AUSENTE = "Falta ESTUDIO_TOKEN en el .env de la web";
 
 export type ResultadoAccion =
   | { ok: true; vista: VistaPublicacion; aviso?: string }
   | { ok: false; mensaje: string };
 
-function validarDestino(
+function validarPieza(
   curso: unknown,
   numero: unknown,
   pieza: unknown,
-  red?: unknown,
 ): ResultadoAccion | null {
   if (typeof curso !== "string" || !CURSO_VALIDO.test(curso)) {
     return { ok: false, mensaje: "El curso no es válido" };
@@ -40,7 +38,18 @@ function validarDestino(
   if (typeof pieza !== "string" || !PIEZA_VALIDA.test(pieza)) {
     return { ok: false, mensaje: "La pieza no es válida" };
   }
-  if (red !== undefined && (typeof red !== "string" || !REDES_VALIDAS.has(red))) {
+  return null;
+}
+
+function validarDestino(
+  curso: unknown,
+  numero: unknown,
+  pieza: unknown,
+  red: unknown,
+): ResultadoAccion | null {
+  const errorPieza = validarPieza(curso, numero, pieza);
+  if (errorPieza) return errorPieza;
+  if (typeof red !== "string" || !REDES_VALIDAS.has(red)) {
     return { ok: false, mensaje: "La red no es válida" };
   }
   return null;
@@ -85,6 +94,52 @@ function sonTextosRed(valor: unknown): valor is TextosRed {
   );
 }
 
+function errorDeLimitesTextos(
+  red: string,
+  textos: TextosRed,
+): ResultadoAccion | null {
+  if (textos.titulos.some((titulo) => titulo.length > 100)) {
+    return { ok: false, mensaje: "El campo titulos supera los 100 caracteres" };
+  }
+  if (textos.descripcion !== null && textos.descripcion.length > 5000) {
+    return { ok: false, mensaje: "El campo descripcion supera los 5000 caracteres" };
+  }
+  if (textos.etiquetas.join(", ").length > 500) {
+    return { ok: false, mensaje: "El campo etiquetas supera los 500 caracteres" };
+  }
+  const limiteTexto = red === "linkedin" ? 3000 :
+    red === "instagram" || red === "tiktok" ? 2200 : null;
+  if (
+    limiteTexto !== null &&
+    textos.texto !== null &&
+    textos.texto.length > limiteTexto
+  ) {
+    return {
+      ok: false,
+      mensaje: `El campo texto supera los ${limiteTexto} caracteres`,
+    };
+  }
+  if (
+    textos.comentario_fijado !== null &&
+    textos.comentario_fijado.length > 10000
+  ) {
+    return {
+      ok: false,
+      mensaje: "El campo comentario_fijado supera los 10000 caracteres",
+    };
+  }
+  if (textos.ajustes.length > 30) {
+    return { ok: false, mensaje: "El campo ajustes supera las 30 líneas" };
+  }
+  if (textos.ajustes.some((linea) => linea.length > 300)) {
+    return {
+      ok: false,
+      mensaje: "El campo ajustes contiene una línea de más de 300 caracteres",
+    };
+  }
+  return null;
+}
+
 async function detalleDe(respuesta: Response): Promise<unknown> {
   try {
     const datos = (await respuesta.clone().json()) as { detail?: unknown };
@@ -102,7 +157,6 @@ async function resultadoDe(respuesta: Response): Promise<ResultadoAccion> {
   if (respuesta.ok) {
     try {
       const vista = (await respuesta.json()) as VistaPublicacion;
-      refresh();
       return vista.aviso
         ? { ok: true, vista, aviso: vista.aviso }
         : { ok: true, vista };
@@ -112,14 +166,15 @@ async function resultadoDe(respuesta: Response): Promise<ResultadoAccion> {
   }
 
   const detalle = await detalleDe(respuesta);
-  if (respuesta.status === 503 && detalle === MENSAJE_TOKEN_AUSENTE) {
-    return { ok: false, mensaje: MENSAJE_TOKEN_AUSENTE };
+  if (respuesta.status === 422 && typeof detalle === "string") {
+    return { ok: false, mensaje: detalle };
   }
 
   const mensajes: Record<number, string> = {
     401: "La API ha rechazado el token de escritura",
     404: "No se ha encontrado la lección o la pieza",
     409: "No se puede guardar: publicacion.json está corrupto",
+    411: "La API requiere conocer el tamaño de la petición",
     413: "La petición supera el límite de 256 KB",
     422: "Los datos enviados no son válidos",
     503: "La API tiene las escrituras desactivadas: falta ESTUDIO_TOKEN",
@@ -131,11 +186,20 @@ async function resultadoDe(respuesta: Response): Promise<ResultadoAccion> {
 }
 
 async function ejecutar(ruta: string, cuerpo: unknown): Promise<ResultadoAccion> {
+  let escritura;
   try {
-    return await resultadoDe(await escribir(ruta, cuerpo));
-  } catch {
+    escritura = await escribir(ruta, cuerpo);
+  } catch (error) {
+    console.error("Error inesperado al escribir en la API", {
+      tipo: error instanceof Error ? error.name : typeof error,
+    });
     return { ok: false, mensaje: "No se puede conectar con la API" };
   }
+
+  if (!escritura.ok) return escritura;
+  const resultado = await resultadoDe(escritura.respuesta);
+  if (resultado.ok) refresh();
+  return resultado;
 }
 
 function rutaPieza(curso: string, numero: number, pieza: string): string {
@@ -148,10 +212,16 @@ export async function elegirPortada(
   pieza: string,
   ruta: string,
 ): Promise<ResultadoAccion> {
-  const error = validarDestino(curso, numero, pieza);
+  const error = validarPieza(curso, numero, pieza);
   if (error) return error;
   if (typeof ruta !== "string" || ruta.length === 0) {
     return { ok: false, mensaje: "La ruta de la portada no es válida" };
+  }
+  if (ruta.length > 500) {
+    return {
+      ok: false,
+      mensaje: "La ruta de la portada supera los 500 caracteres",
+    };
   }
 
   return ejecutar(`${rutaPieza(curso, numero, pieza)}/portada`, { ruta });
@@ -172,7 +242,7 @@ export async function cambiarEstado(
 
   return ejecutar(
     `${rutaPieza(curso, numero, pieza)}/redes/${encodeURIComponent(red)}/estado`,
-    estado,
+    { estado: estado.estado, fecha: estado.fecha, url: estado.url },
   );
 }
 
@@ -188,9 +258,22 @@ export async function guardarTextos(
   if (!sonTextosRed(textos)) {
     return { ok: false, mensaje: "Los textos no son válidos" };
   }
+  const errorLimites = errorDeLimitesTextos(red, textos);
+  if (errorLimites) return errorLimites;
+
+  const cuerpo: TextosRed = {
+    titulos: textos.titulos,
+    descripcion: textos.descripcion,
+    etiquetas: textos.etiquetas,
+    texto: textos.texto,
+    comentario_fijado: textos.comentario_fijado,
+    ajustes: textos.ajustes,
+    video: textos.video,
+    notas: textos.notas,
+  };
 
   return ejecutar(
     `${rutaPieza(curso, numero, pieza)}/redes/${encodeURIComponent(red)}/textos`,
-    textos,
+    cuerpo,
   );
 }
