@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
 import { CabeceraTareas } from "@/components/tareas/CabeceraTareas";
+import { BotonEditarTarea, BotonNuevaTarea } from "@/components/tareas/FormularioTarea";
 import { VistaDia } from "@/components/tareas/VistaDia";
 import { VistaSemana } from "@/components/tareas/VistaSemana";
 import {
@@ -49,7 +50,13 @@ async function ContenidoTareas({
 
   return (
     <>
-      <CabeceraTareas parametros={parametros} hoy={hoy} cursos={cursos} tipos={tipos} />
+      <CabeceraTareas
+        parametros={parametros}
+        hoy={hoy}
+        cursos={cursos}
+        tipos={tipos}
+        accion={<BotonNuevaTarea cursos={cursos} tipos={tipos} fecha={parametros.dia} />}
+      />
       <div className="mt-8">
         {semana ? (
           <VistaSemana tareas={datos.tareas} tipos={tipos} parametros={parametros} />
@@ -60,6 +67,7 @@ async function ContenidoTareas({
             cursos={cursos}
             tipos={tipos}
             esHoy={esHoy}
+            editar={(tarea) => <BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />}
           />
         )}
       </div>
