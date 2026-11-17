@@ -3,6 +3,7 @@ import type {
   Leccion,
   LeccionResumen,
   TareasDelRango,
+  Teleprompter,
   TipoTarea,
   VistaPublicacion,
 } from "@/lib/tipos";
@@ -126,6 +127,20 @@ export async function obtenerPublicacion(
 
   return pedir<VistaPublicacion>(
     `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/publicacion`,
+    { nullEn404: true },
+  );
+}
+
+export async function obtenerTeleprompter(
+  curso: string,
+  numero: number,
+): Promise<Teleprompter | null> {
+  if (!Number.isInteger(numero) || numero < 1 || numero > 999) {
+    return null;
+  }
+
+  return pedir<Teleprompter>(
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/teleprompter`,
     { nullEn404: true },
   );
 }

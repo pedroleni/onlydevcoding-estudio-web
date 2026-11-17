@@ -153,3 +153,67 @@ export interface VistaPublicacion {
   guia: string | null;
   aviso: string | null;
 }
+
+export interface Trabajo {
+  id: number;
+  accion: string;
+  curso: string | null;
+  numero: number | null;
+  estado: "en_marcha" | "hecho" | "error" | "interrumpido";
+  progreso: number;
+  inicio: string;
+  fin: string | null;
+  error: string | null;
+}
+
+export interface EstadoPrevia {
+  ruta: string | null;
+  existe: boolean;
+  desactualizada: boolean;
+  version: number | null;
+  trabajo: Trabajo | null;
+}
+
+export interface EscenaTeleprompter {
+  id: string;
+  modo: "voz" | "camara";
+  titulo: string;
+  cues: Array<{
+    texto: string;
+    pausa?: number;
+  }>;
+  puntos: string[];
+  grabada: boolean;
+  toma: string | null;
+  version_toma: number | null;
+}
+
+export interface Montaje {
+  fps: number;
+  duracion: number;
+  escenas: Array<{
+    id: string;
+    modo: "voz" | "camara" | "animacion";
+    inicio: number;
+    duracion: number;
+    cues: number[];
+  }>;
+}
+
+export interface Teleprompter {
+  curso: string;
+  numero: number;
+  guion: string;
+  titulo: string;
+  version: string;
+  escenas: EscenaTeleprompter[];
+  montaje: Montaje | null;
+  previa: EstadoPrevia;
+}
+
+export interface TomaGuardada {
+  escena: string;
+  ruta: string;
+  version: number;
+  bytes: number;
+}

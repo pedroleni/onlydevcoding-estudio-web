@@ -7,6 +7,7 @@ import { obtenerLeccion, obtenerLecciones } from "@/lib/api";
 import { escribir } from "@/lib/api-escritura";
 import { COLORES_TAREA } from "@/lib/colores-tareas";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
+import { detalleDe } from "@/lib/detalle-api";
 import { esFechaValida } from "@/lib/fechas";
 import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
 import type { EnlaceTarea, TareaNueva, TipoTarea } from "@/lib/tipos";
@@ -131,19 +132,6 @@ async function origenPermitido(): Promise<boolean> {
     cabeceras.get("host") === HOST_ESTUDIO &&
     cabeceras.get("origin") === ORIGEN_ESTUDIO
   );
-}
-
-async function detalleDe(respuesta: Response): Promise<unknown> {
-  try {
-    const datos = (await respuesta.clone().json()) as { detail?: unknown };
-    return datos.detail;
-  } catch {
-    try {
-      return await respuesta.text();
-    } catch {
-      return null;
-    }
-  }
 }
 
 async function resultadoDe(respuesta: Response): Promise<ResultadoAccionTareas> {

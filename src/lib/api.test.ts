@@ -6,6 +6,7 @@ import {
   obtenerCursos,
   obtenerLeccion,
   obtenerPublicacion,
+  obtenerTeleprompter,
   obtenerTareas,
   obtenerTiposTarea,
 } from "@/lib/api";
@@ -108,6 +109,39 @@ describe("cliente de la API local", () => {
     fetchCon(404);
 
     await expect(obtenerPublicacion("react", 99)).resolves.toBeNull();
+  });
+
+  it("obtiene el teleprompter por su ruta real", async () => {
+    const teleprompter = {
+      curso: "react",
+      numero: 4,
+      guion: "react-04",
+      titulo: "Lección de prueba",
+      version: "a".repeat(64),
+      escenas: [],
+      montaje: null,
+      previa: {
+        ruta: null,
+        existe: false,
+        desactualizada: false,
+        version: null,
+        trabajo: null,
+      },
+    };
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(teleprompter));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(obtenerTeleprompter("react", 4)).resolves.toEqual(teleprompter);
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/cursos/react/lecciones/4/teleprompter",
+      { cache: "no-store" },
+    );
+  });
+
+  it("devuelve null si el teleprompter no existe", async () => {
+    fetchCon(404);
+
+    await expect(obtenerTeleprompter("react", 99)).resolves.toBeNull();
   });
 
   it("obtiene tareas con el rango y la opción de atrasadas", async () => {

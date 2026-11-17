@@ -8,6 +8,10 @@
   --tenue: #8e8e98;
   --marca: #299bc6;
   --carbon: #28272a;
+  --azul-claro: #6ccbef;
+  --rojo: #ef6b5e;
+  --verde: #4bc98c;
+  --ambar: #f2b33d;
 }
 
 @theme inline {
@@ -18,6 +22,10 @@
   --color-tenue: var(--tenue);
   --color-marca: var(--marca);
   --color-carbon: var(--carbon);
+  --color-azul-claro: var(--azul-claro);
+  --color-rojo: var(--rojo);
+  --color-verde: var(--verde);
+  --color-ambar: var(--ambar);
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 }
