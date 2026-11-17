@@ -6,11 +6,11 @@ export type EscenaMontaje = {
   cues: number[];
 };
 
-export type ObjetivoPrevia = {
-  tiempo: number;
-  ritmo: number;
-  pausar: boolean;
-};
+export type ObjetivoLectura =
+  | { pausar: true }
+  | { tiempo: number; ritmo: number; pausar: false };
+
+export type ObjetivoToma = { tiempo: number; ritmo: number };
 
 type ParametrosLectura = {
   t: number;
@@ -36,7 +36,9 @@ export function objetivoLectura({
   escenaMontaje,
   fps,
   iniciosFrases,
-}: ParametrosLectura): ObjetivoPrevia {
+}: ParametrosLectura): ObjetivoLectura {
+  if (t >= plan.total) return { pausar: true };
+
   const numeroFrases = iniciosFrases.length;
   let inicioVideo: number;
   let finVideo: number;
@@ -73,20 +75,15 @@ export function objetivoLectura({
 
   const finEscena =
     (escenaMontaje.inicio + escenaMontaje.duracion) / fps - 0.05;
-  const inicioEscena = escenaMontaje.inicio / fps + 0.05;
   const ritmo = limitarRitmo(
     (finVideo - inicioVideo) / Math.max(0.2, finPlan - inicioPlan),
   );
   const tiempo = Math.min(
     finEscena,
-    Math.max(
-      inicioEscena,
-      inicioVideo,
-      inicioVideo + (t - inicioPlan) * ritmo,
-    ),
+    Math.max(inicioVideo, inicioVideo + (t - inicioPlan) * ritmo),
   );
 
-  return { tiempo, ritmo, pausar: t >= plan.total };
+  return { tiempo, ritmo, pausar: false };
 }
 
 export function objetivoToma({
@@ -94,14 +91,16 @@ export function objetivoToma({
   duracionToma,
   escenaMontaje,
   fps,
-}: ParametrosToma): ObjetivoPrevia {
+}: ParametrosToma): ObjetivoToma | null {
+  if (!Number.isFinite(duracionToma) || duracionToma <= 0) return null;
+
   const inicio = escenaMontaje.inicio / fps;
   const duracion = escenaMontaje.duracion / fps;
   const ritmo = limitarRitmo(duracion / duracionToma);
   const tiempo = Math.min(
     inicio + duracion - 0.05,
-    Math.max(inicio + 0.05, inicio + tiempoToma * ritmo),
+    inicio + tiempoToma * ritmo,
   );
 
-  return { tiempo, ritmo, pausar: tiempoToma >= duracionToma };
+  return { tiempo, ritmo };
 }

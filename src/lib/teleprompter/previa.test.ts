@@ -12,7 +12,7 @@ const plan: Plan = {
 };
 
 describe("objetivoLectura", () => {
-  it("respeta el margen inicial de la escena", () => {
+  it("mapea la primera frase desde el inicio exacto de la escena", () => {
     const objetivo = objetivoLectura({
       t: 0,
       plan,
@@ -21,19 +21,31 @@ describe("objetivoLectura", () => {
       iniciosFrases: [0, 2],
     });
 
-    expect(objetivo.tiempo).toBe(10.05);
+    expect(objetivo).toEqual({ tiempo: 10, ritmo: 1, pausar: false });
   });
 
-  it("mapea la segunda frase a su tramo cuando coinciden las frases", () => {
+  it("cambia al tramo de la segunda frase justo cuando empieza", () => {
     const objetivo = objetivoLectura({
-      t: 2.5,
+      t: 2,
       plan,
       escenaMontaje: { inicio: 300, duracion: 180, cues: [0, 60] },
       fps: 30,
       iniciosFrases: [0, 2],
     });
 
-    expect(objetivo).toEqual({ tiempo: 13, ritmo: 2, pausar: false });
+    expect(objetivo).toEqual({ tiempo: 12, ritmo: 2, pausar: false });
+  });
+
+  it("mapea el último tramo hasta el final de la escena", () => {
+    const objetivo = objetivoLectura({
+      t: 3.99,
+      plan,
+      escenaMontaje: { inicio: 300, duracion: 180, cues: [0, 60] },
+      fps: 30,
+      iniciosFrases: [0, 2],
+    });
+
+    expect(objetivo).toEqual({ tiempo: 15.95, ritmo: 2, pausar: false });
   });
 
   it("reparte la escena entera cuando no coincide el número de frases", () => {
@@ -48,7 +60,7 @@ describe("objetivoLectura", () => {
     expect(objetivo).toEqual({ tiempo: 13, ritmo: 1.5, pausar: false });
   });
 
-  it("marca la pausa una vez pasado el final", () => {
+  it("devuelve solo la orden de pausa al alcanzar el final", () => {
     expect(
       objetivoLectura({
         t: 4,
@@ -56,8 +68,8 @@ describe("objetivoLectura", () => {
         escenaMontaje: { inicio: 300, duracion: 180, cues: [0, 60] },
         fps: 30,
         iniciosFrases: [0, 2],
-      }).pausar,
-    ).toBe(true);
+      }),
+    ).toEqual({ pausar: true });
   });
 
   it("usa un intervalo mínimo de 0.2 segundos para calcular el ritmo", () => {
@@ -75,13 +87,15 @@ describe("objetivoLectura", () => {
       iniciosFrases: [0, 0.1],
     });
 
+    expect(objetivo.pausar).toBe(false);
+    if (objetivo.pausar) throw new Error("Se esperaba un objetivo de lectura");
     expect(objetivo.ritmo).toBe(0.5);
     expect(objetivo.tiempo).toBeCloseTo(0.125);
   });
 });
 
 describe("objetivoToma", () => {
-  it("respeta el margen inicial de la escena", () => {
+  it("empieza en el inicio exacto de la escena", () => {
     const objetivo = objetivoToma({
       tiempoToma: 0,
       duracionToma: 10,
@@ -89,7 +103,7 @@ describe("objetivoToma", () => {
       fps: 30,
     });
 
-    expect(objetivo.tiempo).toBe(10.05);
+    expect(objetivo).toEqual({ tiempo: 10, ritmo: 0.6 });
   });
 
   it("estira la escena a la toma y respeta el margen final", () => {
@@ -100,8 +114,22 @@ describe("objetivoToma", () => {
       fps: 30,
     });
 
-    expect(objetivo).toEqual({ tiempo: 15.95, ritmo: 0.6, pausar: true });
+    expect(objetivo).toEqual({ tiempo: 15.95, ritmo: 0.6 });
   });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "no calcula un objetivo con duración de toma no válida: %s",
+    (duracionToma) => {
+      expect(
+        objetivoToma({
+          tiempoToma: 0,
+          duracionToma,
+          escenaMontaje: { inicio: 300, duracion: 180, cues: [0, 60] },
+          fps: 30,
+        }),
+      ).toBeNull();
+    },
+  );
 
   it.each([
     [1, 10, 0.25],
@@ -113,7 +141,7 @@ describe("objetivoToma", () => {
         duracionToma: toma,
         escenaMontaje: { inicio: 0, duracion, cues: [] },
         fps: 1,
-      }).ritmo,
+      })?.ritmo,
     ).toBe(ritmo);
   });
 });
