@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, useTransition, type ReactNode } from "react";
+import { useId, useOptimistic, useState, useTransition, type ReactNode } from "react";
 
 import { borrarTarea, marcarHecha } from "@/lib/acciones-tareas";
 import { fechaLegible } from "@/lib/fechas";
@@ -22,15 +22,18 @@ export function FilaTarea({
   const id = useId();
   const [pendiente, iniciar] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // La casilla cambia al instante; si la acción falla, vuelve sola al valor del servidor.
+  const [hecha, setHechaOptimista] = useOptimistic(tarea.hecha);
 
   const href = hrefEnlace(tarea);
   const etiqueta = etiquetaEnlace(tarea);
   const roto = tarea.enlace_vista?.roto === true;
 
-  function cambiarHecha(hecha: boolean) {
+  function cambiarHecha(nueva: boolean) {
     setError(null);
     iniciar(async () => {
-      const resultado = await marcarHecha(tarea.id, hecha);
+      setHechaOptimista(nueva);
+      const resultado = await marcarHecha(tarea.id, nueva);
       if (!resultado.ok) setError(resultado.mensaje);
     });
   }
@@ -53,7 +56,7 @@ export function FilaTarea({
       <input
         id={id}
         type="checkbox"
-        checked={tarea.hecha}
+        checked={hecha}
         disabled={pendiente}
         onChange={(evento) => cambiarHecha(evento.target.checked)}
         className="mt-1 size-4 shrink-0 accent-marca focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca"
@@ -61,7 +64,7 @@ export function FilaTarea({
       <div className="min-w-0 flex-1">
         <label
           htmlFor={id}
-          className={`break-words ${tarea.hecha ? "text-tenue line-through" : "text-texto"}`}
+          className={`break-words ${hecha ? "text-tenue line-through" : "text-texto"}`}
         >
           {tarea.texto}
         </label>

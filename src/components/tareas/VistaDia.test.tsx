@@ -196,4 +196,29 @@ describe("VistaDia", () => {
     await waitFor(() => expect(borrarTarea).toHaveBeenCalledWith(5));
     expect(confirmar).toHaveBeenCalledTimes(2);
   });
+
+  it("marca la casilla al instante mientras espera a la API", async () => {
+    let terminar: (valor: { ok: true }) => void = () => {};
+    vi.mocked(marcarHecha).mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          terminar = resolver;
+        }),
+    );
+    render(
+      <VistaDia
+        tareas={[tarea({ id: 8, texto: "Montaje" })]}
+        atrasadas={[]}
+        cursos={cursos}
+        tipos={tipos}
+        esHoy={false}
+      />,
+    );
+
+    const casilla = screen.getByRole("checkbox", { name: "Montaje" });
+    await userEvent.click(casilla);
+
+    expect(casilla).toBeChecked();
+    terminar({ ok: true });
+  });
 });
