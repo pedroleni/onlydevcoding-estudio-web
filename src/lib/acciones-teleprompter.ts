@@ -5,11 +5,14 @@ import { headers } from "next/headers";
 
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO } from "@/lib/curso";
+import { detalleDe } from "@/lib/detalle-api";
 import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
 import type { Teleprompter, Trabajo } from "@/lib/tipos";
 
-const VERSION_VALIDA = /^[0-9a-fA-F]{64}$/;
+const VERSION_VALIDA = /^[0-9a-f]{64}$/;
 const ESCENA_VALIDA = /^E\d{2}$/;
+const MAXIMO_ELEMENTOS = 200;
+const ESTADOS_CON_DETALLE = new Set([404, 409, 422]);
 
 export interface TextosEscena {
   id: string;
@@ -52,17 +55,27 @@ function textoValido(valor: unknown): valor is string {
 }
 
 function normalizarLista(valor: unknown): string[] | null {
-  if (!Array.isArray(valor) || !valor.every(textoValido)) return null;
-  return valor.map((texto) => texto.trim());
+  if (!Array.isArray(valor)) return null;
+  const longitud = valor.length;
+  if (longitud > MAXIMO_ELEMENTOS) return null;
+
+  const copia: string[] = [];
+  for (let indice = 0; indice < longitud; indice += 1) {
+    const texto = valor[indice];
+    if (!textoValido(texto)) return null;
+    copia.push(texto.trim());
+  }
+  return copia;
 }
 
 function normalizarEscenas(valor: unknown): TextosEscena[] | null {
-  if (!Array.isArray(valor) || valor.length < 1 || valor.length > 200) {
-    return null;
-  }
+  if (!Array.isArray(valor)) return null;
+  const longitud = valor.length;
+  if (longitud < 1 || longitud > MAXIMO_ELEMENTOS) return null;
 
   const escenas: TextosEscena[] = [];
-  for (const candidata of valor) {
+  for (let indice = 0; indice < longitud; indice += 1) {
+    const candidata = valor[indice];
     if (typeof candidata !== "object" || candidata === null) return null;
     const { id, cues, puntos } = candidata as Record<string, unknown>;
     if (typeof id !== "string" || !ESCENA_VALIDA.test(id)) return null;
@@ -86,19 +99,6 @@ async function origenPermitido(): Promise<boolean> {
     cabeceras.get("host") === HOST_ESTUDIO &&
     cabeceras.get("origin") === ORIGEN_ESTUDIO
   );
-}
-
-async function detalleDe(respuesta: Response): Promise<unknown> {
-  try {
-    const datos = (await respuesta.clone().json()) as { detail?: unknown };
-    return datos.detail;
-  } catch {
-    try {
-      return await respuesta.text();
-    } catch {
-      return null;
-    }
-  }
 }
 
 function mensajeEstado(estado: number): string {
@@ -145,7 +145,9 @@ export async function guardarTextos(
 
   const { respuesta } = escritura;
   if (!respuesta.ok) {
-    const detalle = await detalleDe(respuesta);
+    const detalle = ESTADOS_CON_DETALLE.has(respuesta.status)
+      ? await detalleDe(respuesta, { textoBruto: false })
+      : undefined;
     const mensaje = typeof detalle === "string" ? detalle : mensajeEstado(respuesta.status);
     return respuesta.status === 409
       ? { ok: false, mensaje, conflicto: true }
@@ -185,7 +187,9 @@ export async function generarPreviaGrabacion(
 
   const { respuesta } = escritura;
   if (!respuesta.ok) {
-    const detalle = await detalleDe(respuesta);
+    const detalle = ESTADOS_CON_DETALLE.has(respuesta.status)
+      ? await detalleDe(respuesta, { textoBruto: false })
+      : undefined;
     return error(
       typeof detalle === "string" ? detalle : mensajeEstado(respuesta.status),
     );

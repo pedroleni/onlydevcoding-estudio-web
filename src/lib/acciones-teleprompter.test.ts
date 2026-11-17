@@ -100,6 +100,44 @@ describe("Server Actions del teleprompter", () => {
     expect(refreshSimulado).toHaveBeenCalledOnce();
   });
 
+  it("rechaza una lista de textos con huecos antes de escribir", async () => {
+    const cues = Array<string>(2);
+    cues[1] = "Texto válido";
+
+    await expect(guardarTextos("react", 4, "a".repeat(64), [
+      { id: "E01", cues },
+    ])).resolves.toMatchObject({ ok: false });
+
+    expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it("lee cada índice una sola vez y copia la lista recibida", async () => {
+    let lecturas = 0;
+    const cues = ["valor provisional"];
+    Object.defineProperty(cues, 0, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        lecturas += 1;
+        return lecturas === 1 ? "  Texto estable  " : "Texto\ninválido";
+      },
+    });
+
+    await expect(guardarTextos("react", 4, "a".repeat(64), [
+      { id: "E01", cues },
+    ])).resolves.toEqual({ ok: true, teleprompter });
+
+    expect(lecturas).toBe(1);
+    expect(escribirSimulado).toHaveBeenCalledWith(
+      "/api/cursos/react/lecciones/4/guion/textos",
+      {
+        version: "a".repeat(64),
+        escenas: [{ id: "E01", cues: ["Texto estable"] }],
+      },
+      "PUT",
+    );
+  });
+
   it.each([
     ["una versión inválida", "x".repeat(64), [{ id: "E01", cues: ["Texto"] }]],
     ["ninguna escena", "a".repeat(64), []],
@@ -111,6 +149,8 @@ describe("Server Actions del teleprompter", () => {
     ["un control Unicode", "a".repeat(64), [{ id: "E01", cues: ["Texto\u0085otro"] }]],
     ["un texto vacío", "a".repeat(64), [{ id: "E01", cues: ["   "] }]],
     ["un texto demasiado largo", "a".repeat(64), [{ id: "E01", cues: ["a".repeat(1001)] }]],
+    ["más de 200 textos", "a".repeat(64), [{ id: "E01", cues: Array(201).fill("Texto") }]],
+    ["hexadecimal en mayúsculas", "A".repeat(64), [{ id: "E01", cues: ["Texto"] }]],
   ])("rechaza %s antes de escribir", async (_caso, version, escenas) => {
     await expect(guardarTextos("react", 4, version, escenas)).resolves.toMatchObject({ ok: false });
     expect(escribirSimulado).not.toHaveBeenCalled();
@@ -134,6 +174,35 @@ describe("Server Actions del teleprompter", () => {
       {},
       "POST",
     );
+  });
+
+  it("solo muestra detail JSON en 404, 409 y 422", async () => {
+    escribirSimulado
+      .mockResolvedValueOnce({
+        ok: true,
+        respuesta: Response.json({ detail: "No existe la lección" }, { status: 404 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        respuesta: new Response("detalle interno en bruto", { status: 422 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        respuesta: Response.json({ detail: "detalle interno del servidor" }, { status: 500 }),
+      });
+
+    await expect(generarPreviaGrabacion("react", 4)).resolves.toEqual({
+      ok: false,
+      mensaje: "No existe la lección",
+    });
+    await expect(generarPreviaGrabacion("react", 4)).resolves.toEqual({
+      ok: false,
+      mensaje: "Los datos enviados no son válidos",
+    });
+    await expect(generarPreviaGrabacion("react", 4)).resolves.toEqual({
+      ok: false,
+      mensaje: "La API ha rechazado la petición",
+    });
   });
 
   it("bloquea un origen ajeno antes de escribir", async () => {

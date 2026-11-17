@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { describe, expect, it } from "vitest";
 
 import { config, proxy } from "@/proxy";
@@ -90,7 +91,26 @@ describe("proxy", () => {
     expect(await respuesta.text()).toBe("Host no permitido");
   });
 
-  it("excluye todas las rutas internas de _next", () => {
-    expect(config.matcher).toEqual(["/((?!_next(?:/|$)).*)"]);
+  it("no se ejecuta al subir tomas y sí en las demás rutas de la app", () => {
+    expect(unstable_doesMiddlewareMatch({
+      config,
+      url: "/grabar/react/4/E03",
+    })).toBe(false);
+    expect(unstable_doesMiddlewareMatch({ config, url: "/" })).toBe(true);
+    expect(unstable_doesMiddlewareMatch({
+      config,
+      url: "/teleprompter?curso=react&leccion=4",
+    })).toBe(true);
+    expect(unstable_doesMiddlewareMatch({
+      config,
+      url: "/cursos/react/lecciones/4",
+    })).toBe(true);
+  });
+
+  it("sigue excluyendo todas las rutas internas de _next", () => {
+    expect(unstable_doesMiddlewareMatch({
+      config,
+      url: "/_next/static/chunks/app.js",
+    })).toBe(false);
   });
 });

@@ -4,7 +4,7 @@ function sinBarraFinal(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
-function urlApiPublica(): string {
+export function urlApiPublica(): string {
   return sinBarraFinal(process.env.NEXT_PUBLIC_API_URL ?? API_LOCAL);
 }
 

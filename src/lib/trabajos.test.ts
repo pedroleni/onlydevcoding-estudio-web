@@ -40,4 +40,15 @@ describe("lectura de trabajos", () => {
 
     await expect(leerTrabajo(7)).rejects.toThrow("estado 404");
   });
+
+  it.each([0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(
+    "rechaza el id inválido %s sin hacer fetch",
+    async (id) => {
+      const fetchSimulado = vi.fn();
+      vi.stubGlobal("fetch", fetchSimulado);
+
+      await expect(leerTrabajo(id)).rejects.toThrow("no es válido");
+      expect(fetchSimulado).not.toHaveBeenCalled();
+    },
+  );
 });

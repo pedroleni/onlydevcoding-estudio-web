@@ -13,6 +13,10 @@ function sinBarraFinal(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
+export function urlApi(): string {
+  return sinBarraFinal(process.env.API_URL ?? API_LOCAL);
+}
+
 export async function escribir(
   ruta: string,
   cuerpo: unknown,
@@ -29,8 +33,7 @@ export async function escribir(
     return { ok: false, mensaje: "El cuerpo supera el límite de 256 KB" };
   }
 
-  const api = sinBarraFinal(process.env.API_URL ?? API_LOCAL);
-  const respuesta = await fetch(`${api}${ruta}`, {
+  const respuesta = await fetch(`${urlApi()}${ruta}`, {
     method: metodo,
     headers: {
       "Content-Type": "application/json",

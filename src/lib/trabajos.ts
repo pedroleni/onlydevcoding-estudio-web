@@ -1,12 +1,11 @@
 import type { Trabajo } from "@/lib/tipos";
-
-const API_LOCAL = "http://127.0.0.1:8000";
-
-function urlApiPublica(): string {
-  return (process.env.NEXT_PUBLIC_API_URL ?? API_LOCAL).replace(/\/+$/, "");
-}
+import { urlApiPublica } from "@/lib/medios";
 
 export async function leerTrabajo(id: number): Promise<Trabajo> {
+  if (!Number.isSafeInteger(id) || id < 1) {
+    throw new Error("El id del trabajo no es válido");
+  }
+
   const respuesta = await fetch(`${urlApiPublica()}/api/trabajos/${id}`, {
     method: "GET",
     cache: "no-store",

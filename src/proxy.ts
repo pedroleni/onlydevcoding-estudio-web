@@ -50,5 +50,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/((?!_next(?:/|$)).*)"],
+  matcher: ["/((?!_next(?:/|$)|grabar(?:/|$)).*)"],
 };

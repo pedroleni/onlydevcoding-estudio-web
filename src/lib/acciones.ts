@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
+import { detalleDe } from "@/lib/detalle-api";
 import { errorLimitesTextos } from "@/lib/limites";
 import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
 import type {
@@ -97,19 +98,6 @@ function sonTextosEditables(valor: unknown): valor is TextosEditables {
     esListaDeCadenas(textos.ajustes) &&
     esCadenaONull(textos.notas)
   );
-}
-
-async function detalleDe(respuesta: Response): Promise<unknown> {
-  try {
-    const datos = (await respuesta.clone().json()) as { detail?: unknown };
-    return datos.detail;
-  } catch {
-    try {
-      return await respuesta.text();
-    } catch {
-      return null;
-    }
-  }
 }
 
 async function resultadoDe(respuesta: Response): Promise<ResultadoAccion> {
