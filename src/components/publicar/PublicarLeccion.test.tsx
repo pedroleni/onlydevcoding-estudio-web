@@ -7,12 +7,13 @@ import { ElegirPortada } from "@/components/publicar/ElegirPortada";
 import { EstadoPublicacion } from "@/components/publicar/EstadoPublicacion";
 import { PublicarLeccion } from "@/components/publicar/PublicarLeccion";
 import { PanelTextosRed } from "@/components/publicar/TextosRed";
-import { cambiarEstado, elegirPortada } from "@/lib/acciones";
+import { cambiarEstado, elegirPortada, guardarTextos } from "@/lib/acciones";
 import type { PiezaVista, VistaPublicacion } from "@/lib/tipos";
 
 vi.mock("@/lib/acciones", () => ({
   cambiarEstado: vi.fn(),
   elegirPortada: vi.fn(),
+  guardarTextos: vi.fn(),
 }));
 
 const textosYoutube = {
@@ -85,6 +86,7 @@ describe("pestaña Publicar", () => {
     vi.clearAllMocks();
     vi.mocked(cambiarEstado).mockResolvedValue({ ok: true, vista });
     vi.mocked(elegirPortada).mockResolvedValue({ ok: true, vista });
+    vi.mocked(guardarTextos).mockResolvedValue({ ok: true, vista });
   });
 
   afterEach(() => {
@@ -145,6 +147,9 @@ describe("pestaña Publicar", () => {
     const textoYoutube = "Texto preparado para YouTube";
     const { rerender } = render(
       <PanelTextosRed
+        curso="curso-ficticio"
+        numero={4}
+        pieza="leccion"
         red="instagram"
         textos={{
           ...textosYoutube,
@@ -161,6 +166,9 @@ describe("pestaña Publicar", () => {
 
     rerender(
       <PanelTextosRed
+        curso="curso-ficticio"
+        numero={4}
+        pieza="leccion"
         red="youtube"
         textos={{ ...textosYoutube, texto: textoYoutube }}
         fechaPropuesta={null}
@@ -226,6 +234,9 @@ describe("pestaña Publicar", () => {
   it("pone en rojo el contador de un título de YouTube que pasa de 100", () => {
     render(
       <PanelTextosRed
+        curso="curso-ficticio"
+        numero={4}
+        pieza="leccion"
         red="youtube"
         textos={{ ...textosYoutube, titulos: ["a".repeat(101)] }}
         fechaPropuesta={null}
@@ -391,6 +402,9 @@ describe("pestaña Publicar", () => {
   it("da contexto accesible a cada botón de copia", () => {
     render(
       <PanelTextosRed
+        curso="curso-ficticio"
+        numero={4}
+        pieza="leccion"
         red="youtube"
         textos={textosYoutube}
         fechaPropuesta={null}

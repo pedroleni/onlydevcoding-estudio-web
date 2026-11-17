@@ -109,6 +109,10 @@ export function PublicarLeccion({
 
               <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
                 <PanelTextosRed
+                  key={`${pieza.id}-${red.red}`}
+                  curso={vista.curso}
+                  numero={vista.numero}
+                  pieza={pieza.id}
                   red={red.red}
                   textos={red.textos}
                   fechaPropuesta={pieza.fecha_propuesta}

@@ -1,5 +1,10 @@
+"use client";
+
+import { useState } from "react";
+
 import { BotonCopiar } from "@/components/publicar/BotonCopiar";
 import { Contador } from "@/components/publicar/Contador";
+import { EditorTextosRed } from "@/components/publicar/EditorTextosRed";
 import { fechaPublicacionLegible } from "@/lib/fecha-publicacion";
 import { LIMITES_PUBLICACION, limiteTextoRed } from "@/lib/limites";
 import { urlMedio } from "@/lib/medios";
@@ -35,17 +40,66 @@ function CampoTexto({
 }
 
 export function PanelTextosRed({
+  curso,
+  numero,
+  pieza,
   red,
   textos,
   fechaPropuesta,
 }: {
+  curso: string;
+  numero: number;
+  pieza: string;
   red: RedVista["red"];
   textos: TextosRedDatos | null;
   fechaPropuesta: string | null;
 }) {
+  const [editando, setEditando] = useState(false);
+  const [confirmacion, setConfirmacion] = useState<string | null>(null);
+
+  if (editando) {
+    return (
+      <EditorTextosRed
+        curso={curso}
+        numero={numero}
+        pieza={pieza}
+        red={red}
+        textos={textos}
+        onCancelar={() => setEditando(false)}
+        onGuardado={(mensaje) => {
+          setConfirmacion(mensaje);
+          setEditando(false);
+        }}
+      />
+    );
+  }
+
+  const controles = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      {confirmacion ? (
+        <p role="status" className="text-sm text-marca">
+          {confirmacion}
+        </p>
+      ) : (
+        <span />
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          setConfirmacion(null);
+          setEditando(true);
+        }}
+        className="min-h-11 border border-marca px-4 text-sm font-semibold text-marca transition-colors hover:bg-marca hover:text-fondo"
+      >
+        Editar
+      </button>
+    </div>
+  );
+
   if (textos === null) {
     return (
       <div className="grid gap-5">
+        {controles}
         <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
           Esta red todavía no tiene textos preparados.
         </p>
@@ -64,6 +118,7 @@ export function PanelTextosRed({
 
   return (
     <div className="grid gap-4">
+      {controles}
       {titulos.length > 0 ? (
         <section aria-labelledby="titulos-red" className="grid gap-3">
           <h3 id="titulos-red" className="text-sm font-semibold uppercase tracking-[0.14em] text-tenue">
@@ -81,7 +136,7 @@ export function PanelTextosRed({
                       Recomendado
                     </span>
                   ) : null}
-                  <p className="break-words text-sm leading-6">{titulo || "—"}</p>
+                  <p className="break-words text-sm leading-6">{titulo}</p>
                 </div>
                 <BotonCopiar
                   texto={titulo}
