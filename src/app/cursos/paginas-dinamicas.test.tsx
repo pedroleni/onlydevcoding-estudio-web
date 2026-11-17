@@ -115,6 +115,7 @@ beforeEach(() => {
       nombre: "Curso ficticio",
       carpeta: "curso-ficticio",
       lecciones: 1,
+      en_disco: true,
     },
   ]);
   vi.mocked(obtenerPublicacion).mockResolvedValue(null);
