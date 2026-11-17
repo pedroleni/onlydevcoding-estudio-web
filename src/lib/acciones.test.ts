@@ -178,9 +178,6 @@ describe("Server Actions de publicación", () => {
   });
 
   it.each([
-    ["titulos", { titulos: ["a".repeat(101)] }, "El campo titulos supera los 100 caracteres"],
-    ["descripcion", { descripcion: "a".repeat(5001) }, "El campo descripcion supera los 5000 caracteres"],
-    ["etiquetas", { etiquetas: ["a".repeat(499), "b"] }, "El campo etiquetas supera los 500 caracteres"],
     ["texto", { texto: "a".repeat(2201) }, "El campo texto supera los 2200 caracteres"],
     ["comentario_fijado", { comentario_fijado: "a".repeat(10001) }, "El campo comentario_fijado supera los 10000 caracteres"],
     ["ajustes por líneas", { ajustes: Array.from({ length: 31 }, () => "a") }, "El campo ajustes supera las 30 líneas"],
@@ -196,6 +193,38 @@ describe("Server Actions de publicación", () => {
       }),
     ).resolves.toEqual({ ok: false, mensaje });
     expect(fetchSimulado).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["titulos", { titulos: ["a".repeat(101)] }, "El campo titulos supera los 100 caracteres"],
+    ["descripcion", { descripcion: "a".repeat(5001) }, "El campo descripcion supera los 5000 caracteres"],
+    ["etiquetas", { etiquetas: ["a".repeat(499), "b"] }, "El campo etiquetas supera los 500 caracteres"],
+  ])("aplica el límite de YouTube a %s", async (_campo, cambio, mensaje) => {
+    const fetchSimulado = vi.fn();
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(
+      guardarTextos("react", 4, "leccion", "youtube", {
+        ...textosValidos,
+        ...cambio,
+      }),
+    ).resolves.toEqual({ ok: false, mensaje });
+    expect(fetchSimulado).not.toHaveBeenCalled();
+  });
+
+  it("no aplica los límites exclusivos de YouTube a Instagram", async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(vista));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(
+      guardarTextos("react", 4, "leccion", "instagram", {
+        ...textosValidos,
+        titulos: ["a".repeat(101)],
+        descripcion: "a".repeat(5001),
+        etiquetas: ["a".repeat(501)],
+      }),
+    ).resolves.toEqual({ ok: true, vista });
+    expect(fetchSimulado).toHaveBeenCalledOnce();
   });
 
   it("aplica a LinkedIn el límite de 3000 caracteres del campo texto", async () => {

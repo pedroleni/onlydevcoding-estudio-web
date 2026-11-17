@@ -4,8 +4,10 @@ import { refresh } from "next/cache";
 
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
+import { errorLimitesTextos } from "@/lib/limites";
 import type {
   EstadoRed,
+  RedVista,
   TextosRed,
   VistaPublicacion,
 } from "@/lib/tipos";
@@ -92,52 +94,6 @@ function sonTextosRed(valor: unknown): valor is TextosRed {
     esCadenaONull(textos.video) &&
     esCadenaONull(textos.notas)
   );
-}
-
-function errorDeLimitesTextos(
-  red: string,
-  textos: TextosRed,
-): ResultadoAccion | null {
-  if (textos.titulos.some((titulo) => titulo.length > 100)) {
-    return { ok: false, mensaje: "El campo titulos supera los 100 caracteres" };
-  }
-  if (textos.descripcion !== null && textos.descripcion.length > 5000) {
-    return { ok: false, mensaje: "El campo descripcion supera los 5000 caracteres" };
-  }
-  if (textos.etiquetas.join(", ").length > 500) {
-    return { ok: false, mensaje: "El campo etiquetas supera los 500 caracteres" };
-  }
-  const limiteTexto = red === "linkedin" ? 3000 :
-    red === "instagram" || red === "tiktok" ? 2200 : null;
-  if (
-    limiteTexto !== null &&
-    textos.texto !== null &&
-    textos.texto.length > limiteTexto
-  ) {
-    return {
-      ok: false,
-      mensaje: `El campo texto supera los ${limiteTexto} caracteres`,
-    };
-  }
-  if (
-    textos.comentario_fijado !== null &&
-    textos.comentario_fijado.length > 10000
-  ) {
-    return {
-      ok: false,
-      mensaje: "El campo comentario_fijado supera los 10000 caracteres",
-    };
-  }
-  if (textos.ajustes.length > 30) {
-    return { ok: false, mensaje: "El campo ajustes supera las 30 líneas" };
-  }
-  if (textos.ajustes.some((linea) => linea.length > 300)) {
-    return {
-      ok: false,
-      mensaje: "El campo ajustes contiene una línea de más de 300 caracteres",
-    };
-  }
-  return null;
 }
 
 async function detalleDe(respuesta: Response): Promise<unknown> {
@@ -258,8 +214,8 @@ export async function guardarTextos(
   if (!sonTextosRed(textos)) {
     return { ok: false, mensaje: "Los textos no son válidos" };
   }
-  const errorLimites = errorDeLimitesTextos(red, textos);
-  if (errorLimites) return errorLimites;
+  const errorLimites = errorLimitesTextos(red as RedVista["red"], textos);
+  if (errorLimites) return { ok: false, mensaje: errorLimites };
 
   const cuerpo: TextosRed = {
     titulos: textos.titulos,
