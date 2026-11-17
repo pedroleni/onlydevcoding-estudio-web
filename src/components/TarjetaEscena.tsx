@@ -1,4 +1,4 @@
-import { urlMedio } from "@/lib/api";
+import { urlMedio } from "@/lib/medios";
 import { textoLegible } from "@/lib/texto-legible";
 import type { Escena } from "@/lib/tipos";
 

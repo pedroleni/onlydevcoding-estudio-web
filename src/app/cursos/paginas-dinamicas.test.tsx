@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PaginaCurso from "@/app/cursos/[curso]/page";
 import PaginaLeccion from "@/app/cursos/[curso]/[numero]/page";
 import { notFound } from "next/navigation";
-import { obtenerCursos, obtenerLeccion } from "@/lib/api";
-import type { Leccion } from "@/lib/tipos";
+import { obtenerCursos, obtenerLeccion, obtenerPublicacion } from "@/lib/api";
+import type { Leccion, VistaPublicacion } from "@/lib/tipos";
 
 vi.mock("next/server", () => ({
   connection: vi.fn().mockResolvedValue(undefined),
@@ -16,6 +16,11 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
 }));
 
+vi.mock("@/lib/acciones", () => ({
+  cambiarEstado: vi.fn(),
+  elegirPortada: vi.fn(),
+}));
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/api")>();
   return {
@@ -23,6 +28,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     obtenerCursos: vi.fn(),
     obtenerLecciones: vi.fn(),
     obtenerLeccion: vi.fn(),
+    obtenerPublicacion: vi.fn(),
   };
 });
 
@@ -69,13 +75,20 @@ const leccion: Leccion = {
 async function renderizarContenidoLeccion({
   numero = "1",
   pestana,
+  pieza,
+  red,
 }: {
   numero?: string;
   pestana?: string;
+  pieza?: string;
+  red?: string;
 } = {}) {
+  const consulta = Object.fromEntries(
+    Object.entries({ pestana, pieza, red }).filter(([, valor]) => valor !== undefined),
+  );
   const pagina = PaginaLeccion({
     params: Promise.resolve({ curso: "curso-ficticio", numero }),
-    searchParams: Promise.resolve(pestana ? { pestana } : {}),
+    searchParams: Promise.resolve(consulta),
   });
   const suspense = (
     pagina as ReactElement<{
@@ -104,6 +117,7 @@ beforeEach(() => {
       lecciones: 1,
     },
   ]);
+  vi.mocked(obtenerPublicacion).mockResolvedValue(null);
 });
 
 describe("shell de las páginas dinámicas", () => {
@@ -159,6 +173,66 @@ describe("shell de las páginas dinámicas", () => {
     render(await renderizarContenidoLeccion({ pestana: "desconocida" }));
 
     expect(screen.getByRole("tab", { name: "Guion" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("pasa la pieza y la red de la URL a la pestaña Publicar", async () => {
+    const publicacion: VistaPublicacion = {
+      curso: "curso-ficticio",
+      numero: 1,
+      piezas: [
+        {
+          id: "leccion",
+          tipo: "leccion",
+          titulo: "Pieza ficticia",
+          video: null,
+          duracion: "1:00",
+          fecha_propuesta: null,
+          portadas: [],
+          portada_elegida: null,
+          redes: [
+            {
+              red: "youtube",
+              textos: null,
+              estado: { estado: "pendiente", fecha: null, url: null },
+            },
+            {
+              red: "instagram",
+              textos: {
+                titulos: [],
+                descripcion: null,
+                etiquetas: [],
+                texto: "Texto ficticio de Instagram",
+                comentario_fijado: null,
+                ajustes: [],
+                video: null,
+                notas: null,
+              },
+              estado: { estado: "pendiente", fecha: null, url: null },
+            },
+          ],
+        },
+      ],
+      despues_de_publicar: [],
+      notas: null,
+      error: null,
+      guia: null,
+      aviso: null,
+    };
+    vi.mocked(obtenerPublicacion).mockResolvedValue(publicacion);
+
+    render(
+      await renderizarContenidoLeccion({
+        pestana: "publicar",
+        pieza: "leccion",
+        red: "instagram",
+      }),
+    );
+
+    expect(obtenerPublicacion).toHaveBeenCalledWith("curso-ficticio", 1);
+    expect(screen.getByRole("tab", { name: "Instagram" })).toHaveAttribute(
       "aria-selected",
       "true",
     );

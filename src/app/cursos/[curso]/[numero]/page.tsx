@@ -12,15 +12,22 @@ import {
   type PestanaLeccion,
 } from "@/components/PestanasLeccion";
 import { TarjetaEscena } from "@/components/TarjetaEscena";
+import { PublicarLeccion } from "@/components/publicar/PublicarLeccion";
 import {
   ApiNoDisponible,
   ErrorApi,
   obtenerCursos,
   obtenerLeccion,
+  obtenerPublicacion,
 } from "@/lib/api";
 import { CURSO_VALIDO } from "@/lib/curso";
 import { textoLegible } from "@/lib/texto-legible";
-import type { Escena, EstadoLeccion, Leccion } from "@/lib/tipos";
+import type {
+  Escena,
+  EstadoLeccion,
+  Leccion,
+  VistaPublicacion,
+} from "@/lib/tipos";
 
 const NUMERO_VALIDO = /^[1-9]\d{0,2}$/;
 
@@ -75,9 +82,15 @@ function BloqueGrabacion({
 function ContenidoPestana({
   leccion,
   pestana,
+  publicacion,
+  piezaSeleccionada,
+  redSeleccionada,
 }: {
   leccion: Leccion;
   pestana: PestanaLeccion;
+  publicacion: VistaPublicacion | null;
+  piezaSeleccionada?: string;
+  redSeleccionada?: string;
 }) {
   if (pestana === "grabaciones") {
     return (
@@ -125,18 +138,16 @@ function ContenidoPestana({
   }
 
   if (pestana === "publicar") {
-    return (
-      <div
-        role="tabpanel"
-        className="border border-borde bg-superficie p-8 md:p-12"
-      >
-        <h2 className="text-2xl font-semibold tracking-[-0.025em]">
-          Llega en la fase 2
-        </h2>
-        <p className="mt-3 text-tenue">
-          Aquí prepararás la publicación de la lección en cada red.
-        </p>
-      </div>
+    return publicacion ? (
+      <PublicarLeccion
+        vista={publicacion}
+        piezaSeleccionada={piezaSeleccionada}
+        redSeleccionada={redSeleccionada}
+      />
+    ) : (
+      <p role="tabpanel" className="border border-borde bg-superficie p-6 text-tenue">
+        No se ha encontrado la información de publicación de esta lección.
+      </p>
     );
   }
 
@@ -214,6 +225,22 @@ async function ContenidoLeccion({
   const pestana: PestanaLeccion = esPestanaLeccion(valorPestana)
     ? valorPestana
     : "guion";
+  const valorPieza = Array.isArray(consulta.pieza)
+    ? consulta.pieza[0]
+    : consulta.pieza;
+  const valorRed = Array.isArray(consulta.red) ? consulta.red[0] : consulta.red;
+
+  let publicacion: VistaPublicacion | null = null;
+  if (pestana === "publicar") {
+    try {
+      publicacion = await obtenerPublicacion(curso, numero);
+    } catch (error) {
+      if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+        return <AvisoApi error={error} />;
+      }
+      throw error;
+    }
+  }
 
   return (
     <>
@@ -254,7 +281,13 @@ async function ContenidoLeccion({
       </div>
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <ContenidoPestana leccion={leccion} pestana={pestana} />
+        <ContenidoPestana
+          leccion={leccion}
+          pestana={pestana}
+          publicacion={publicacion}
+          piezaSeleccionada={valorPieza}
+          redSeleccionada={valorRed}
+        />
         <PanelEstado estado={leccion.estado} />
       </div>
     </>

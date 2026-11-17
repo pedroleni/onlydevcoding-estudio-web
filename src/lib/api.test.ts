@@ -5,7 +5,7 @@ import {
   ErrorApi,
   obtenerCursos,
   obtenerLeccion,
-  urlMedio,
+  obtenerPublicacion,
 } from "@/lib/api";
 
 function fetchFalla() {
@@ -81,6 +81,33 @@ describe("cliente de la API local", () => {
     expect(await obtenerLeccion("react", 99)).toBeNull();
   });
 
+  it("obtiene la vista de publicación por su ruta real", async () => {
+    const vista = {
+      curso: "react",
+      numero: 4,
+      piezas: [],
+      despues_de_publicar: [],
+      notas: null,
+      error: null,
+      guia: null,
+      aviso: null,
+    };
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(vista));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(obtenerPublicacion("react", 4)).resolves.toEqual(vista);
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/cursos/react/lecciones/4/publicacion",
+      { cache: "no-store" },
+    );
+  });
+
+  it("devuelve null si la publicación no existe", async () => {
+    fetchCon(404);
+
+    await expect(obtenerPublicacion("react", 99)).resolves.toBeNull();
+  });
+
   it.each([Number.NaN, 1.5])(
     "no consulta la API para un número de lección inválido: %s",
     async (numero) => {
@@ -92,9 +119,4 @@ describe("cliente de la API local", () => {
     },
   );
 
-  it("urlMedio codifica la ruta", () => {
-    expect(urlMedio("cursos/REACT/a b.mp4")).toBe(
-      "http://127.0.0.1:8000/api/medios?ruta=cursos%2FREACT%2Fa%20b.mp4",
-    );
-  });
 });

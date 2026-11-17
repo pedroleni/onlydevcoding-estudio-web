@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { urlMedio } from "@/lib/api";
+import { urlMedio } from "@/lib/medios";
 import type { Pieza } from "@/lib/tipos";
 
 function Reproductor({
