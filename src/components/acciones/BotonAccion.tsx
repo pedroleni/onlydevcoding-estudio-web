@@ -15,10 +15,12 @@ export const BOTON_CANCELAR =
   "inline-flex min-h-10 cursor-pointer items-center justify-center border border-rojo px-3 text-sm font-semibold text-rojo transition-colors hover:enabled:bg-rojo hover:enabled:text-fondo disabled:cursor-default disabled:opacity-40";
 const OTRO_TRABAJO_EN_MARCHA = "Ya hay un trabajo en marcha";
 
-// Las acciones con objetivo lo envían en su opción: la escena en `mejorar-toma`, el short en
-// `render-short`.
+// Las acciones con objetivo lo envían en su opción: la escena en `mejorar-toma`, el gancho en
+// `color-ganchos` y el short en `render-short`.
 function opcionesDelObjetivo(accion: IdAccion, objetivo: string): OpcionesAccion {
-  return accion === "mejorar-toma" ? { escena: objetivo } : { short: objetivo };
+  if (accion === "mejorar-toma") return { escena: objetivo };
+  if (accion === "color-ganchos") return { gancho: objetivo };
+  return { short: objetivo };
 }
 
 export function textoEstadoTrabajo(trabajo: Trabajo): string {
@@ -70,7 +72,8 @@ export function BotonAccion({
   numero: number;
   accion: EstadoAccion;
   opciones?: OpcionesAccion;
-  // Short (`render-short`) o escena (`mejorar-toma`) del trabajo: se sigue el de `ultimos[objetivo]`.
+  // Short (`render-short`), escena (`mejorar-toma`) o gancho (`color-ganchos`) del trabajo: se
+  // sigue el de `ultimos[objetivo]`.
   objetivo?: string;
   textoBoton?: string;
   // Nombre para el lector de pantalla cuando el texto visible se repite (p. ej. un botón por short).

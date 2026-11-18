@@ -64,7 +64,17 @@ function FilaEscena({
   );
 }
 
-function FilaGancho({ gancho }: { gancho: GanchoCamara }) {
+function FilaGancho({
+  curso,
+  numero,
+  gancho,
+  color,
+}: {
+  curso: string;
+  numero: number;
+  gancho: GanchoCamara;
+  color: EstadoAccion | null;
+}) {
   return (
     <li className="grid content-start gap-3 border border-borde bg-superficie p-4 text-sm">
       <div className="grid gap-1">
@@ -82,9 +92,21 @@ function FilaGancho({ gancho }: { gancho: GanchoCamara }) {
             preload="metadata"
             aria-label={`Toma del gancho ${gancho.id}`}
           />
-          <span className={gancho.color ? "text-verde" : "text-ambar"}>
-            {gancho.color ? "Color ajustado" : "Color sin ajustar"}
+          <span className={gancho.color ? "text-verde" : "text-tenue"}>
+            {gancho.color ? "Color ajustado" : "Color original"}
           </span>
+          {/* El ajuste de color es opcional: solo en los ganchos que se eligen. */}
+          {color ? (
+            <BotonAccion
+              curso={curso}
+              numero={numero}
+              accion={color}
+              objetivo={gancho.id}
+              textoBoton="Ajustar el color"
+              // El nombre accesible empieza por el texto visible del botón (WCAG 2.5.3).
+              nombreAccesible={`Ajustar el color (${gancho.id})`}
+            />
+          ) : null}
         </>
       ) : (
         <span className="text-tenue">Sin grabar</span>
@@ -168,14 +190,17 @@ export function TomasCamara({
           <div className="grid gap-3">
             <h3 className="m-0 text-base font-semibold">Ganchos</h3>
             {camara.ganchos.length > 0 ? (
-              <>
-                {color ? <BotonAccion curso={curso} numero={numero} accion={color} /> : null}
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {camara.ganchos.map((gancho) => (
-                    <FilaGancho key={gancho.id} gancho={gancho} />
-                  ))}
-                </ul>
-              </>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {camara.ganchos.map((gancho) => (
+                  <FilaGancho
+                    key={gancho.id}
+                    curso={curso}
+                    numero={numero}
+                    gancho={gancho}
+                    color={color}
+                  />
+                ))}
+              </ul>
             ) : (
               <p className={VACIO}>No hay ganchos.</p>
             )}

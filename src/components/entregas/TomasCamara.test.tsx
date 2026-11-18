@@ -230,25 +230,79 @@ describe("TomasCamara", () => {
     expect(within(fila("Escena ficticia diecisiete")).getByText("Hecho")).toBeInTheDocument();
   });
 
-  it("cada gancho enseña su vídeo y si tiene el color ajustado, con un solo botón de color", async () => {
-    vi.mocked(lanzarAccion).mockResolvedValue({
-      ok: true,
-      trabajo: trabajo({ id: 72, accion: "color-ganchos", objetivo: null }),
-    });
+  it("cada gancho enseña su vídeo y si tiene el color ajustado u original", () => {
     pintar();
 
     const video = screen.getByLabelText("Toma del gancho S2");
     expect(video.tagName).toBe("VIDEO");
     expect(video).toHaveAttribute("preload", "metadata");
     expect(video.getAttribute("src")).toMatch(/B0C045C7\.mov&v=99$/);
-    expect(within(fila("Gancho ficticio dos")).getByText("Color sin ajustar")).toBeInTheDocument();
+    expect(within(fila("Gancho ficticio dos")).getByText("Color original")).toBeInTheDocument();
     expect(within(fila("Gancho ficticio tres")).getByText("Color ajustado")).toBeInTheDocument();
     expect(within(fila("Gancho ficticio cuatro")).getByText("Sin grabar")).toBeInTheDocument();
+    expect(screen.queryByText("Color sin ajustar")).not.toBeInTheDocument();
+  });
 
-    const botones = screen.getAllByRole("button", { name: "Ajustar el color de los ganchos" });
-    expect(botones).toHaveLength(1);
-    await userEvent.click(botones[0]);
-    expect(lanzarAccion).toHaveBeenCalledWith("react", 4, "color-ganchos", {});
+  it("no hay un botón de color para toda la lección: cada gancho entregado tiene el suyo", () => {
+    pintar();
+
+    expect(
+      screen.queryByRole("button", { name: "Ajustar el color de los ganchos" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(fila("Gancho ficticio dos")).getByRole("button", { name: "Ajustar el color (S2)" }),
+    ).toHaveTextContent("Ajustar el color");
+    expect(
+      within(fila("Gancho ficticio tres")).getByRole("button", { name: "Ajustar el color (S3)" }),
+    ).toBeInTheDocument();
+    expect(within(fila("Gancho ficticio cuatro")).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("ajustar el color de un gancho envía su id sin pedir confirmación", async () => {
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: true,
+      trabajo: trabajo({ id: 72, accion: "color-ganchos", objetivo: "S2" }),
+    });
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ajustar el color (S2)" }));
+
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(lanzarAccion).toHaveBeenCalledWith("react", 4, "color-ganchos", { gancho: "S2" });
+    expect(await within(fila("Gancho ficticio dos")).findByText("En marcha…")).toBeInTheDocument();
+    expect(within(fila("Gancho ficticio tres")).queryByText("En marcha…")).not.toBeInTheDocument();
+  });
+
+  it("cada gancho sigue su propio trabajo de color", () => {
+    pintar(CAMARA, [
+      ACCIONES[0],
+      {
+        ...ACCIONES[1],
+        opciones: ["S2", "S3"],
+        ultimo: trabajo({ id: 73, accion: "color-ganchos", objetivo: "S2" }),
+        ultimos: {
+          S2: trabajo({ id: 73, accion: "color-ganchos", objetivo: "S2" }),
+          S3: trabajo({
+            id: 74,
+            accion: "color-ganchos",
+            objetivo: "S3",
+            estado: "hecho",
+            progreso: 1,
+            fin: "2026-11-18T10:20:00Z",
+          }),
+        },
+      },
+    ]);
+
+    expect(within(fila("Gancho ficticio dos")).getByText("En marcha…")).toBeInTheDocument();
+    expect(within(fila("Gancho ficticio tres")).getByText("Hecho")).toBeInTheDocument();
+  });
+
+  it("el nombre accesible del botón de color contiene su texto visible", () => {
+    pintar();
+
+    const boton = screen.getByRole("button", { name: "Ajustar el color (S2)" });
+    expect(boton.getAttribute("aria-label")).toContain(boton.textContent?.trim());
   });
 
   it("el nombre accesible del botón de IA contiene su texto visible", () => {

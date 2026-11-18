@@ -26,7 +26,6 @@ const SIN_LANZAR = "No se han podido identificar las tomas. Vuelve a intentarlo.
 const SIN_LEER = "No se han podido leer las tomas entregadas. Vuelve a intentarlo.";
 const SIN_QUITAR = "No se ha podido quitar la toma. Vuelve a intentarlo.";
 const SIN_COLOCAR = "No se han podido colocar las tomas. Vuelve a intentarlo.";
-const SIN_COLOR = "No se ha podido ajustar el color de los ganchos. Vuelve a intentarlo.";
 const BOTON =
   "inline-flex min-h-11 cursor-pointer items-center justify-center border border-marca bg-carbon px-4 text-sm font-semibold text-texto transition-colors hover:enabled:bg-marca disabled:cursor-default disabled:opacity-40";
 const BOTON_QUITAR =
@@ -147,12 +146,10 @@ function avisosDeSustitucion(entregas: Entregas, asignaciones: AsignacionToma[])
 function EstadoTrabajo({
   trabajo,
   enCursoTexto,
-  hechoTexto,
   etiqueta,
 }: {
   trabajo: Trabajo | null;
   enCursoTexto: string;
-  hechoTexto: string | null;
   etiqueta: string;
 }) {
   if (!trabajo) return null;
@@ -164,11 +161,7 @@ function EstadoTrabajo({
       </p>
     );
   }
-  if (trabajo.estado === "hecho") {
-    return hechoTexto ? (
-      <p role="status" className="m-0 text-sm text-verde">{hechoTexto}</p>
-    ) : null;
-  }
+  if (trabajo.estado === "hecho") return null;
   return (
     <p role="status" className="m-0 text-sm text-ambar">
       {`${etiqueta}: ${textoEstadoTrabajo(trabajo)}`}
@@ -296,7 +289,7 @@ export function EntregaTomas({
   numero: number;
   // Escena de cámara del teleprompter en la que está la zona.
   escena?: string;
-  // Estado de las acciones de la lección, para seguir una identificación o un color en marcha.
+  // Estado de las acciones de la lección, para seguir una identificación en marcha.
   acciones?: EstadoAccion[] | null;
   // Avisa de si hay alguna subida en curso (el teleprompter pregunta antes de cambiar de lección).
   alCambiarSubiendo?: (subiendo: boolean) => void;
@@ -309,9 +302,6 @@ export function EntregaTomas({
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
   const [trabajoIdentificar, setTrabajoIdentificar] = useState<Trabajo | null>(() =>
     trabajoEnMarcha(acciones, "identificar-tomas"),
-  );
-  const [trabajoColor, setTrabajoColor] = useState<Trabajo | null>(() =>
-    trabajoEnMarcha(acciones, "color-ganchos"),
   );
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [colocadas, setColocadas] = useState(false);
@@ -413,13 +403,6 @@ export function EntregaTomas({
       void recargar(true);
     },
     refrescarAlTerminar: false,
-  });
-  const color = useSeguimientoTrabajo({
-    trabajo: trabajoColor,
-    alDesaparecer: () => {
-      setTrabajoColor(null);
-      void recargar(false);
-    },
   });
   const identificando = enMarcha(identificacion);
   // Mientras se identifica no se entregan más: lo nuevo no entraría en esta identificación.
@@ -562,10 +545,9 @@ export function EntregaTomas({
     archivo,
     destino: valorDe(archivo) || null,
   }));
-  // Mientras se lanza o sigue una identificación, o se ajusta el color, la propuesta puede
-  // cambiar o los ganchos están en uso: no se quita ni se coloca nada.
-  const bloqueada =
-    ocupado || subiendo || identificando || lanzandoIdentificacion || enMarcha(color);
+  // Mientras se lanza o sigue una identificación, la propuesta puede cambiar: no se quita ni se
+  // coloca nada.
+  const bloqueada = ocupado || subiendo || identificando || lanzandoIdentificacion;
   const textoSinAnalizar = identificando
     ? "Pendiente de identificar"
     : entregas?.propuesta
@@ -612,18 +594,8 @@ export function EntregaTomas({
         setMensaje(resultado.mensaje);
         return;
       }
+      // El color de los ganchos no se ajusta aquí: es opcional y se pide gancho a gancho.
       setColocadas(true);
-      if (resultado.resultado.ganchos > 0) {
-        let lanzado: Awaited<ReturnType<typeof lanzarAccion>>;
-        try {
-          lanzado = await lanzarAccion(curso, numero, "color-ganchos", {});
-        } catch {
-          lanzado = { ok: false, mensaje: SIN_COLOR };
-        }
-        if (!montado.current) return;
-        if (lanzado.ok) setTrabajoColor(lanzado.trabajo);
-        else setMensaje(lanzado.mensaje);
-      }
       await recargar(true);
       if (!montado.current) return;
       router.refresh();
@@ -687,7 +659,6 @@ export function EntregaTomas({
       <EstadoTrabajo
         trabajo={identificacion}
         enCursoTexto="Identificando las tomas"
-        hechoTexto={null}
         etiqueta="Identificar las tomas"
       />
 
@@ -764,12 +735,6 @@ export function EntregaTomas({
       {colocadas ? (
         <p role="status" className="m-0 text-sm text-verde">Tomas colocadas.</p>
       ) : null}
-      <EstadoTrabajo
-        trabajo={color}
-        enCursoTexto="Ajustando el color de los ganchos"
-        hechoTexto="Color de los ganchos ajustado."
-        etiqueta="Ajustar el color de los ganchos"
-      />
     </section>
   );
 }

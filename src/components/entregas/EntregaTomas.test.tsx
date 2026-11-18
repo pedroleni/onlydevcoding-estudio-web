@@ -346,7 +346,7 @@ describe("EntregaTomas", () => {
     expect(lanzarAccion).not.toHaveBeenCalled();
   });
 
-  it("con ganchos colocados lanza color-ganchos y lo sigue", async () => {
+  it("con ganchos colocados no ajusta el color: dice que están colocadas y refresca", async () => {
     vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: entregas() });
     vi.mocked(colocarTomas).mockResolvedValue({
       ok: true,
@@ -355,19 +355,14 @@ describe("EntregaTomas", () => {
         ganchos: 1,
       },
     });
-    vi.mocked(lanzarAccion).mockResolvedValue({
-      ok: true,
-      trabajo: trabajo({ id: 51, accion: "color-ganchos", progreso: 0.5 }),
-    });
     render(<EntregaTomas curso="react" numero={4} />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Colocar las tomas" }));
 
-    await waitFor(() =>
-      expect(lanzarAccion).toHaveBeenCalledWith("react", 4, "color-ganchos", {}),
-    );
-    expect(await screen.findByText(/Ajustando el color de los ganchos… 50 %/)).toBeInTheDocument();
-    expect(screen.getByText("Tomas colocadas.")).toBeInTheDocument();
+    expect(await screen.findByText("Tomas colocadas.")).toBeInTheDocument();
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    expect(lanzarAccion).not.toHaveBeenCalled();
+    expect(screen.queryByText(/color/i)).not.toBeInTheDocument();
   });
 
   it("muestra en una alerta el mensaje de un 422 al colocar", async () => {
@@ -441,36 +436,6 @@ describe("EntregaTomas", () => {
     expect(vi.mocked(leerEntregas).mock.calls.length).toBeGreaterThan(lecturas);
     expect(destino("Toma ficticia 1.MOV")).toHaveValue("E17");
     expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeEnabled();
-  });
-
-  it("si el trabajo de color desaparece, deja de decir que se está ajustando", async () => {
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
-    render(
-      <EntregaTomas
-        curso="react"
-        numero={4}
-        acciones={[
-          {
-            id: "color-ganchos",
-            etiqueta: "Ajustar el color de los ganchos",
-            disponible: true,
-            motivo: null,
-            opciones: [],
-            ultimo: trabajo({ id: 52, accion: "color-ganchos" }),
-            ultimos: {},
-          },
-        ]}
-      />,
-    );
-    await act(() => vi.advanceTimersByTimeAsync(0));
-    expect(screen.getByText("Ajustando el color de los ganchos…")).toBeInTheDocument();
-
-    await act(() => vi.advanceTimersByTimeAsync(2000));
-
-    expect(leerTrabajo).toHaveBeenCalledWith(52);
-    expect(screen.queryByText(/Ajustando el color/)).not.toBeInTheDocument();
-    expect(leerEntregas).toHaveBeenCalledTimes(2);
   });
 
   it("mientras se identifica, la zona de soltar está desactivada y lo dice", async () => {
@@ -709,7 +674,6 @@ describe("EntregaTomas: fallos de las Server Actions y revisión bloqueada", () 
   const SIN_LEER = "No se han podido leer las tomas entregadas. Vuelve a intentarlo.";
   const SIN_QUITAR = "No se ha podido quitar la toma. Vuelve a intentarlo.";
   const SIN_COLOCAR = "No se han podido colocar las tomas. Vuelve a intentarlo.";
-  const SIN_COLOR = "No se ha podido ajustar el color de los ganchos. Vuelve a intentarlo.";
 
   beforeEach(() => {
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
@@ -732,7 +696,7 @@ describe("EntregaTomas: fallos de las Server Actions y revisión bloqueada", () 
         motivo: null,
         opciones: [],
         ultimo: enMarchaColor,
-        ultimos: {},
+        ultimos: { S2: enMarchaColor },
       },
     ];
   }
@@ -774,27 +738,6 @@ describe("EntregaTomas: fallos de las Server Actions y revisión bloqueada", () 
     expect(destino("Toma ficticia 1.MOV")).toBeEnabled();
   });
 
-  it("si lanzar color-ganchos lanza, lo dice y la revisión vuelve a estar activa", async () => {
-    vi.mocked(colocarTomas).mockResolvedValue({
-      ok: true,
-      resultado: {
-        colocadas: [{ archivo: "Facetune ficticio.MOV", destino: "S2" }],
-        ganchos: 1,
-      },
-    });
-    vi.mocked(lanzarAccion).mockRejectedValue(new Error("detalle interno ficticio"));
-    render(<EntregaTomas curso="react" numero={4} />);
-
-    await userEvent.click(await screen.findByRole("button", { name: "Colocar las tomas" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(SIN_COLOR);
-    expect(screen.getByText("Tomas colocadas.")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Colocar las tomas" })).toBeEnabled(),
-    );
-    expect(screen.queryByText(/detalle interno ficticio/)).not.toBeInTheDocument();
-  });
-
   it("mientras se lanza la identificación, la revisión está bloqueada", async () => {
     let responder!: (valor: Awaited<ReturnType<typeof lanzarAccion>>) => void;
     vi.mocked(lanzarAccion).mockImplementation(
@@ -817,19 +760,19 @@ describe("EntregaTomas: fallos de las Server Actions y revisión bloqueada", () 
     );
   });
 
-  it("mientras se ajusta el color de los ganchos, la revisión está bloqueada", async () => {
-    vi.mocked(leerTrabajo).mockReturnValue(new Promise(() => undefined));
+  it("un ajuste de color en marcha no se sigue aquí ni bloquea la revisión", async () => {
     render(
       <EntregaTomas
         curso="react"
         numero={4}
-        acciones={estadoColor(trabajo({ id: 52, accion: "color-ganchos" }))}
+        acciones={estadoColor(trabajo({ id: 52, accion: "color-ganchos", objetivo: "S2" }))}
       />,
     );
 
-    expect(await screen.findByRole("button", { name: "Colocar las tomas" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Quitar Toma rota.MOV" })).toBeDisabled();
-    expect(destino("Toma ficticia 1.MOV")).toBeDisabled();
-    expect(screen.getByText(/Ajustando el color de los ganchos/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Colocar las tomas" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Quitar Toma rota.MOV" })).toBeEnabled();
+    expect(destino("Toma ficticia 1.MOV")).toBeEnabled();
+    expect(screen.queryByText(/color/i)).not.toBeInTheDocument();
+    expect(leerTrabajo).not.toHaveBeenCalled();
   });
 });
