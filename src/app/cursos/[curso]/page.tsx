@@ -11,7 +11,7 @@ import {
   obtenerCursos,
   obtenerLecciones,
 } from "@/lib/api";
-import { CURSO_VALIDO, marcaPublicacion, REDES } from "@/lib/curso";
+import { CURSO_VALIDO, gruposPublicacion } from "@/lib/curso";
 
 function CargandoCurso() {
   return (
@@ -100,18 +100,22 @@ async function ContenidoCurso({
                 <span className="border border-borde bg-carbon px-2 py-1">
                   {leccion.estado.video_final ? "✅" : "⬜"} Vídeo final
                 </span>
-                {REDES.map(([clave, nombre]) => {
-                  const marca = marcaPublicacion(leccion.estado, clave, nombre);
-                  return (
-                    <span
-                      key={clave}
-                      className="border border-borde bg-carbon px-2 py-1"
-                    >
+              </div>
+              {gruposPublicacion(leccion.estado).map((grupo) => (
+                <div
+                  key={grupo.titulo ?? "redes"}
+                  className="mt-2 flex flex-wrap items-center gap-2 text-xs text-tenue"
+                >
+                  {grupo.titulo ? (
+                    <span className="min-w-[7.5rem] font-medium text-texto">{grupo.titulo}</span>
+                  ) : null}
+                  {grupo.marcas.map((marca) => (
+                    <span key={marca.texto} className="border border-borde bg-carbon px-2 py-1">
                       {marca.icono} {marca.texto}
                     </span>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ))}
             </Link>
           ))}
         </div>

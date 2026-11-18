@@ -33,3 +33,39 @@ export function marcaPublicacion(
   const texto = avance.total > 1 ? `${nombre} ${avance.hechas}/${avance.total}` : nombre;
   return { icono, texto };
 }
+
+const GRUPOS = [
+  ["leccion", "Lección"],
+  ["cortos", "Reels y shorts"],
+] as const;
+
+export interface GrupoPublicacion {
+  titulo: string | null;
+  marcas: { icono: string; texto: string }[];
+}
+
+// Marcas de publicación separando la lección de los reels y shorts (en Instagram y
+// TikTok solo van los cortos). Cada grupo enseña solo las redes en que se publica.
+export function gruposPublicacion(estado: EstadoLeccion): GrupoPublicacion[] {
+  const porGrupo = estado.publicado_por_grupo;
+  if (!porGrupo) {
+    return [
+      {
+        titulo: null,
+        marcas: REDES.map(([clave, nombre]) => marcaPublicacion(estado, clave, nombre)),
+      },
+    ];
+  }
+  return GRUPOS.flatMap(([clave, titulo]) => {
+    const avances = porGrupo[clave] ?? {};
+    const marcas = REDES.flatMap(([red, nombre]) => {
+      const avance = avances[red];
+      if (!avance || avance.total === 0) return [];
+      const icono =
+        avance.hechas >= avance.total ? "✅" : avance.hechas > 0 ? "🟡" : "⬜";
+      const texto = avance.total > 1 ? `${nombre} ${avance.hechas}/${avance.total}` : nombre;
+      return [{ icono, texto }];
+    });
+    return marcas.length > 0 ? [{ titulo, marcas }] : [];
+  });
+}

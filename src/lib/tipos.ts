@@ -17,6 +17,8 @@ export interface EstadoLeccion {
   publicado: Record<string, boolean>;
   // Piezas publicadas de las previstas en cada red (las APIs anteriores no lo envían).
   publicado_avance?: Record<string, Avance>;
+  // «leccion» y «cortos» (reels y shorts): avance por red de cada grupo.
+  publicado_por_grupo?: Record<string, Record<string, Avance>>;
 }
 
 export interface Escena {
