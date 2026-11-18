@@ -116,7 +116,7 @@ export function TablaTrabajos({ trabajos }: { trabajos: Trabajo[] }) {
   }
 
   return (
-    <div className="mt-8 overflow-x-auto border border-borde bg-superficie">
+    <div className="relative mt-8 overflow-x-auto border border-borde bg-superficie">
       <table className="w-full min-w-[72rem] border-collapse text-sm text-tenue">
         <thead className="text-left text-xs uppercase tracking-[0.08em] text-texto">
           <tr>
