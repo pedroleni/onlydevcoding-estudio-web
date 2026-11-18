@@ -42,6 +42,7 @@ export function useSeguimientoPrevia({
   const [perdida, setPerdida] = useState<{ versionAntes: number | null } | null>(null);
   const [previaAnterior, setPreviaAnterior] = useState(previa);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [desaparecido, setDesaparecido] = useState<number | null>(null);
   const [pidiendo, iniciar] = useTransition();
 
   const esNueva = (versionAntes: number | null) =>
@@ -95,6 +96,10 @@ export function useSeguimientoPrevia({
   const trabajo = useSeguimientoTrabajo({
     trabajo: seguido ?? previa.trabajo,
     refrescarAlTerminar: false,
+    alDesaparecer(id) {
+      setDesaparecido(id);
+      setMensaje("El trabajo ya no existe.");
+    },
     alTerminar(leido) {
       setSeguido(leido);
       if (leido.estado === "hecho") {
@@ -123,7 +128,8 @@ export function useSeguimientoPrevia({
 
   return {
     trabajo,
-    generando: trabajo?.estado === "en_marcha" || espera !== null,
+    generando:
+      (trabajo?.estado === "en_marcha" && trabajo.id !== desaparecido) || espera !== null,
     perdida: perdida !== null,
     pidiendo,
     mensaje,

@@ -7,6 +7,7 @@ import { useSeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPr
 import { generarPreviaGrabacion } from "@/lib/acciones-teleprompter";
 import { urlMedio } from "@/lib/medios";
 import type { EstadoPrevia, Montaje, Trabajo } from "@/lib/tipos";
+import { TrabajoInexistente } from "@/lib/error-trabajo";
 import { leerTrabajo } from "@/lib/trabajos";
 
 const router = { refresh: vi.fn() };
@@ -229,6 +230,19 @@ describe("PanelPrevia", () => {
     expect(screen.getByText(/Falló la última vez \(Remotion terminó con el código 1\)\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generar vista previa" })).toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
+    await avanzar(10_000);
+    expect(leerTrabajo).toHaveBeenCalledTimes(1);
+  });
+
+  it("si el trabajo ya no existe, deja de consultar, lo dice y deja generarla", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
+    pintar({ ...sinPrevia, trabajo: trabajo() });
+
+    await avanzar(2000);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("El trabajo ya no existe.");
+    expect(screen.getByRole("button", { name: "Generar vista previa" })).toBeEnabled();
     await avanzar(10_000);
     expect(leerTrabajo).toHaveBeenCalledTimes(1);
   });

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TablaTrabajos } from "@/components/acciones/TablaTrabajos";
 import { cancelarTrabajo } from "@/lib/acciones-estudio";
+import { TrabajoInexistente } from "@/lib/error-trabajo";
 import type { Trabajo } from "@/lib/tipos";
 import { leerTrabajo } from "@/lib/trabajos";
 
@@ -46,10 +47,13 @@ describe("TablaTrabajos", () => {
     router.refresh.mockReset();
     vi.mocked(cancelarTrabajo).mockReset();
     vi.mocked(leerTrabajo).mockReset();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("muestra Cancelando… con el botón desactivado hasta que el sondeo ve el final", async () => {
@@ -57,17 +61,17 @@ describe("TablaTrabajos", () => {
     vi.mocked(leerTrabajo).mockResolvedValue(cancelado);
     render(<TablaTrabajos trabajos={[trabajo()]} />);
 
-    fireEvent.click(within(fila()).getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(within(fila()).getByRole("button", { name: "Cancelar el trabajo" }));
     await avanzar(0);
 
     expect(cancelarTrabajo).toHaveBeenCalledWith(42);
     expect(within(fila()).getByText("Cancelando…")).toBeInTheDocument();
-    expect(within(fila()).getByRole("button", { name: "Cancelar" })).toBeDisabled();
+    expect(within(fila()).getByRole("button", { name: "Cancelar el trabajo" })).toBeDisabled();
 
     await avanzar(2000);
 
     expect(within(fila()).getByText("Cancelado")).toBeInTheDocument();
-    expect(within(fila()).queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    expect(within(fila()).queryByRole("button", { name: "Cancelar el trabajo" })).not.toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalledOnce();
   });
 
@@ -81,7 +85,7 @@ describe("TablaTrabajos", () => {
     vi.mocked(leerTrabajo).mockResolvedValue(cancelado);
     render(<TablaTrabajos trabajos={[trabajo()]} />);
 
-    fireEvent.click(within(fila()).getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(within(fila()).getByRole("button", { name: "Cancelar el trabajo" }));
     await avanzar(2000);
     expect(within(fila()).getByText("Cancelado")).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalledOnce();
@@ -102,12 +106,51 @@ describe("TablaTrabajos", () => {
     vi.mocked(leerTrabajo).mockResolvedValue(trabajo());
     render(<TablaTrabajos trabajos={[trabajo()]} />);
 
-    fireEvent.click(within(fila()).getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(within(fila()).getByRole("button", { name: "Cancelar el trabajo" }));
     await avanzar(0);
 
     expect(within(fila()).getByRole("alert")).toHaveTextContent(
       "Ese trabajo no está en marcha",
     );
-    expect(within(fila()).getByRole("button", { name: "Cancelar" })).toBeEnabled();
+    expect(within(fila()).getByRole("button", { name: "Cancelar el trabajo" })).toBeEnabled();
+  });
+
+  it("pide confirmación antes de cancelar", async () => {
+    const confirmar = vi.mocked(window.confirm).mockReturnValue(false);
+    render(<TablaTrabajos trabajos={[trabajo()]} />);
+
+    fireEvent.click(within(fila()).getByRole("button", { name: "Cancelar el trabajo" }));
+    await avanzar(0);
+
+    expect(confirmar).toHaveBeenCalledWith("¿Cancelar el trabajo en marcha?");
+    expect(cancelarTrabajo).not.toHaveBeenCalled();
+  });
+
+  it("enseña el error del trabajo, pero no uno con aspecto de ruta", () => {
+    render(
+      <TablaTrabajos
+        trabajos={[
+          trabajo({ id: 1, estado: "error", error: "Remotion terminó con el código 1", fin: "2026-11-18T10:01:00Z" }),
+          trabajo({ id: 2, estado: "error", error: "Fallo en /ruta/ficticia/x.mp4", fin: "2026-11-18T10:01:00Z" }),
+        ]}
+      />,
+    );
+
+    const [, primera, segunda] = screen.getAllByRole("row");
+    expect(within(primera).getByText("Remotion terminó con el código 1")).toBeInTheDocument();
+    expect(within(segunda).getByText("Error")).toBeInTheDocument();
+    expect(within(segunda).queryByText(/ruta\/ficticia/)).not.toBeInTheDocument();
+  });
+
+  it("deja de sondear y lo dice si el trabajo ya no existe", async () => {
+    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
+    render(<TablaTrabajos trabajos={[trabajo()]} />);
+
+    await avanzar(2000);
+
+    expect(within(fila()).getByText("El trabajo ya no existe.")).toBeInTheDocument();
+    expect(within(fila()).queryByRole("button", { name: "Cancelar el trabajo" })).not.toBeInTheDocument();
+    await avanzar(10000);
+    expect(leerTrabajo).toHaveBeenCalledOnce();
   });
 });

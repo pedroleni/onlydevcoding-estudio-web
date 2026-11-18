@@ -1,12 +1,11 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { headers } from "next/headers";
 
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
-import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
+import { origenPermitido } from "@/lib/origen-servidor";
 import type { Teleprompter, Trabajo } from "@/lib/tipos";
 
 const VERSION_VALIDA = /^[0-9a-f]{64}$/;
@@ -15,6 +14,7 @@ const GANCHO_VALIDO = /^[A-Za-z0-9_-]{1,40}$/;
 const MAXIMO_ELEMENTOS = 200;
 const MAXIMO_GANCHOS = 20;
 const ESTADOS_CON_DETALLE = new Set([404, 409, 422]);
+const LECCION_OCUPADA = "No se puede cambiar mientras se prepara esta lección";
 
 export interface TextosEscena {
   id: string;
@@ -119,14 +119,6 @@ function normalizarGanchos(valor: unknown): TextoGancho[] | undefined | null {
   return ganchos;
 }
 
-async function origenPermitido(): Promise<boolean> {
-  const cabeceras = await headers();
-  return (
-    cabeceras.get("host") === HOST_ESTUDIO &&
-    cabeceras.get("origin") === ORIGEN_ESTUDIO
-  );
-}
-
 function mensajeEstado(estado: number): string {
   const mensajes: Record<number, string> = {
     401: "La API ha rechazado el token de escritura",
@@ -187,7 +179,9 @@ export async function guardarTextos(
       ? await detalleDe(respuesta, { textoBruto: false })
       : undefined;
     const mensaje = typeof detalle === "string" ? detalle : mensajeEstado(respuesta.status);
-    return respuesta.status === 409
+    // Un 409 es un conflicto de versión (se ofrece recargar), salvo cuando la lección está
+    // ocupada por un trabajo: eso se enseña como un error normal.
+    return respuesta.status === 409 && !mensaje.startsWith(LECCION_OCUPADA)
       ? { ok: false, mensaje, conflicto: true }
       : error(mensaje);
   }

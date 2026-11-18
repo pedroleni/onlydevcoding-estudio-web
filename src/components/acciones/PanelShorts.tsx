@@ -56,6 +56,7 @@ export function PanelShorts({
                 accion={accionRenderizar}
                 objetivo={short}
                 textoBoton="Renderizar"
+                nombreAccesible={`Renderizar ${short}`}
               />
             </li>
           ))}

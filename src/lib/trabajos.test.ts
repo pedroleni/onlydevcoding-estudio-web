@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { leerTrabajo } from "@/lib/trabajos";
+import { leerTrabajo, TrabajoInexistente } from "@/lib/trabajos";
 
 describe("lectura de trabajos", () => {
   afterEach(() => {
@@ -35,10 +35,20 @@ describe("lectura de trabajos", () => {
   it("lanza un error si la API no responde con 200", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ detail: "No encontrado" }, { status: 404 })),
+      vi.fn().mockResolvedValue(Response.json({ detail: "Error" }, { status: 500 })),
     );
 
-    await expect(leerTrabajo(7)).rejects.toThrow("estado 404");
+    await expect(leerTrabajo(7)).rejects.toThrow("estado 500");
+  });
+
+  it("distingue con un error propio el trabajo que ya no existe", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ detail: "El trabajo no existe" }, { status: 404 })),
+    );
+
+    const error = await leerTrabajo(7).catch((causa: unknown) => causa);
+    expect(error).toBeInstanceOf(TrabajoInexistente);
   });
 
   it.each([0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(

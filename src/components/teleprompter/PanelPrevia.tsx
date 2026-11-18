@@ -3,14 +3,15 @@
 import type { Ref } from "react";
 
 import type { SeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPrevia";
+import { textoErrorTrabajo } from "@/lib/error-trabajo";
 import { urlToma } from "@/lib/medios";
 import type { EstadoPrevia, Montaje } from "@/lib/tipos";
 
 const BOTON =
   "inline-flex cursor-pointer items-center justify-self-center rounded-[10px] border border-marca bg-marca px-4 py-2.5 font-semibold text-white transition-colors hover:enabled:border-tenue disabled:cursor-default disabled:opacity-40";
 
-// El error de un trabajo ya viene de la API como un mensaje genérico. Si aun así trae algo que
-// parece una ruta del disco, no se enseña: el teleprompter sale en capturas y vídeos.
+// El error de un trabajo pasa por el filtro común (`textoErrorTrabajo`): el teleprompter sale en
+// capturas y vídeos y nunca debe enseñar una ruta del disco.
 function textoFallo(
   error: string | null,
   estado: "error" | "interrumpido" | "cancelado",
@@ -18,10 +19,9 @@ function textoFallo(
   const motivo =
     estado === "cancelado"
       ? "se canceló"
-      : error ?? (estado === "interrumpido" ? "se interrumpió" : null);
-  return motivo && !/[/\\]/.test(motivo)
-    ? `Falló la última vez (${motivo}).`
-    : "Falló la última vez.";
+      : textoErrorTrabajo(error) ??
+        (estado === "interrumpido" && error === null ? "se interrumpió" : null);
+  return motivo ? `Falló la última vez (${motivo}).` : "Falló la última vez.";
 }
 
 // Solo pinta: el seguimiento del trabajo vive en la sesión (`useSeguimientoPrevia`), así que

@@ -121,4 +121,59 @@ describe("Server Actions de las acciones del estudio", () => {
       "POST",
     );
   });
+
+  it.each([
+    ["un origen ajeno", { host: "127.0.0.1:3000", origin: "http://sitio.ejemplo:3000" }],
+    ["un host ajeno", { host: "sitio.ejemplo:3000", origin: "http://127.0.0.1:3000" }],
+    ["sin origen", { host: "127.0.0.1:3000" }],
+  ])("lanzarAccion rechaza %s sin escribir", async (_caso, cabeceras) => {
+    headersSimulados.mockResolvedValueOnce(new Headers(cabeceras));
+
+    await expect(lanzarAccion("react", 4, "alinear-voz", {})).resolves.toEqual({
+      ok: false,
+      mensaje: "Origen no permitido",
+    });
+    expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["un origen ajeno", { host: "127.0.0.1:3000", origin: "http://sitio.ejemplo:3000" }],
+    ["un host ajeno", { host: "sitio.ejemplo:3000", origin: "http://127.0.0.1:3000" }],
+    ["sin origen", { host: "127.0.0.1:3000" }],
+  ])("cancelarTrabajo rechaza %s sin escribir", async (_caso, cabeceras) => {
+    headersSimulados.mockResolvedValueOnce(new Headers(cabeceras));
+
+    await expect(cancelarTrabajo(31)).resolves.toEqual({
+      ok: false,
+      mensaje: "Origen no permitido",
+    });
+    expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it("devuelve el detail de un 404 al cancelar un trabajo inexistente", async () => {
+    escribirSimulado.mockResolvedValueOnce({
+      ok: true,
+      respuesta: Response.json({ detail: "El trabajo no existe" }, { status: 404 }),
+    });
+
+    await expect(cancelarTrabajo(999)).resolves.toEqual({
+      ok: false,
+      mensaje: "El trabajo no existe",
+    });
+  });
+
+  it("devuelve el detail del 409 de una lección sin guion", async () => {
+    escribirSimulado.mockResolvedValueOnce({
+      ok: true,
+      respuesta: Response.json(
+        { detail: "Esta lección aún no tiene guion" },
+        { status: 409 },
+      ),
+    });
+
+    await expect(lanzarAccion("react", 4, "preparar-montaje", {})).resolves.toEqual({
+      ok: false,
+      mensaje: "Esta lección aún no tiene guion",
+    });
+  });
 });

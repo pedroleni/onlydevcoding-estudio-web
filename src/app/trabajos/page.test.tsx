@@ -18,6 +18,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 describe("página de trabajos", () => {
   beforeEach(() => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(obtenerTrabajos).mockResolvedValue([
       {
         id: 42,
@@ -61,10 +62,10 @@ describe("página de trabajos", () => {
     expect(within(filas[1]).getByText("Renderizar una versión nueva")).toBeInTheDocument();
     expect(within(filas[1]).getByText("En marcha")).toBeInTheDocument();
     expect(within(filas[1]).getByText("40 %")).toBeInTheDocument();
-    expect(within(filas[1]).getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
+    expect(within(filas[1]).getByRole("button", { name: "Cancelar el trabajo" })).toBeInTheDocument();
     expect(within(filas[2]).getByText("Crear el vídeo final (−14 LUFS)")).toBeInTheDocument();
     expect(within(filas[2]).getByText("Cancelado")).toBeInTheDocument();
-    expect(within(filas[2]).queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    expect(within(filas[2]).queryByRole("button", { name: "Cancelar el trabajo" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "react · 4" })).toHaveAttribute(
       "href",
       "/cursos/react/4",
@@ -84,16 +85,16 @@ describe("página de trabajos", () => {
     });
     render(await ContenidoTrabajos());
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar el trabajo" }));
     await act(() => vi.advanceTimersByTimeAsync(0));
 
     expect(cancelarTrabajo).toHaveBeenCalledWith(42);
     expect(screen.getByText("Cancelando…")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancelar el trabajo" })).toBeDisabled();
 
     await act(() => vi.advanceTimersByTimeAsync(2000));
     const filaCancelada = screen.getByText("Renderizar una versión nueva").closest("tr");
     expect(within(filaCancelada!).getByText("Cancelado")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar el trabajo" })).not.toBeInTheDocument();
   });
 });

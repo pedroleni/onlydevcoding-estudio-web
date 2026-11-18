@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BotonAccion } from "@/components/acciones/BotonAccion";
 import { cancelarTrabajo, lanzarAccion } from "@/lib/acciones-estudio";
+import { TrabajoInexistente } from "@/lib/error-trabajo";
 import type { EstadoAccion, Trabajo } from "@/lib/tipos";
 import { leerTrabajo } from "@/lib/trabajos";
 
@@ -50,6 +51,7 @@ const avanzar = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
 describe("BotonAccion", () => {
   beforeEach(() => {
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -118,7 +120,7 @@ describe("BotonAccion", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar el trabajo" }));
 
     expect(cancelarTrabajo).toHaveBeenCalledWith(31);
     expect(await screen.findByText("Cancelado")).toBeInTheDocument();
@@ -172,11 +174,11 @@ describe("BotonAccion", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar el trabajo" }));
     await avanzar(0);
 
     expect(screen.getByText("Cancelando…")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancelar el trabajo" })).toBeDisabled();
 
     await avanzar(2000);
     expect(screen.getByText("Cancelado")).toBeInTheDocument();
@@ -236,7 +238,7 @@ describe("BotonAccion", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar el trabajo" }));
     await avanzar(2000);
     expect(screen.getByText("Cancelado")).toBeInTheDocument();
 
@@ -266,7 +268,7 @@ describe("BotonAccion", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar el trabajo" }));
     await avanzar(2000);
     expect(screen.getByText("Cancelado")).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalledOnce();
@@ -296,7 +298,7 @@ describe("BotonAccion", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar el trabajo" }));
     await avanzar(0);
     expect(screen.getByRole("alert")).toHaveTextContent("Ese trabajo no está en marcha");
 
@@ -321,5 +323,170 @@ describe("BotonAccion", () => {
 
     expect(confirmar).toHaveBeenCalledWith("¿Renderizar una versión nueva?");
     expect(lanzarAccion).not.toHaveBeenCalled();
+  });
+
+  it("no pinta un error del trabajo con aspecto de ruta", () => {
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({
+          ultimo: trabajo({
+            estado: "error",
+            fin: "2026-11-18T10:01:00Z",
+            error: "No existe /ruta/ficticia/montaje.json",
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Falló")).toBeInTheDocument();
+    expect(screen.queryByText(/ruta\/ficticia/)).not.toBeInTheDocument();
+  });
+
+  it("da nombres accesibles sin ambigüedad y asocia el motivo", () => {
+    const { rerender } = render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({ disponible: false, motivo: "Prepara los shorts antes" })}
+        objetivo="s3-4-inspector"
+        textoBoton="Renderizar"
+        nombreAccesible="Renderizar s3-4-inspector"
+      />,
+    );
+
+    const boton = screen.getByRole("button", { name: "Renderizar s3-4-inspector" });
+    expect(boton).toHaveTextContent("Renderizar");
+    expect(boton).toHaveAccessibleDescription("Prepara los shorts antes");
+
+    rerender(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({ ultimo: trabajo() })}
+      />,
+    );
+    const cancelar = screen.getByRole("button", { name: "Cancelar el trabajo" });
+    expect(cancelar).toHaveTextContent(/^Cancelar$/);
+  });
+
+  it("pide confirmación antes de cancelar y no cancela si se rechaza", async () => {
+    const confirmar = vi.mocked(window.confirm).mockReturnValue(false);
+    render(
+      <BotonAccion curso="react" numero={4} accion={accion({ ultimo: trabajo() })} />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar el trabajo" }));
+
+    expect(confirmar).toHaveBeenCalledWith("¿Cancelar el trabajo en marcha?");
+    expect(cancelarTrabajo).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Cancelar el trabajo" })).toBeEnabled();
+  });
+
+  it("con el 409 de otro trabajo en marcha enlaza a Trabajos", async () => {
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: false,
+      mensaje: "Ya hay un trabajo en marcha",
+    });
+    render(<BotonAccion curso="react" numero={4} accion={accion()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Renderizar el short" }));
+
+    const alerta = await screen.findByRole("alert");
+    expect(alerta).toHaveTextContent("Ya hay un trabajo en marcha");
+    expect(within(alerta).getByRole("link", { name: "Ver trabajos" })).toHaveAttribute(
+      "href",
+      "/trabajos",
+    );
+  });
+
+  it("borra el mensaje de lanzamiento cuando llegan datos nuevos de la acción", async () => {
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: false,
+      mensaje: "Ya hay un trabajo en marcha",
+    });
+    const { rerender } = render(
+      <BotonAccion curso="react" numero={4} accion={accion()} />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Renderizar el short" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    rerender(<BotonAccion curso="react" numero={4} accion={accion()} />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("deja de sondear y lo dice si el trabajo ya no existe", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
+    render(
+      <BotonAccion curso="react" numero={4} accion={accion({ ultimo: trabajo() })} />,
+    );
+
+    await avanzar(2000);
+
+    expect(screen.getByText("El trabajo ya no existe.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar el trabajo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Renderizar el short" })).toBeEnabled();
+
+    await avanzar(10000);
+    expect(leerTrabajo).toHaveBeenCalledOnce();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("sigue sondeando tras un fallo transitorio de lectura", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(leerTrabajo).mockRejectedValueOnce(new Error("estado 500"));
+    vi.mocked(leerTrabajo).mockResolvedValue(trabajo({ progreso: 0.6 }));
+    render(
+      <BotonAccion curso="react" numero={4} accion={accion({ ultimo: trabajo() })} />,
+    );
+
+    await avanzar(4000);
+
+    expect(leerTrabajo).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("En marcha… 60 %")).toBeInTheDocument();
+  });
+
+  it("con ocultarAnterior no enseña un trabajo terminado de antes, pero sí el lanzado aquí", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: true,
+      trabajo: trabajo({ id: 40 }),
+    });
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ id: 40, estado: "hecho", progreso: 1, fin: "2026-11-18T10:04:00Z" }),
+    );
+    const alLanzar = vi.fn();
+    const alCambiarTrabajo = vi.fn();
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({
+          ultimo: trabajo({ estado: "hecho", progreso: 1, fin: "2026-11-17T10:00:00Z" }),
+        })}
+        ocultarAnterior
+        alLanzar={alLanzar}
+        alCambiarTrabajo={alCambiarTrabajo}
+      />,
+    );
+
+    expect(screen.queryByText("Hecho")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Renderizar el short" }));
+    await avanzar(0);
+    expect(alLanzar).toHaveBeenCalledWith(expect.objectContaining({ id: 40 }));
+    expect(alCambiarTrabajo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 40, estado: "en_marcha" }),
+    );
+
+    await avanzar(2000);
+    expect(screen.getByText("Hecho")).toBeInTheDocument();
+    expect(alCambiarTrabajo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 40, estado: "hecho" }),
+    );
   });
 });

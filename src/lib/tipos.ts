@@ -1,3 +1,7 @@
+import type { IdAccion } from "@/lib/catalogo-acciones";
+
+export type { IdAccion };
+
 export interface Avance {
   hechas: number;
   total: number;
@@ -168,14 +172,6 @@ export interface Trabajo {
   error: string | null;
 }
 
-export type IdAccion =
-  | "alinear-voz"
-  | "preparar-montaje"
-  | "previa-grabacion"
-  | "render-leccion"
-  | "video-final"
-  | "preparar-shorts"
-  | "render-short";
 
 export interface EstadoAccion {
   id: IdAccion;

@@ -87,7 +87,9 @@ describe("PanelShorts", () => {
     );
 
     const filaS2 = screen.getByText("s2").closest("li");
-    await userEvent.click(within(filaS2!).getByRole("button", { name: "Renderizar" }));
+    const boton = within(filaS2!).getByRole("button", { name: "Renderizar s2" });
+    expect(boton).toHaveTextContent(/^Renderizar$/);
+    await userEvent.click(boton);
 
     expect(lanzarAccion).toHaveBeenCalledWith(
       "curso-ficticio",

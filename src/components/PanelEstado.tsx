@@ -1,6 +1,13 @@
 import { estaPublicado, REDES } from "@/lib/curso";
 import type { EstadoLeccion, EstadoMontaje } from "@/lib/tipos";
 
+const MONTAJE: Record<EstadoMontaje["estado"], { icono: string; texto: string }> = {
+  al_dia: { icono: "✅", texto: "al día" },
+  guion_cambiado: { icono: "⚠️", texto: "guion cambiado" },
+  voz_sin_alinear: { icono: "⚠️", texto: "voz sin alinear" },
+  sin_montaje: { icono: "⬜", texto: "sin montaje" },
+};
+
 function estaCompleto(hechas: number, total: number): boolean {
   return total > 0 && hechas >= total;
 }
@@ -50,15 +57,9 @@ export function PanelEstado({
           <span>{estado.video_final ? "✅" : "⬜"} Vídeo final</span>
         </li>
         {montaje ? (
-          <li>
-            <span>
-              {montaje.estado === "al_dia"
-                ? "✅"
-                : montaje.estado === "sin_montaje"
-                  ? "⬜"
-                  : "⚠️"}{" "}
-              Montaje
-            </span>
+          <li className="flex items-center gap-1">
+            <span aria-hidden="true">{MONTAJE[montaje.estado].icono}</span>
+            <span>Montaje: {MONTAJE[montaje.estado].texto}</span>
           </li>
         ) : null}
       </ul>

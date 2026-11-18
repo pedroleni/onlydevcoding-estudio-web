@@ -77,6 +77,27 @@ describe("Server Actions del teleprompter", () => {
     });
   });
 
+  it("el 409 de una lección en preparación es un error normal, sin conflicto", async () => {
+    escribirSimulado.mockResolvedValueOnce({
+      ok: true,
+      respuesta: Response.json(
+        {
+          detail:
+            "No se puede cambiar mientras se prepara esta lección. Espera a que termine el trabajo.",
+        },
+        { status: 409 },
+      ),
+    });
+
+    await expect(guardarTextos("react", 4, "a".repeat(64), [
+      { id: "E01", cues: ["Texto válido"] },
+    ])).resolves.toEqual({
+      ok: false,
+      mensaje:
+        "No se puede cambiar mientras se prepara esta lección. Espera a que termine el trabajo.",
+    });
+  });
+
   it("reconstruye y recorta un cuerpo válido antes de escribir", async () => {
     await expect(guardarTextos("react", 4, "a".repeat(64), [
       {

@@ -42,6 +42,46 @@ ruta de explotación concreta.
   la API local en `X-Estudio-Token`; ese token protege la llamada de la web a
   la API y no puede aparecer en código cliente ni en `NEXT_PUBLIC_*`.
 
+## Precedentes de la fase 5 (acciones y trabajos)
+
+Amplían las decisiones anteriores; lo que no se cite aquí sigue igual.
+
+- **Acciones del estudio.** Las herramientas solo se lanzan con `lanzarAccion`
+  y se cancelan con `cancelarTrabajo` (`src/lib/acciones-estudio.ts`). La
+  acción va en la ruta solo si está en `IDS_ACCION`
+  (`src/lib/catalogo-acciones.ts`), la única lista de la web: de ella salen el
+  tipo `IdAccion`, la validación y las etiquetas. Las opciones se reconstruyen
+  desde cero con regex cerradas (`previa` y `short`) y el id del trabajo es un
+  entero seguro positivo. La API vuelve a comprobar que el objetivo existe en
+  la lección. Una acción o una opción nueva tiene que entrar en los dos
+  catálogos, el de la web y el de la API.
+- **Origen de las Server Actions.** La comprobación de `Host` y `Origin`
+  exactos vive en un único módulo `server-only`, `src/lib/origen-servidor.ts`
+  (`origenPermitido()`), usado por `acciones.ts`, `acciones-tareas.ts`,
+  `acciones-teleprompter.ts` y `acciones-estudio.ts` antes de cualquier
+  escritura. Es la segunda barrera tras el Proxy. Una Server Action nueva la
+  usa y añade un test de origen ajeno que comprueba que `escribir` no se
+  llama. El Route Handler de `/grabar` mantiene su comprobación propia sobre
+  `request.headers`.
+- **`Trabajo.error`.** La API solo guarda mensajes fijos. Aun así, cualquier
+  componente que lo pinte (`BotonAccion`, `TablaTrabajos`, `PanelPrevia`) pasa
+  por `textoErrorTrabajo` (`src/lib/error-trabajo.ts`), que descarta textos
+  con `/` o `\`. `Trabajo.registro` no sale de la API.
+- **Lecturas opcionales.** Una lectura opcional de la página (teleprompter y
+  acciones) usa `lecturaApiOpcional`: solo `ApiNoDisponible` y `ErrorApi` se
+  convierten en `null`, y cualquier otro error se relanza. Con `null` se
+  ocultan los controles que dependen de esa lectura. Nunca se enseña su error
+  ni se habilita una acción por falta de datos.
+- **Sondeo de trabajos.** `leerTrabajo` usa `NEXT_PUBLIC_API_URL`, sin token,
+  solo con un id entero seguro y `cache: "no-store"`. Se consulta cada 2 s
+  solo con la pestaña visible y un trabajo `en_marcha`. Un 404
+  (`TrabajoInexistente`) detiene el sondeo de ese trabajo y lo dice («El
+  trabajo ya no existe.»).
+- **Edición del guion con trabajos en marcha.** Mientras corre `alinear-voz`,
+  `preparar-montaje` o `preparar-shorts`, la pestaña Guion no deja editar ni
+  guardar. La API también lo rechaza con 409, que la web enseña como un error
+  normal (sin «Recargar»). Es coherencia de datos, no un control de acceso.
+
 ## Hallazgos prioritarios
 
 - Un secreto o ruta privada en `NEXT_PUBLIC_*`, código, tests o documentación:

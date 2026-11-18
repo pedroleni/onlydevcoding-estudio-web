@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/components/guion/ErrorEditorGuion";
 import { guardarTextos, type TextosEscena } from "@/lib/acciones-teleprompter";
 import { limpio, sinSaltos, valido } from "@/lib/textos-guion";
-import type { EscenaTeleprompter } from "@/lib/tipos";
+import type { EscenaTeleprompter, Teleprompter } from "@/lib/tipos";
 
 const CAMPO =
   "field-sizing-content mt-2 min-h-11 w-full resize-none border border-borde bg-carbon px-3 py-2 text-sm leading-6 text-texto focus-visible:outline-2 focus-visible:outline-marca disabled:opacity-60";
@@ -24,6 +24,7 @@ export function EditorEscenaGuion({
   numero,
   version,
   escena,
+  bloqueo = null,
   alGuardado,
   alCancelar,
 }: {
@@ -31,10 +32,16 @@ export function EditorEscenaGuion({
   numero: number;
   version: string;
   escena: EscenaTeleprompter;
-  alGuardado: () => void;
+  // Texto que explica por qué no se puede guardar ahora (un trabajo está leyendo el guion).
+  bloqueo?: string | null;
+  // Recibe el teleprompter devuelto: su versión sirve para el siguiente editor sin esperar al
+  // refresco.
+  alGuardado: (teleprompter: Teleprompter) => void;
   alCancelar: () => void;
 }) {
   const router = useRouter();
+  const idBloqueo = useId();
+  const seccion = useRef<HTMLElement>(null);
   const [base] = useState(() => ({
     version,
     cues: escena.cues.map(({ texto }) => texto),
@@ -53,6 +60,10 @@ export function EditorEscenaGuion({
 
   useAvisoAlSalir(sinGuardar);
 
+  useEffect(() => {
+    seccion.current?.querySelector("textarea")?.focus();
+  }, []);
+
   function cambiar(
     actualiza: typeof setCues,
     indice: number,
@@ -66,7 +77,7 @@ export function EditorEscenaGuion({
   }
 
   function guardar() {
-    if (recargando || !sinGuardar || !textosValidos) return;
+    if (recargando || bloqueo || !sinGuardar || !textosValidos) return;
     const cuesLimpios = cues.map(limpio);
     const puntosLimpios = puntos.map(limpio);
     const cambio: TextosEscena = escena.modo === "voz"
@@ -81,7 +92,7 @@ export function EditorEscenaGuion({
     iniciar(async () => {
       const resultado = await guardarTextos(curso, numero, base.version, [cambio]);
       if (resultado.ok) {
-        alGuardado();
+        alGuardado(resultado.teleprompter);
         router.refresh();
       } else if (resultado.conflicto) {
         setError({ mensaje: resultado.mensaje, conflicto: true });
@@ -122,7 +133,7 @@ export function EditorEscenaGuion({
   }
 
   return (
-    <section className="border border-borde bg-superficie p-5" aria-label={`Editar ${escena.id}`}>
+    <section ref={seccion} className="border border-borde bg-superficie p-5" aria-label={`Editar ${escena.id}`}>
       <h4 className="text-lg font-semibold">Editar textos de {escena.id}</h4>
       <div className="mt-5 grid gap-5">
         {campo("Frase", cues, setCues)}
@@ -135,7 +146,8 @@ export function EditorEscenaGuion({
         </button>
         <button
           type="button"
-          disabled={guardando || recargando || !sinGuardar || !textosValidos}
+          disabled={guardando || recargando || Boolean(bloqueo) || !sinGuardar || !textosValidos}
+          aria-describedby={bloqueo ? idBloqueo : undefined}
           onClick={guardar}
           className={BOTON_PRINCIPAL}
         >
@@ -143,6 +155,7 @@ export function EditorEscenaGuion({
         </button>
       </div>
 
+      {bloqueo ? <p id={idBloqueo} className="mt-3 text-sm text-ambar">{bloqueo}</p> : null}
       {recargando && !llegoNuevo ? <p role="status" className="mt-3 text-sm text-tenue">Cargando el guion nuevo…</p> : null}
       {llegoNuevo ? (
         <p role="alert" className="mt-3 flex flex-wrap items-center gap-2.5 text-sm text-ambar">

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { PanelVideoFinal } from "@/components/acciones/PanelVideoFinal";
 import { urlMedio } from "@/lib/medios";
+import { numeroPrevia } from "@/lib/numero-previa";
 import type { EstadoAccion, Pieza } from "@/lib/tipos";
 
 function Reproductor({
@@ -100,7 +101,16 @@ export function VistaVideoFinal({
   acciones: EstadoAccion[] | null;
 }) {
   const previasRecientes = [...previas].reverse();
-  const [previaActiva, setPreviaActiva] = useState(previasRecientes[0] ?? null);
+  const ultima = previasRecientes[0] ?? null;
+  const [previaElegida, setPreviaElegida] = useState<string | null>(null);
+  const [ultimaVista, setUltimaVista] = useState(ultima);
+  // Tras un render nuevo se pasa a la última; un refresco sin previas nuevas respeta la elección.
+  if (ultima !== ultimaVista) {
+    setUltimaVista(ultima);
+    setPreviaElegida(null);
+  }
+  const previaActiva =
+    previaElegida && previas.includes(previaElegida) ? previaElegida : ultima;
 
   return (
     <div className="grid gap-8">
@@ -149,10 +159,10 @@ export function VistaVideoFinal({
                   key={previa}
                   type="button"
                   aria-pressed={previa === previaActiva}
-                  onClick={() => setPreviaActiva(previa)}
+                  onClick={() => setPreviaElegida(previa)}
                   className="min-h-11 border border-borde bg-superficie px-4 text-sm font-medium text-tenue transition-colors hover:border-marca hover:text-texto active:translate-y-px aria-pressed:border-marca aria-pressed:text-texto"
                 >
-                  Previa {previasRecientes.length - indice}
+                  Previa {numeroPrevia(previa) ?? previasRecientes.length - indice}
                 </button>
               ))}
             </div>

@@ -1,29 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { TarjetaEscena } from "@/components/TarjetaEscena";
-import { AvisoMontaje } from "@/components/guion/AvisoMontaje";
+import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
+import { AvisoMontaje, elegirAviso } from "@/components/guion/AvisoMontaje";
 import { EditorEscenaGuion } from "@/components/guion/EditorEscenaGuion";
 import { EditorGanchos } from "@/components/guion/EditorGanchos";
 import type {
   Escena,
   EstadoAccion,
   EstadoMontaje,
+  IdAccion,
   Teleprompter,
+  Trabajo,
 } from "@/lib/tipos";
 
 type Edicion = { tipo: "escena"; id: string } | { tipo: "ganchos" } | null;
 
+// Mientras corre una de estas, el guion no se edita: el trabajo ya lo leyó al empezar y
+// dejaría el montaje (o los shorts) «al día» sin la edición.
+const ACCIONES_QUE_LEEN_EL_GUION: readonly IdAccion[] = [
+  "alinear-voz",
+  "preparar-montaje",
+  "preparar-shorts",
+];
+const CLAVE_GANCHOS = "ganchos";
+
 const BOTON_EDITAR =
   "min-h-10 border border-borde px-4 text-sm font-semibold text-texto transition-colors hover:border-marca hover:bg-carbon disabled:cursor-not-allowed disabled:opacity-60";
+
+// Sigue sin pintar nada un trabajo que bloquea la edición y no tiene botón en esta pestaña,
+// para refrescar la página (y desbloquear) cuando acabe.
+function SeguimientoOculto({ trabajo }: { trabajo: Trabajo }) {
+  useSeguimientoTrabajo({ trabajo });
+  return null;
+}
 
 export function GuionEditable({
   curso,
   numero,
   escenas,
   previa,
-  teleprompter,
+  teleprompter: teleprompterRecibido,
   montaje,
   acciones,
 }: {
@@ -35,11 +54,69 @@ export function GuionEditable({
   montaje: EstadoMontaje | null;
   acciones: EstadoAccion[] | null;
 }) {
+  const idBloqueo = useId();
   const [edicion, setEdicion] = useState<Edicion>(null);
+  // Acción lanzada desde el aviso en esta visita y el trabajo que sigue su botón.
+  const [lanzada, setLanzada] = useState<IdAccion | null>(null);
+  const [trabajoAviso, setTrabajoAviso] = useState<{
+    accion: IdAccion;
+    trabajo: Trabajo | null;
+  } | null>(null);
+  // Lo devuelto al guardar, válido mientras los datos de la página sigan siendo los de antes.
+  const [guardado, setGuardado] = useState<{
+    antes: string;
+    teleprompter: Teleprompter;
+  } | null>(null);
+  const volverA = useRef<string | null>(null);
+
+  const teleprompter =
+    teleprompterRecibido && guardado?.antes === teleprompterRecibido.version
+      ? guardado.teleprompter
+      : teleprompterRecibido;
   const editables = new Map(
     teleprompter?.escenas.map((escena) => [escena.id, escena]) ?? [],
   );
-  const cerrar = () => setEdicion(null);
+
+  const aviso = elegirAviso(montaje, acciones, lanzada);
+  const idDelAviso = aviso?.accion?.id ?? null;
+  const enMarcha = (acciones ?? []).flatMap((accion) => {
+    if (!ACCIONES_QUE_LEEN_EL_GUION.includes(accion.id)) return [];
+    // El botón del aviso sabe antes que los datos de la página si su trabajo empezó o acabó.
+    const trabajo =
+      accion.id === idDelAviso && trabajoAviso?.accion === accion.id
+        ? trabajoAviso.trabajo
+        : accion.ultimo;
+    return trabajo?.estado === "en_marcha" ? [{ accion, trabajo }] : [];
+  });
+  const bloqueo = enMarcha[0]
+    ? `Espera a que termine: ${enMarcha[0].accion.etiqueta} en marcha.`
+    : null;
+  const sinBotonEnPestana = enMarcha.filter(({ accion }) => accion.id !== idDelAviso);
+
+  function abrir(nueva: Exclude<Edicion, null>) {
+    volverA.current = null;
+    setEdicion(nueva);
+  }
+
+  function cerrar() {
+    volverA.current = edicion?.tipo === "escena" ? edicion.id : CLAVE_GANCHOS;
+    setEdicion(null);
+  }
+
+  function guardadoCon(nuevo: Teleprompter) {
+    if (teleprompterRecibido) {
+      setGuardado({ antes: teleprompterRecibido.version, teleprompter: nuevo });
+    }
+    cerrar();
+  }
+
+  // Al cerrar un editor, el foco vuelve a su «Editar», que se monta de nuevo.
+  const enfocarAlVolver = (clave: string) => (boton: HTMLButtonElement | null) => {
+    if (boton && volverA.current === clave) {
+      volverA.current = null;
+      boton.focus();
+    }
+  };
 
   return (
     <div role="tabpanel" className="grid gap-4">
@@ -48,7 +125,20 @@ export function GuionEditable({
         numero={numero}
         montaje={montaje}
         acciones={acciones}
+        lanzada={lanzada}
+        alLanzar={(accion, trabajo) => {
+          setLanzada(accion);
+          setTrabajoAviso({ accion, trabajo });
+        }}
+        alCambiarTrabajo={(accion, trabajo) => setTrabajoAviso({ accion, trabajo })}
       />
+      {sinBotonEnPestana.map(({ trabajo }) => (
+        <SeguimientoOculto key={trabajo.id} trabajo={trabajo} />
+      ))}
+
+      {bloqueo && edicion === null ? (
+        <p id={idBloqueo} className="text-sm text-ambar">{bloqueo}</p>
+      ) : null}
 
       {escenas.length > 0 ? (
         escenas.map((escena) => {
@@ -61,10 +151,13 @@ export function GuionEditable({
                 previa={previa}
                 acciones={editable && !editando ? (
                   <button
+                    ref={enfocarAlVolver(escena.id)}
                     type="button"
                     className={BOTON_EDITAR}
-                    disabled={edicion !== null}
-                    onClick={() => setEdicion({ tipo: "escena", id: escena.id })}
+                    aria-label={`Editar ${escena.id}`}
+                    aria-describedby={bloqueo && edicion === null ? idBloqueo : undefined}
+                    disabled={edicion !== null || bloqueo !== null}
+                    onClick={() => abrir({ tipo: "escena", id: escena.id })}
                   >
                     Editar
                   </button>
@@ -76,7 +169,8 @@ export function GuionEditable({
                   numero={numero}
                   version={teleprompter.version}
                   escena={editable}
-                  alGuardado={cerrar}
+                  bloqueo={bloqueo}
+                  alGuardado={guardadoCon}
                   alCancelar={cerrar}
                 />
               ) : null}
@@ -95,10 +189,12 @@ export function GuionEditable({
             <h2 id="titulo-ganchos" className="text-xl font-semibold">Ganchos de los shorts</h2>
             {teleprompter.ganchos.length > 0 && edicion?.tipo !== "ganchos" ? (
               <button
+                ref={enfocarAlVolver(CLAVE_GANCHOS)}
                 type="button"
                 className={BOTON_EDITAR}
-                disabled={edicion !== null}
-                onClick={() => setEdicion({ tipo: "ganchos" })}
+                aria-describedby={bloqueo && edicion === null ? idBloqueo : undefined}
+                disabled={edicion !== null || bloqueo !== null}
+                onClick={() => abrir({ tipo: "ganchos" })}
               >
                 Editar ganchos
               </button>
@@ -112,7 +208,8 @@ export function GuionEditable({
                 numero={numero}
                 version={teleprompter.version}
                 ganchos={teleprompter.ganchos}
-                alGuardado={cerrar}
+                bloqueo={bloqueo}
+                alGuardado={guardadoCon}
                 alCancelar={cerrar}
               />
             </div>

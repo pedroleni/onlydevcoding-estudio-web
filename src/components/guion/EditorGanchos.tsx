@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
 import {
@@ -22,6 +22,7 @@ export function EditorGanchos({
   numero,
   version,
   ganchos,
+  bloqueo = null,
   alGuardado,
   alCancelar,
 }: {
@@ -29,10 +30,16 @@ export function EditorGanchos({
   numero: number;
   version: string;
   ganchos: Gancho[];
-  alGuardado: () => void;
+  // Texto que explica por qué no se puede guardar ahora (un trabajo está leyendo el guion).
+  bloqueo?: string | null;
+  // Recibe el teleprompter devuelto: su versión sirve para el siguiente editor sin esperar al
+  // refresco.
+  alGuardado: (teleprompter: Teleprompter) => void;
   alCancelar: () => void;
 }) {
   const router = useRouter();
+  const idBloqueo = useId();
+  const seccion = useRef<HTMLElement>(null);
   const [base] = useState(() => ({ version, textos: ganchos.map(({ texto }) => texto) }));
   const [textos, setTextos] = useState(base.textos);
   const [error, setError] = useState<ErrorEditorGuionDatos | null>(null);
@@ -44,6 +51,10 @@ export function EditorGanchos({
 
   useAvisoAlSalir(sinGuardar);
 
+  useEffect(() => {
+    seccion.current?.querySelector("textarea")?.focus();
+  }, []);
+
   function cambiar(indice: number, valor: string) {
     setTextos((actuales) =>
       actuales.map((texto, posicion) =>
@@ -53,7 +64,7 @@ export function EditorGanchos({
   }
 
   function guardar() {
-    if (recargando || !sinGuardar || !textosValidos) return;
+    if (recargando || bloqueo || !sinGuardar || !textosValidos) return;
     const paraGuardar = ganchos.map(({ id }, indice) => ({
       id,
       texto: limpio(textos[indice]),
@@ -62,7 +73,7 @@ export function EditorGanchos({
     iniciar(async () => {
       const resultado = await guardarTextos(curso, numero, base.version, [], paraGuardar);
       if (resultado.ok) {
-        alGuardado();
+        alGuardado(resultado.teleprompter);
         router.refresh();
       } else if (resultado.conflicto) {
         setError({ mensaje: resultado.mensaje, conflicto: true });
@@ -79,7 +90,7 @@ export function EditorGanchos({
   }
 
   return (
-    <section className="border border-borde bg-superficie p-5" aria-label="Editar ganchos">
+    <section ref={seccion} className="border border-borde bg-superficie p-5" aria-label="Editar ganchos">
       <h3 className="text-lg font-semibold">Editar ganchos</h3>
       <div className="mt-5 grid gap-5">
         {ganchos.map((gancho, indice) => (
@@ -112,7 +123,8 @@ export function EditorGanchos({
         </button>
         <button
           type="button"
-          disabled={guardando || recargando || !sinGuardar || !textosValidos}
+          disabled={guardando || recargando || Boolean(bloqueo) || !sinGuardar || !textosValidos}
+          aria-describedby={bloqueo ? idBloqueo : undefined}
           onClick={guardar}
           className="min-h-11 bg-marca px-5 text-sm font-bold text-fondo transition-colors hover:bg-texto disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -120,6 +132,7 @@ export function EditorGanchos({
         </button>
       </div>
 
+      {bloqueo ? <p id={idBloqueo} className="mt-3 text-sm text-ambar">{bloqueo}</p> : null}
       {recargando && !llegoNuevo ? <p role="status" className="mt-3 text-sm text-tenue">Cargando el guion nuevo…</p> : null}
       {llegoNuevo ? (
         <p role="alert" className="mt-3 flex flex-wrap items-center gap-2.5 text-sm text-ambar">

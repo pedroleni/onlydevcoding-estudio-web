@@ -12,6 +12,8 @@ import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTraba
 import { cancelarTrabajo } from "@/lib/acciones-estudio";
 import type { Trabajo } from "@/lib/tipos";
 
+const CONFIRMAR_CANCELACION = "¿Cancelar el trabajo en marcha?";
+
 function haTerminado(trabajo: Trabajo | null): trabajo is Trabajo {
   return trabajo !== null && trabajo.estado !== "en_marcha";
 }
@@ -28,6 +30,7 @@ export function useCancelacionTrabajo({
   const router = useRouter();
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [cancelandoId, setCancelandoId] = useState<number | null>(null);
+  const [desaparecido, setDesaparecido] = useState<number | null>(null);
   const terminado = useRef<Trabajo | null>(
     haTerminado(trabajoRecibido) ? trabajoRecibido : null,
   );
@@ -48,6 +51,11 @@ export function useCancelacionTrabajo({
       setCancelandoId(null);
       setMensaje(null);
     },
+    alDesaparecer: (id) => {
+      setDesaparecido(id);
+      setCancelandoId(null);
+      setMensaje(null);
+    },
   });
 
   function prepararNuevoTrabajo() {
@@ -58,6 +66,9 @@ export function useCancelacionTrabajo({
 
   function cancelar() {
     if (!trabajo) return;
+    // «Cancelar» aparece donde estaba el botón de lanzar: se confirma para que un segundo
+    // clic impaciente no mate el trabajo recién lanzado.
+    if (!window.confirm(CONFIRMAR_CANCELACION)) return;
     setMensaje(null);
     setCancelandoId(trabajo.id);
     iniciar(async () => {
@@ -79,13 +90,15 @@ export function useCancelacionTrabajo({
     });
   }
 
-  const cancelando =
-    trabajo?.estado === "en_marcha" && cancelandoId === trabajo.id;
+  const inexistente = trabajo !== null && trabajo.id === desaparecido;
+  const enMarcha = trabajo?.estado === "en_marcha" && !inexistente;
+  const cancelando = enMarcha && cancelandoId === trabajo?.id;
 
   return {
     cancelar,
     cancelando,
-    mensaje: trabajo?.estado === "en_marcha" ? mensaje : null,
+    inexistente,
+    mensaje: enMarcha ? mensaje : null,
     pendiente,
     prepararNuevoTrabajo,
     trabajo,

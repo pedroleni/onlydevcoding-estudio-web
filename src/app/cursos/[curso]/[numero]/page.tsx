@@ -279,10 +279,10 @@ async function ContenidoLeccion({
   if (pestana === "guion" || pestana === "grabaciones") {
     [teleprompter, acciones] = await Promise.all([
       lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
-      obtenerAcciones(curso, numero).catch(() => null),
+      lecturaApiOpcional(obtenerAcciones(curso, numero)),
     ]);
   } else if (pestana === "video" || pestana === "shorts") {
-    acciones = await obtenerAcciones(curso, numero).catch(() => null);
+    acciones = await lecturaApiOpcional(obtenerAcciones(curso, numero));
   }
 
   return (

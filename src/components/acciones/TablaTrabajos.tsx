@@ -3,23 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { BOTON_CANCELAR } from "@/components/acciones/BotonAccion";
 import { useCancelacionTrabajo } from "@/components/acciones/useCancelacionTrabajo";
-import type { IdAccion, Trabajo } from "@/lib/tipos";
-
-export const ETIQUETAS_ACCION: Record<IdAccion, string> = {
-  "alinear-voz": "Alinear la voz",
-  "preparar-montaje": "Preparar el montaje",
-  "previa-grabacion": "Vista previa de grabación",
-  "render-leccion": "Renderizar una versión nueva",
-  "video-final": "Crear el vídeo final (−14 LUFS)",
-  "preparar-shorts": "Preparar los shorts",
-  "render-short": "Renderizar el short",
-};
-
-const FECHA = new Intl.DateTimeFormat("es-ES", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
+import { esIdAccion, ETIQUETAS_ACCION } from "@/lib/catalogo-acciones";
+import { textoErrorTrabajo } from "@/lib/error-trabajo";
+import { fechaHoraCorta } from "@/lib/formato-fecha";
+import type { Trabajo } from "@/lib/tipos";
 
 const ESTADOS: Record<Trabajo["estado"], string> = {
   en_marcha: "En marcha",
@@ -30,11 +19,11 @@ const ESTADOS: Record<Trabajo["estado"], string> = {
 };
 
 function fecha(valor: string | null): string {
-  return valor ? FECHA.format(new Date(valor)) : "—";
+  return valor ? fechaHoraCorta(valor) : "—";
 }
 
 function etiqueta(accion: string): string {
-  return ETIQUETAS_ACCION[accion as IdAccion] ?? accion;
+  return esIdAccion(accion) ? ETIQUETAS_ACCION[accion] : accion;
 }
 
 function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
@@ -49,6 +38,7 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
   const {
     cancelar,
     cancelando,
+    inexistente,
     mensaje,
     pendiente,
     trabajo: trabajoSeguido,
@@ -58,6 +48,7 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
     actualizarTrabajo: setBase,
   });
   const trabajo = trabajoSeguido ?? base;
+  const error = trabajo.estado === "error" ? textoErrorTrabajo(trabajo.error) : null;
 
   return (
     <tr className="border-t border-borde align-top">
@@ -80,7 +71,12 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
       <td className="px-4 py-4">
         {cancelando
           ? "Cancelando…"
-          : ESTADOS[trabajo.estado]}
+          : inexistente
+            ? "El trabajo ya no existe."
+            : ESTADOS[trabajo.estado]}
+        {error && !inexistente ? (
+          <span className="mt-1 block text-xs text-ambar">{error}</span>
+        ) : null}
       </td>
       <td className="px-4 py-4 font-mono text-xs">
         {Math.round(trabajo.progreso * 100)} %
@@ -88,12 +84,13 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
       <td className="whitespace-nowrap px-4 py-4">{fecha(trabajo.inicio)}</td>
       <td className="whitespace-nowrap px-4 py-4">{fecha(trabajo.fin)}</td>
       <td className="px-4 py-4">
-        {trabajo.estado === "en_marcha" ? (
+        {trabajo.estado === "en_marcha" && !inexistente ? (
           <button
             type="button"
+            aria-label="Cancelar el trabajo"
             disabled={pendiente || cancelando}
             onClick={cancelar}
-            className="cursor-pointer border border-rojo px-3 py-2 text-sm font-semibold text-rojo hover:enabled:bg-rojo hover:enabled:text-fondo disabled:cursor-default disabled:opacity-40"
+            className={BOTON_CANCELAR}
           >
             Cancelar
           </button>

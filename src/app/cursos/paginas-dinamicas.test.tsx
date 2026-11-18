@@ -256,14 +256,28 @@ describe("shell de las páginas dinámicas", () => {
     expect(obtenerAcciones).not.toHaveBeenCalled();
   });
 
-  it("mantiene la pestaña Guion si falla la lectura de acciones", async () => {
-    vi.mocked(obtenerAcciones).mockRejectedValue(new Error("fallo simulado"));
+  it.each([
+    ["la API no está disponible", () => new ApiNoDisponible()],
+    ["la API rechaza las acciones", () => new ErrorApi(500)],
+  ])("mantiene la pestaña Guion si %s al leer las acciones", async (_caso, crearError) => {
+    vi.mocked(obtenerAcciones).mockRejectedValue(crearError());
 
     render(await renderizarContenidoLeccion());
 
     expect(screen.getByRole("tabpanel")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Primera escena" })).toBeInTheDocument();
   });
+
+  it.each(["guion", "grabaciones", "video", "shorts"])(
+    "no se traga un fallo que no es de la API al leer las acciones (%s)",
+    async (pestana) => {
+      vi.mocked(obtenerAcciones).mockRejectedValue(new TypeError("fallo de programación"));
+
+      await expect(renderizarContenidoLeccion({ pestana })).rejects.toThrow(
+        "fallo de programación",
+      );
+    },
+  );
 
   it.each([
     ["la API no está disponible", () => new ApiNoDisponible()],
@@ -295,7 +309,7 @@ describe("shell de las páginas dinámicas", () => {
   it.each(["grabaciones", "video", "shorts"])(
     "mantiene la pestaña %s si falla la lectura de acciones",
     async (pestana) => {
-      vi.mocked(obtenerAcciones).mockRejectedValue(new Error("fallo simulado"));
+      vi.mocked(obtenerAcciones).mockRejectedValue(new ApiNoDisponible());
 
       render(await renderizarContenidoLeccion({ pestana }));
 

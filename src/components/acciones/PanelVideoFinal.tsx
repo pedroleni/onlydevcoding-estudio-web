@@ -1,18 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { BotonAccion } from "@/components/acciones/BotonAccion";
+import { numeroPrevia } from "@/lib/numero-previa";
 import type { EstadoAccion } from "@/lib/tipos";
-
-const NOMBRE_PREVIA = /(?:^|\/)previa-v(\d+)\.mp4$/;
 
 function siguientePrevia(previas: string[]): number {
   return (
-    previas.reduce((mayor, previa) => {
-      const coincidencia = previa.match(NOMBRE_PREVIA);
-      return coincidencia ? Math.max(mayor, Number(coincidencia[1])) : mayor;
-    }, 0) + 1
+    previas.reduce((mayor, previa) => Math.max(mayor, numeroPrevia(previa) ?? 0), 0) + 1
   );
 }
 
@@ -33,20 +29,24 @@ export function PanelVideoFinal({
   const previaValida = previaElegida && videoFinal?.opciones.includes(previaElegida)
     ? previaElegida
     : videoFinal?.opciones.at(-1) ?? "";
-  const numeroPrevia = siguientePrevia(previas);
+  const siguiente = siguientePrevia(previas);
+  const videoFinalDisponible = (videoFinal?.opciones.length ?? 0) > 0;
+  // La acción derivada solo cambia con datos nuevos: BotonAccion borra su mensaje cuando cambia.
+  const accionVideoFinal = useMemo(
+    () =>
+      videoFinal
+        ? {
+            ...videoFinal,
+            disponible: videoFinal.disponible && videoFinalDisponible,
+            motivo: videoFinalDisponible
+              ? videoFinal.motivo
+              : videoFinal.motivo ?? "No hay ninguna previa disponible",
+          }
+        : null,
+    [videoFinal, videoFinalDisponible],
+  );
 
   if (!renderizar && !videoFinal) return null;
-
-  const videoFinalDisponible = (videoFinal?.opciones.length ?? 0) > 0;
-  const accionVideoFinal = videoFinal
-    ? {
-        ...videoFinal,
-        disponible: videoFinal.disponible && videoFinalDisponible,
-        motivo: videoFinalDisponible
-          ? videoFinal.motivo
-          : videoFinal.motivo ?? "No hay ninguna previa disponible",
-      }
-    : null;
 
   return (
     <section
@@ -62,8 +62,8 @@ export function PanelVideoFinal({
           curso={curso}
           numero={numero}
           accion={renderizar}
-          textoBoton={`Renderizar una versión nueva (previa-v${numeroPrevia})`}
-          confirmar={`Se renderizará previa-v${numeroPrevia} con el montaje actual. Puede tardar bastante. ¿Seguimos?`}
+          textoBoton={`Renderizar una versión nueva (previa-v${siguiente})`}
+          confirmar={`Se renderizará previa-v${siguiente} con el montaje actual. Puede tardar bastante. ¿Seguimos?`}
         />
       ) : null}
 

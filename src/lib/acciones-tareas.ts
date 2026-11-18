@@ -1,7 +1,6 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { headers } from "next/headers";
 
 import { obtenerLeccion, obtenerLecciones } from "@/lib/api";
 import { escribir } from "@/lib/api-escritura";
@@ -9,7 +8,7 @@ import { COLORES_TAREA } from "@/lib/colores-tareas";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
 import { esFechaValida } from "@/lib/fechas";
-import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
+import { origenPermitido } from "@/lib/origen-servidor";
 import type { EnlaceTarea, TareaNueva, TipoTarea } from "@/lib/tipos";
 
 const HORA_VALIDA = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
@@ -124,14 +123,6 @@ function normalizarTarea(valor: unknown): TareaNueva | ResultadoAccionTareas {
     tipo,
     ...(enlaceNormalizado === null ? {} : { enlace: enlaceNormalizado }),
   };
-}
-
-async function origenPermitido(): Promise<boolean> {
-  const cabeceras = await headers();
-  return (
-    cabeceras.get("host") === HOST_ESTUDIO &&
-    cabeceras.get("origin") === ORIGEN_ESTUDIO
-  );
 }
 
 async function resultadoDe(respuesta: Response): Promise<ResultadoAccionTareas> {

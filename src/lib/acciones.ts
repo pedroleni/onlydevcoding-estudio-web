@@ -1,13 +1,12 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { headers } from "next/headers";
 
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
 import { errorLimitesTextos } from "@/lib/limites";
-import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
+import { origenPermitido } from "@/lib/origen-servidor";
 import type {
   EstadoRed,
   RedVista,
@@ -136,11 +135,7 @@ async function resultadoDe(respuesta: Response): Promise<ResultadoAccion> {
 }
 
 async function ejecutar(ruta: string, cuerpo: unknown): Promise<ResultadoAccion> {
-  const cabeceras = await headers();
-  if (
-    cabeceras.get("host") !== HOST_ESTUDIO ||
-    cabeceras.get("origin") !== ORIGEN_ESTUDIO
-  ) {
+  if (!(await origenPermitido())) {
     return { ok: false, mensaje: "Origen no permitido" };
   }
 

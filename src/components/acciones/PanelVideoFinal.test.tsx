@@ -211,4 +211,34 @@ describe("PanelVideoFinal", () => {
     ).toBeDisabled();
     expect(screen.getByText("No hay ninguna previa disponible")).toBeInTheDocument();
   });
+
+  it("cambiar de previa no borra el mensaje del último lanzamiento", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: false,
+      mensaje: "Ya hay un trabajo en marcha",
+    });
+    render(
+      <PanelVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        previas={["ruta/previa-v1.mp4", "ruta/previa-v2.mp4"]}
+        acciones={[
+          accion("video-final", { opciones: ["previa-v1.mp4", "previa-v2.mp4"] }),
+        ]}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Crear el vídeo final (−14 LUFS)" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ya hay un trabajo en marcha");
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Previa para el vídeo final" }),
+      "previa-v1.mp4",
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Ya hay un trabajo en marcha");
+  });
 });

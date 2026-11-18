@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
+import { TrabajoInexistente } from "@/lib/error-trabajo";
 import type { Trabajo } from "@/lib/tipos";
 import { leerTrabajo } from "@/lib/trabajos";
 
@@ -23,8 +24,8 @@ const enMarcha: Trabajo = {
   error: null,
 };
 
-function PruebaSeguimiento() {
-  const trabajo = useSeguimientoTrabajo({ trabajo: enMarcha });
+function PruebaSeguimiento({ alDesaparecer }: { alDesaparecer?: (id: number) => void }) {
+  const trabajo = useSeguimientoTrabajo({ trabajo: enMarcha, alDesaparecer });
   return <span>{trabajo?.estado}</span>;
 }
 
@@ -74,5 +75,19 @@ describe("useSeguimientoTrabajo", () => {
     );
     await avanzar(4000);
     expect(leerTrabajo).not.toHaveBeenCalled();
+  });
+
+  it("con un 404 deja de consultar, avisa una vez y no refresca", async () => {
+    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
+    const alDesaparecer = vi.fn();
+    render(<PruebaSeguimiento alDesaparecer={alDesaparecer} />);
+
+    await avanzar(2000);
+    expect(alDesaparecer).toHaveBeenCalledExactlyOnceWith(31);
+
+    await avanzar(10_000);
+    expect(leerTrabajo).toHaveBeenCalledOnce();
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

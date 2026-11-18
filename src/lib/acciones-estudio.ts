@@ -1,22 +1,12 @@
 "use server";
 
-import { headers } from "next/headers";
-
 import { escribir } from "@/lib/api-escritura";
+import { esIdAccion } from "@/lib/catalogo-acciones";
 import { CURSO_VALIDO } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
-import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
+import { origenPermitido } from "@/lib/origen-servidor";
 import type { IdAccion, Trabajo } from "@/lib/tipos";
 
-const ACCIONES = new Set<IdAccion>([
-  "alinear-voz",
-  "preparar-montaje",
-  "previa-grabacion",
-  "render-leccion",
-  "video-final",
-  "preparar-shorts",
-  "render-short",
-]);
 const PREVIA_VALIDA = /^previa-v\d{1,4}\.mp4$/;
 const SHORT_VALIDO = /^[a-z0-9-]{1,60}$/;
 const ESTADOS_CON_DETALLE = new Set([404, 409, 422, 503]);
@@ -45,10 +35,6 @@ function destinoValido(curso: unknown, numero: unknown): boolean {
   );
 }
 
-function esAccion(valor: unknown): valor is IdAccion {
-  return typeof valor === "string" && ACCIONES.has(valor as IdAccion);
-}
-
 function normalizarOpciones(valor: unknown): OpcionesAccion | null {
   if (typeof valor !== "object" || valor === null || Array.isArray(valor)) {
     return null;
@@ -68,14 +54,6 @@ function normalizarOpciones(valor: unknown): OpcionesAccion | null {
     ...(previa === undefined ? {} : { previa }),
     ...(short === undefined ? {} : { short }),
   };
-}
-
-async function origenPermitido(): Promise<boolean> {
-  const cabeceras = await headers();
-  return (
-    cabeceras.get("host") === HOST_ESTUDIO &&
-    cabeceras.get("origin") === ORIGEN_ESTUDIO
-  );
 }
 
 function mensajeEstado(estado: number): string {
@@ -130,7 +108,7 @@ export async function lanzarAccion(
   opciones: OpcionesAccion,
 ): Promise<ResultadoTrabajo> {
   if (!destinoValido(curso, numero)) return error("La lección no es válida");
-  if (!esAccion(accion)) return error("La acción no es válida");
+  if (!esIdAccion(accion)) return error("La acción no es válida");
   const opcionesValidas = normalizarOpciones(opciones);
   if (!opcionesValidas) return error("Las opciones de la acción no son válidas");
   if (!(await origenPermitido())) return error("Origen no permitido");
