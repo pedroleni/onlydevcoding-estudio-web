@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BarraNavegacion } from "@/components/BarraNavegacion";
 import { Teleprompter } from "@/components/teleprompter/Teleprompter";
+import { leerEntregas } from "@/lib/acciones-entregas";
 import { guardarTextos } from "@/lib/acciones-teleprompter";
 import { leerTrabajo } from "@/lib/trabajos";
 import { subirToma } from "@/lib/teleprompter/grabadora";
@@ -35,6 +36,20 @@ vi.mock("@/lib/acciones-teleprompter", () => ({
 
 vi.mock("@/lib/trabajos", () => ({
   leerTrabajo: vi.fn(),
+}));
+
+vi.mock("@/lib/acciones-estudio", () => ({
+  lanzarAccion: vi.fn(),
+  cancelarTrabajo: vi.fn(),
+}));
+
+vi.mock("@/lib/acciones-entregas", () => ({
+  leerEntregas: vi.fn(async () => ({
+    ok: true,
+    entregas: { archivos: [], propuesta: null, destinos: { camara: [], ganchos: [] } },
+  })),
+  quitarEntrega: vi.fn(),
+  colocarTomas: vi.fn(),
 }));
 
 function escena(
@@ -789,7 +804,7 @@ function medioFalso(elemento: HTMLMediaElement, propiedades: Record<string, unkn
 }
 
 describe("Teleprompter: escenas a cámara", () => {
-  it("muestran 🎥, sus puntos y la línea de cámara; Grabar y Entregar están desactivados", async () => {
+  it("muestran 🎥, sus puntos, la línea de cámara y la zona de entrega; Grabar está desactivado", async () => {
     pintar({
       ...datos,
       escenas: datos.escenas.map((e) => (e.id === "E02" ? { ...e, grabada: true } : e)),
@@ -798,23 +813,69 @@ describe("Teleprompter: escenas a cámara", () => {
     await userEvent.click(screen.getByRole("button", { name: "E02 🎥 ✓" }));
 
     expect(screen.getByText("🎥 Se graba con la cámara · horizontal")).toBeInTheDocument();
+    expect(screen.getByText("✓ Grabada")).toBeInTheDocument();
     expect(screen.getByText("Un punto inventado")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Grabar/ })).toBeDisabled();
-    const entregar = screen.getByRole("button", { name: "⬆ Entregar los vídeos de la cámara" });
-    expect(entregar).toBeDisabled();
-    expect(entregar).toHaveAttribute("title", "Llega en la fase 6");
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    expect(within(zona).getByLabelText(/Entregar los vídeos de la cámara/)).toHaveAttribute(
+      "type",
+      "file",
+    );
+    expect(
+      screen.queryByRole("button", { name: "⬆ Entregar los vídeos de la cámara" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(leerEntregas).toHaveBeenCalledWith("curso-ficticio", 4));
     expect(screen.getByRole("status")).toHaveTextContent(
       "Pulsa Empezar y dale a grabar en tu cámara durante la cuenta atrás.",
     );
   });
 
-  it("las escenas de voz no ofrecen Entregar ni cambiar la vista", () => {
+  it("una escena a cámara sin toma no dice «✓ Grabada»", async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBeInTheDocument();
+    expect(screen.queryByText("✓ Grabada")).not.toBeInTheDocument();
+  });
+
+  it("las escenas de voz no tienen la zona de entrega ni cambian la vista", async () => {
     pintar();
 
     expect(
-      screen.queryByRole("button", { name: "⬆ Entregar los vídeos de la cámara" }),
+      screen.queryByRole("region", { name: "Entregar las tomas de cámara" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).not.toBeVisible();
     expect(screen.queryByRole("button", { name: "Ver solo puntos" })).not.toBeInTheDocument();
+
+    // Volver de una escena a cámara a una de voz también la quita de la vista.
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "E05" }));
+    expect(
+      screen.queryByRole("region", { name: "Entregar las tomas de cámara" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("la zona de entrega sigue montada al pasar por una escena de voz: no se pierde una subida", async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    await userEvent.click(screen.getByRole("button", { name: "E05" }));
+
+    expect(zona).toBeInTheDocument();
+    expect(zona).not.toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBe(zona);
+    expect(leerEntregas).toHaveBeenCalledOnce();
+  });
+
+  it("una lección sin escenas a cámara no monta la zona de entrega", () => {
+    pintar({ ...datos, escenas: datos.escenas.filter(({ modo }) => modo !== "camara") });
+
+    expect(screen.queryByLabelText(/Entregar los vídeos de la cámara/)).not.toBeInTheDocument();
+    expect(leerEntregas).not.toHaveBeenCalled();
   });
 
   it("Empezar hace la cuenta atrás de cámara", async () => {

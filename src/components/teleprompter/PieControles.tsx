@@ -91,11 +91,6 @@ export function PieControles({
           Editar texto
         </button>
       )}
-      {voz ? null : (
-        <button type="button" disabled title="Llega en la fase 6" className={NORMAL}>
-          ⬆ Entregar los vídeos de la cámara
-        </button>
-      )}
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 text-sm text-tenue sm:ml-auto sm:w-auto">
         <span ref={relojRef} className="min-w-[6ch] font-mono text-xl text-texto">
           0:00

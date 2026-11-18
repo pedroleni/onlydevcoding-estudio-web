@@ -31,6 +31,8 @@ type EstadoSubida = "esperando" | "subiendo" | "hecha" | "error" | "cancelada";
 interface Subida {
   clave: number;
   archivo: File;
+  // Escena de cámara en la que estaba la zona al soltar el archivo.
+  escena?: string;
   estado: EstadoSubida;
   fraccion: number;
   mensaje: string | null;
@@ -74,13 +76,17 @@ function etiquetaDestino(id: string, titulo: string): string {
   return titulo && titulo !== id ? `${id} · ${titulo}` : id;
 }
 
-// Destino con el que sale cada fila: el de la propuesta si sigue existiendo y, con `escena`
-// (la zona está en una escena del teleprompter), esa escena para la primera toma horizontal
-// subida desde aquí que la propuesta deja sin destino, si nadie más la tiene ya.
+interface SubidaAqui {
+  archivo: string;
+  escena?: string;
+}
+
+// Destino con el que sale cada fila: el de la propuesta si sigue existiendo y, para una toma
+// horizontal subida desde aquí en una escena del teleprompter que la propuesta deja sin destino,
+// esa escena (la de cuando se soltó), si nadie más la tiene ya.
 function seleccionInicial(
   entregas: Entregas,
-  escena: string | undefined,
-  subidasAqui: readonly string[],
+  subidasAqui: readonly SubidaAqui[],
 ): Record<string, string> {
   const camara = new Set(entregas.destinos.camara.map(({ id }) => id));
   const ganchos = new Set(entregas.destinos.ganchos.map(({ id }) => id));
@@ -94,14 +100,19 @@ function seleccionInicial(
     resultado[toma.archivo] = existe ? id : "";
     if (existe) usados.add(id);
   }
-  if (escena && camara.has(escena) && !usados.has(escena)) {
+  for (const { archivo, escena } of subidasAqui) {
+    if (!escena || !camara.has(escena) || usados.has(escena)) continue;
     const sinDestino = tomas.find(
       (toma) =>
+        toma.archivo === archivo &&
         toma.orientacion === "horizontal" &&
         toma.propuesta === null &&
-        subidasAqui.includes(toma.archivo),
+        !resultado[toma.archivo],
     );
-    if (sinDestino) resultado[sinDestino.archivo] = escena;
+    if (sinDestino) {
+      resultado[sinDestino.archivo] = escena;
+      usados.add(escena);
+    }
   }
   return resultado;
 }
@@ -285,7 +296,7 @@ export function EntregaTomas({
   const [entregas, setEntregas] = useState<Entregas | null>(null);
   const [errorLectura, setErrorLectura] = useState<string | null>(null);
   const [subidas, setSubidas] = useState<Subida[]>([]);
-  const [subidasAqui, setSubidasAqui] = useState<string[]>([]);
+  const [subidasAqui, setSubidasAqui] = useState<SubidaAqui[]>([]);
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
   const [trabajoIdentificar, setTrabajoIdentificar] = useState<Trabajo | null>(() =>
     trabajoEnMarcha(acciones, "identificar-tomas"),
@@ -297,6 +308,7 @@ export function EntregaTomas({
   const [colocadas, setColocadas] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
+  const [lanzandoIdentificacion, setLanzandoIdentificacion] = useState(false);
 
   const montado = useRef(true);
   const cola = useRef<Subida[]>([]);
@@ -304,6 +316,12 @@ export function EntregaTomas({
   const controles = useRef(new Map<number, AbortController>());
   const canceladas = useRef(new Set<number>());
   const siguienteClave = useRef(1);
+  // Archivos de entregas/ que se conocen (leídos o subidos desde aquí) y los que ya han entrado
+  // en una identificación de esta visita: al terminar, solo se repite por los que no.
+  const conocidas = useRef(new Set<string>());
+  const vistasAlIdentificar = useRef(new Set<string>());
+  // Si al llegar ya había una identificación en marcha, lo que se lea primero entra en ella.
+  const identificacionAdoptada = useRef(trabajoIdentificar !== null);
 
   const subiendo = subidas.some(enCurso);
   useAvisoAlSalir(subiendo);
@@ -319,11 +337,20 @@ export function EntregaTomas({
     };
   }, []);
 
+  function conocer(leidas: Entregas) {
+    for (const { archivo } of leidas.archivos) conocidas.current.add(archivo);
+    if (identificacionAdoptada.current) {
+      identificacionAdoptada.current = false;
+      for (const { archivo } of leidas.archivos) vistasAlIdentificar.current.add(archivo);
+    }
+  }
+
   useEffect(() => {
     let vivo = true;
     void leerEntregas(curso, numero).then((resultado) => {
       if (!vivo) return;
       if (resultado.ok) {
+        conocer(resultado.entregas);
         setEntregas(resultado.entregas);
         setErrorLectura(null);
       } else {
@@ -335,27 +362,42 @@ export function EntregaTomas({
     };
   }, [curso, numero]);
 
-  async function recargar(reiniciarSeleccion: boolean) {
+  async function recargar(reiniciarSeleccion: boolean): Promise<Entregas | null> {
     const resultado = await leerEntregas(curso, numero);
-    if (!montado.current) return;
+    if (!montado.current) return null;
     if (resultado.ok) {
+      conocer(resultado.entregas);
       setEntregas(resultado.entregas);
       setErrorLectura(null);
       if (reiniciarSeleccion) setSeleccion({});
-    } else {
-      setErrorLectura(resultado.mensaje);
+      return resultado.entregas;
     }
+    setErrorLectura(resultado.mensaje);
+    return null;
   }
 
   const identificacion = useSeguimientoTrabajo({
     trabajo: trabajoIdentificar,
-    alTerminar: () => {
+    alTerminar: (terminado) => {
+      void trasIdentificar(terminado);
+    },
+    // Tras reiniciar la API el trabajo ya no existe: no se espera más y se lee lo que haya.
+    alDesaparecer: () => {
+      setTrabajoIdentificar(null);
       void recargar(true);
     },
     refrescarAlTerminar: false,
   });
-  const color = useSeguimientoTrabajo({ trabajo: trabajoColor });
+  const color = useSeguimientoTrabajo({
+    trabajo: trabajoColor,
+    alDesaparecer: () => {
+      setTrabajoColor(null);
+      void recargar(false);
+    },
+  });
   const identificando = enMarcha(identificacion);
+  // Mientras se identifica no se entregan más: lo nuevo no entraría en esta identificación.
+  const entregaDesactivada = identificando || lanzandoIdentificacion;
 
   function actualizarSubida(clave: number, cambios: Partial<Subida>) {
     setSubidas((actuales) =>
@@ -365,15 +407,31 @@ export function EntregaTomas({
 
   async function identificar() {
     setMensaje(null);
+    setLanzandoIdentificacion(true);
+    for (const archivo of conocidas.current) vistasAlIdentificar.current.add(archivo);
     const resultado = await lanzarAccion(curso, numero, "identificar-tomas", {});
     if (!montado.current) return;
+    setLanzandoIdentificacion(false);
     if (!resultado.ok) {
       setMensaje(resultado.mensaje);
       await recargar(false);
       return;
     }
     setTrabajoIdentificar(resultado.trabajo);
-    if (!enMarcha(resultado.trabajo)) await recargar(true);
+    if (!enMarcha(resultado.trabajo)) await trasIdentificar(resultado.trabajo);
+  }
+
+  // Al terminar bien, si en entregas/ hay tomas fuera de la propuesta que ninguna identificación
+  // de esta visita ha visto (llegaron mientras se identificaba), se identifica otra vez. Las que
+  // ya se intentaron se quedan como «No se ha podido analizar»: no se repite en bucle.
+  async function trasIdentificar(terminado: Trabajo) {
+    const leidas = await recargar(true);
+    if (!leidas || !montado.current || terminado.estado !== "hecho") return;
+    const enPropuesta = new Set((leidas.propuesta?.archivos ?? []).map(({ archivo }) => archivo));
+    const nuevas = leidas.archivos.some(
+      ({ archivo }) => !enPropuesta.has(archivo) && !vistasAlIdentificar.current.has(archivo),
+    );
+    if (nuevas) await identificar();
   }
 
   // Las subidas van de una en una: 4 GiB a la vez por el mismo disco no acaban antes. Un error
@@ -398,7 +456,11 @@ export function EntregaTomas({
       if (!montado.current) break;
       if (resultado.ok) {
         subidaAlguna = true;
-        setSubidasAqui((anteriores) => [...anteriores, subida.archivo.name]);
+        conocidas.current.add(subida.archivo.name);
+        setSubidasAqui((anteriores) => [
+          ...anteriores,
+          { archivo: subida.archivo.name, escena: subida.escena },
+        ]);
         actualizarSubida(subida.clave, { estado: "hecha", fraccion: 1 });
       } else {
         actualizarSubida(subida.clave, {
@@ -417,12 +479,13 @@ export function EntregaTomas({
   }
 
   function anadir(archivos: File[]) {
-    if (archivos.length === 0) return;
+    if (archivos.length === 0 || entregaDesactivada) return;
     setMensaje(null);
     setColocadas(false);
     const nuevas: Subida[] = archivos.map((archivo) => ({
       clave: siguienteClave.current++,
       archivo,
+      escena,
       estado: "esperando",
       fraccion: 0,
       mensaje: null,
@@ -449,7 +512,7 @@ export function EntregaTomas({
   const tomas = entregas?.propuesta?.archivos ?? [];
   const analizadas = new Set(tomas.map(({ archivo }) => archivo));
   const sinAnalizar = (entregas?.archivos ?? []).filter(({ archivo }) => !analizadas.has(archivo));
-  const inicial = entregas ? seleccionInicial(entregas, escena, subidasAqui) : {};
+  const inicial = entregas ? seleccionInicial(entregas, subidasAqui) : {};
   const valorDe = (archivo: string) => seleccion[archivo] ?? inicial[archivo] ?? "";
   const asignaciones: AsignacionToma[] = tomas.map(({ archivo }) => ({
     archivo,
@@ -504,12 +567,16 @@ export function EntregaTomas({
   return (
     <section aria-label="Entregar las tomas de cámara" className="grid gap-4">
       <label
-        className={`grid cursor-pointer justify-items-center gap-1 border border-dashed p-6 text-center transition-colors focus-within:border-marca hover:border-marca ${
-          arrastrando ? "border-marca bg-carbon" : "border-borde bg-superficie"
+        className={`grid justify-items-center gap-1 border border-dashed p-6 text-center transition-colors ${
+          entregaDesactivada
+            ? "cursor-default border-borde bg-superficie opacity-60"
+            : `cursor-pointer focus-within:border-marca hover:border-marca ${
+                arrastrando ? "border-marca bg-carbon" : "border-borde bg-superficie"
+              }`
         }`}
         onDragOver={(evento) => {
           evento.preventDefault();
-          setArrastrando(true);
+          if (!entregaDesactivada) setArrastrando(true);
         }}
         onDragLeave={() => setArrastrando(false)}
         onDrop={(evento) => {
@@ -522,6 +589,7 @@ export function EntregaTomas({
           type="file"
           multiple
           accept={ACEPTA}
+          disabled={entregaDesactivada}
           className="sr-only"
           onChange={(evento) => {
             anadir(Array.from(evento.target.files ?? []));
@@ -529,7 +597,11 @@ export function EntregaTomas({
           }}
         />
         <span className="font-semibold">⬆ Entregar los vídeos de la cámara</span>
-        <span className="text-sm text-tenue">Arrastra aquí las tomas (Facetune, iPhone…)</span>
+        <span className="text-sm text-tenue">
+          {entregaDesactivada
+            ? "Espera a que se identifiquen las tomas para entregar más."
+            : "Arrastra aquí las tomas (Facetune, iPhone…)"}
+        </span>
       </label>
 
       {subidas.length > 0 ? (
@@ -608,7 +680,7 @@ export function EntregaTomas({
               <button
                 type="button"
                 className={BOTON}
-                disabled={ocupado}
+                disabled={ocupado || lanzandoIdentificacion}
                 onClick={() => void identificar()}
               >
                 Identificar las tomas

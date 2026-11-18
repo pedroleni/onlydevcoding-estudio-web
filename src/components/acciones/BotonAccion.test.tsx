@@ -219,6 +219,33 @@ describe("BotonAccion", () => {
     expect(lanzarAccion).toHaveBeenCalledWith("react", 4, "render-short", { short: "s2" });
   });
 
+  it("en mejorar-toma el objetivo es la escena: sigue su trabajo y la envía como escena", async () => {
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: true,
+      trabajo: trabajo({ id: 40, accion: "mejorar-toma", objetivo: "E17", progreso: 0 }),
+    });
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({
+          id: "mejorar-toma",
+          etiqueta: "Mejorar con IA",
+          opciones: ["E08", "E17"],
+          ultimos: {
+            E08: trabajo({ id: 38, accion: "mejorar-toma", objetivo: "E08", estado: "error", error: "Fallo E08", fin: "2026-11-18T10:02:00Z" }),
+          },
+        })}
+        objetivo="E17"
+      />,
+    );
+
+    expect(screen.queryByText(/Fallo E08/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mejorar con IA" }));
+
+    expect(lanzarAccion).toHaveBeenCalledWith("react", 4, "mejorar-toma", { escena: "E17" });
+  });
+
   it("ignora un error de cancelación que llega después del estado final", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     let resolver!: (resultado: { ok: false; mensaje: string }) => void;

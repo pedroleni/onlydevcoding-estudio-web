@@ -301,3 +301,29 @@ export interface ResultadoColocar {
   colocadas: Array<{ archivo: string; destino: string }>;
   ganchos: number;
 }
+
+// Tomas a cámara y de los ganchos ya colocadas (`GET /api/cursos/{curso}/lecciones/{numero}/camara`).
+// `video` es una ruta pública de `/api/medios` y `version`, la que la acompaña en la URL.
+export interface EscenaCamara {
+  id: string;
+  titulo: string;
+  video: string | null;
+  version: number | null;
+  // Solo el nombre del archivo original, sin carpetas.
+  original: string | null;
+  mejorada: boolean;
+}
+
+export interface GanchoCamara {
+  id: string;
+  titulo: string;
+  toma: string | null;
+  video: string | null;
+  version: number | null;
+  color: boolean;
+}
+
+export interface TomasCamara {
+  escenas: EscenaCamara[];
+  ganchos: GanchoCamara[];
+}

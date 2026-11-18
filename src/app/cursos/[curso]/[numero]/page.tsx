@@ -8,6 +8,7 @@ import { GrabacionesVoz } from "@/components/GrabacionesVoz";
 import { ListaPiezas, VistaVideoFinal } from "@/components/ListaPiezas";
 import { PanelEstado } from "@/components/PanelEstado";
 import { PanelShorts } from "@/components/acciones/PanelShorts";
+import { TomasCamara } from "@/components/entregas/TomasCamara";
 import {
   esPestanaLeccion,
   PestanasLeccion,
@@ -24,6 +25,7 @@ import {
   obtenerPublicacion,
   obtenerTeleprompter,
 } from "@/lib/api";
+import { obtenerCamara } from "@/lib/camara";
 import { CURSO_VALIDO } from "@/lib/curso";
 import { textoLegible } from "@/lib/texto-legible";
 import type {
@@ -32,6 +34,7 @@ import type {
   EstadoLeccion,
   Leccion,
   Teleprompter,
+  TomasCamara as DatosCamara,
   VistaPublicacion,
 } from "@/lib/tipos";
 
@@ -92,6 +95,7 @@ function ContenidoPestana({
   publicacion,
   teleprompter,
   acciones,
+  camara,
   piezaSeleccionada,
   redSeleccionada,
 }: {
@@ -101,6 +105,7 @@ function ContenidoPestana({
   publicacion: VistaPublicacion | null;
   teleprompter: Teleprompter | null;
   acciones: EstadoAccion[] | null;
+  camara: DatosCamara | null;
   piezaSeleccionada?: string;
   redSeleccionada?: string;
 }) {
@@ -125,10 +130,11 @@ function ContenidoPestana({
             avance={leccion.estado.voz}
           />
         )}
-        <BloqueGrabacion
-          id="grabacion-camara"
-          titulo="Cámara"
-          escenas={leccion.escenas.filter(({ modo }) => modo === "camara")}
+        <TomasCamara
+          curso={curso}
+          numero={leccion.numero}
+          camara={camara}
+          acciones={acciones}
           avance={leccion.estado.camara}
         />
       </div>
@@ -266,6 +272,7 @@ async function ContenidoLeccion({
   let publicacion: VistaPublicacion | null = null;
   let teleprompter: Teleprompter | null = null;
   let acciones: EstadoAccion[] | null = null;
+  let camara: DatosCamara | null = null;
   if (pestana === "publicar") {
     try {
       publicacion = await obtenerPublicacion(curso, numero);
@@ -276,7 +283,13 @@ async function ContenidoLeccion({
       throw error;
     }
   }
-  if (pestana === "guion" || pestana === "grabaciones") {
+  if (pestana === "grabaciones") {
+    [teleprompter, acciones, camara] = await Promise.all([
+      lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
+      lecturaApiOpcional(obtenerAcciones(curso, numero)),
+      lecturaApiOpcional(obtenerCamara(curso, numero)),
+    ]);
+  } else if (pestana === "guion") {
     [teleprompter, acciones] = await Promise.all([
       lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
       lecturaApiOpcional(obtenerAcciones(curso, numero)),
@@ -330,6 +343,7 @@ async function ContenidoLeccion({
           publicacion={publicacion}
           teleprompter={teleprompter}
           acciones={acciones}
+          camara={camara}
           piezaSeleccionada={valorPieza}
           redSeleccionada={valorRed}
         />

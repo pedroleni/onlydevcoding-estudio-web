@@ -6,6 +6,7 @@ import { EntregaTomas } from "@/components/entregas/EntregaTomas";
 import { subirEntrega, type ResultadoSubida } from "@/components/entregas/subirEntrega";
 import { colocarTomas, leerEntregas, quitarEntrega } from "@/lib/acciones-entregas";
 import { lanzarAccion } from "@/lib/acciones-estudio";
+import { TrabajoInexistente } from "@/lib/error-trabajo";
 import type { Entregas, PropuestaTomas, Trabajo } from "@/lib/tipos";
 import { leerTrabajo } from "@/lib/trabajos";
 
@@ -416,5 +417,186 @@ describe("EntregaTomas", () => {
       await screen.findByRole("combobox", { name: "Destino de Toma nueva.MOV" }),
     ).toHaveValue("E08");
     expect(destino("Toma vieja.MOV")).toHaveValue("");
+  });
+  it("si el trabajo de identificar desaparece, deja de esperarlo y vuelve a leer las entregas", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "x.mov", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
+    render(<EntregaTomas curso="react" numero={4} />);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    soltar([video("x.mov")]);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByText("Identificando las tomas…")).toBeInTheDocument();
+    const lecturas = vi.mocked(leerEntregas).mock.calls.length;
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: entregas() });
+
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+
+    expect(leerTrabajo).toHaveBeenCalledWith(50);
+    expect(screen.queryByText(/Identificando las tomas/)).not.toBeInTheDocument();
+    expect(vi.mocked(leerEntregas).mock.calls.length).toBeGreaterThan(lecturas);
+    expect(destino("Toma ficticia 1.MOV")).toHaveValue("E17");
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeEnabled();
+  });
+
+  it("si el trabajo de color desaparece, deja de decir que se está ajustando", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
+    render(
+      <EntregaTomas
+        curso="react"
+        numero={4}
+        acciones={[
+          {
+            id: "color-ganchos",
+            etiqueta: "Ajustar el color de los ganchos",
+            disponible: true,
+            motivo: null,
+            opciones: [],
+            ultimo: trabajo({ id: 52, accion: "color-ganchos" }),
+            ultimos: {},
+          },
+        ]}
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByText("Ajustando el color de los ganchos…")).toBeInTheDocument();
+
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+
+    expect(leerTrabajo).toHaveBeenCalledWith(52);
+    expect(screen.queryByText(/Ajustando el color/)).not.toBeInTheDocument();
+    expect(leerEntregas).toHaveBeenCalledTimes(2);
+  });
+
+  it("mientras se identifica, la zona de soltar está desactivada y lo dice", async () => {
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "x.mov", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockReturnValue(new Promise(() => undefined));
+    render(<EntregaTomas curso="react" numero={4} />);
+
+    soltar([video("x.mov")]);
+    expect(await screen.findByText("Identificando las tomas…")).toBeInTheDocument();
+
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeDisabled();
+    expect(
+      screen.getByText("Espera a que se identifiquen las tomas para entregar más."),
+    ).toBeInTheDocument();
+    soltar([video("otra.mov")]);
+    expect(subirEntrega).toHaveBeenCalledOnce();
+  });
+
+  it("al terminar, relanza la identificación una vez si quedan tomas nuevas sin analizar", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const hecho = trabajo({ estado: "hecho", progreso: 1, fin: "2026-11-18T10:03:00Z" });
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "Toma ficticia 1.MOV", bytes: 6 });
+    vi.mocked(lanzarAccion)
+      .mockResolvedValueOnce({ ok: true, trabajo: trabajo() })
+      .mockResolvedValueOnce({ ok: true, trabajo: trabajo({ id: 60 }) });
+    vi.mocked(leerTrabajo).mockImplementation(async (id) => ({ ...hecho, id }));
+    render(<EntregaTomas curso="react" numero={4} />);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    // Mientras se identificaba, otra toma ha llegado a entregas/ (por ejemplo, desde otra pestaña).
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: entregas() });
+
+    soltar([video("Toma ficticia 1.MOV")]);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(lanzarAccion).toHaveBeenCalledOnce();
+
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(lanzarAccion).toHaveBeenCalledTimes(2);
+    expect(lanzarAccion).toHaveBeenLastCalledWith("react", 4, "identificar-tomas", {});
+
+    // La segunda tampoco la analiza: no se vuelve a lanzar.
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(lanzarAccion).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("No se ha podido analizar")).toBeInTheDocument();
+  });
+
+  it("no relanza por las tomas que ya estaban al identificar", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: entregas() });
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "Toma ficticia 1.MOV", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ estado: "hecho", progreso: 1, fin: "2026-11-18T10:03:00Z" }),
+    );
+    render(<EntregaTomas curso="react" numero={4} />);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    soltar([video("Toma ficticia 1.MOV")]);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+
+    expect(lanzarAccion).toHaveBeenCalledOnce();
+    expect(screen.getByText("No se ha podido analizar")).toBeInTheDocument();
+  });
+
+  it("si la identificación se cancela, no la relanza", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "x.mov", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ estado: "cancelado", fin: "2026-11-18T10:03:00Z" }),
+    );
+    render(<EntregaTomas curso="react" numero={4} />);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: entregas() });
+
+    soltar([video("x.mov")]);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+
+    expect(lanzarAccion).toHaveBeenCalledOnce();
+  });
+
+  it("preselecciona la escena en la que se soltó la toma aunque la zona haya cambiado de escena", async () => {
+    const sinPropuesta = entregas({
+      archivos: [{ archivo: "Toma nueva.MOV", bytes: 6 }],
+      propuesta: {
+        version: 1,
+        guion: "react-04",
+        archivos: [
+          {
+            archivo: "Toma nueva.MOV",
+            bytes: 6,
+            orientacion: "horizontal",
+            duracion: 10,
+            texto: "Texto ficticio",
+            propuesta: null,
+            repite: null,
+            candidatos: [],
+          },
+        ],
+      },
+    });
+    let terminar!: () => void;
+    vi.mocked(subirEntrega).mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          terminar = () => resolver({ ok: true, archivo: "Toma nueva.MOV", bytes: 6 });
+        }),
+    );
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: true,
+      trabajo: trabajo({ estado: "hecho", progreso: 1, fin: "2026-11-18T10:01:00Z" }),
+    });
+    const { rerender } = render(<EntregaTomas curso="react" numero={4} escena="E08" />);
+    await waitFor(() => expect(leerEntregas).toHaveBeenCalledOnce());
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: sinPropuesta });
+
+    soltar([video("Toma nueva.MOV")]);
+    await waitFor(() => expect(subirEntrega).toHaveBeenCalledOnce());
+    rerender(<EntregaTomas curso="react" numero={4} escena="E17" />);
+    await act(async () => terminar());
+
+    expect(
+      await screen.findByRole("combobox", { name: "Destino de Toma nueva.MOV" }),
+    ).toHaveValue("E08");
   });
 });

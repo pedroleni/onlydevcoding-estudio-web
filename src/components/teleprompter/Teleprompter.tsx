@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 
+import { EntregaTomas } from "@/components/entregas/EntregaTomas";
 import {
   BarraAjustes,
   SelectorLeccion,
@@ -39,7 +40,11 @@ import {
 } from "@/lib/teleprompter/preferencias";
 import { calcularPlan, mmss, type Plan } from "@/lib/teleprompter/ritmo";
 import { textoLegible } from "@/lib/texto-legible";
-import type { EscenaTeleprompter, Teleprompter as DatosTeleprompter } from "@/lib/tipos";
+import type {
+  EscenaTeleprompter,
+  EstadoAccion,
+  Teleprompter as DatosTeleprompter,
+} from "@/lib/tipos";
 
 export type { OpcionLeccion };
 
@@ -82,10 +87,13 @@ export function Teleprompter({
   datos,
   lecciones,
   seleccion,
+  acciones = null,
 }: {
   datos: DatosTeleprompter | null;
   lecciones: OpcionLeccion[];
   seleccion: Seleccion | null;
+  // Estado de las acciones de la lección, para que la zona de entrega siga lo que esté en marcha.
+  acciones?: EstadoAccion[] | null;
 }) {
   const router = useRouter();
   const curso = datos?.curso;
@@ -142,6 +150,7 @@ export function Teleprompter({
       key={valorLeccion(datos)}
       datos={datos}
       lecciones={lecciones}
+      acciones={acciones}
       alCambiarLeccion={cambiarLeccion}
     />
   );
@@ -150,10 +159,12 @@ export function Teleprompter({
 function SesionTeleprompter({
   datos,
   lecciones,
+  acciones,
   alCambiarLeccion,
 }: {
   datos: DatosTeleprompter;
   lecciones: OpcionLeccion[];
+  acciones: EstadoAccion[] | null;
   alCambiarLeccion: (valor: string) => void;
 }) {
   const router = useRouter();
@@ -177,6 +188,7 @@ function SesionTeleprompter({
   });
   const escena = escenas.at(indice);
   const voz = escena?.modo === "voz";
+  const hayCamara = escenas.some(({ modo }) => modo === "camara");
   const puntos = !voz && pref.vistaCamara === "puntos";
   // null: el estado inicial de la escena, que se calcula al pintar con las preferencias ya
   // leídas (tras hidratar), así que la vista «puntos» guardada se refleja desde el principio.
@@ -544,6 +556,9 @@ function SesionTeleprompter({
             {voz ? null : (
               <span className="text-sm text-ambar">🎥 Se graba con la cámara · horizontal</span>
             )}
+            {!voz && escena.grabada ? (
+              <span className="text-sm font-semibold text-verde">✓ Grabada</span>
+            ) : null}
           </div>
           {!voz && !puntos && !editando && escena.puntos.length > 0 ? (
             <ul
@@ -607,6 +622,21 @@ function SesionTeleprompter({
               </div>
             )}
           </div>
+          {hayCamara ? (
+            // Montada para toda la lección y solo oculta en las escenas de voz: pasar por una
+            // de ellas no corta una subida en curso.
+            <div
+              hidden={voz}
+              className={`max-h-[45dvh] shrink-0 overflow-y-auto border-t border-borde px-4 py-4 md:px-12 ${apartado}`}
+            >
+              <EntregaTomas
+                curso={guion.curso}
+                numero={guion.numero}
+                escena={voz ? undefined : escena.id}
+                acciones={acciones}
+              />
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="flex-1 p-6">

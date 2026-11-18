@@ -37,12 +37,14 @@ function urlApiServidor(): string {
   return sinBarraFinal(process.env.API_URL ?? API_LOCAL);
 }
 
-async function pedir<T>(ruta: string): Promise<T>;
-async function pedir<T>(
+// GET sin caché a la API local. Se exporta para los módulos de lectura de cada área
+// (p. ej. `camara.ts`); los errores son `ApiNoDisponible` o `ErrorApi`.
+export async function pedir<T>(ruta: string): Promise<T>;
+export async function pedir<T>(
   ruta: string,
   opciones: { nullEn404: true },
 ): Promise<T | null>;
-async function pedir<T>(
+export async function pedir<T>(
   ruta: string,
   opciones: { nullEn404?: boolean } = {},
 ): Promise<T | null> {
