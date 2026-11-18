@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
+import {
+  ErrorEditorGuion,
+  type ErrorEditorGuionDatos,
+} from "@/components/guion/ErrorEditorGuion";
 import { guardarTextos } from "@/lib/acciones-teleprompter";
 import { limpio, sinSaltos, valido } from "@/lib/textos-guion";
 import type { Teleprompter } from "@/lib/tipos";
@@ -31,7 +35,7 @@ export function EditorGanchos({
   const router = useRouter();
   const [base] = useState(() => ({ version, textos: ganchos.map(({ texto }) => texto) }));
   const [textos, setTextos] = useState(base.textos);
-  const [error, setError] = useState<{ mensaje: string; conflicto: boolean } | null>(null);
+  const [error, setError] = useState<ErrorEditorGuionDatos | null>(null);
   const [recargando, setRecargando] = useState(false);
   const [guardando, iniciar] = useTransition();
   const llegoNuevo = recargando && version !== base.version;
@@ -125,16 +129,7 @@ export function EditorGanchos({
           </button>
         </p>
       ) : null}
-      {error ? (
-        <p role="alert" className="mt-3 flex flex-wrap items-center gap-2.5 text-sm text-ambar">
-          {error.mensaje}
-          {error.conflicto ? (
-            <button type="button" onClick={recargar} className="border border-ambar px-3 py-1.5 font-semibold text-ambar">
-              Recargar
-            </button>
-          ) : null}
-        </p>
-      ) : null}
+      <ErrorEditorGuion error={error} alRecargar={recargar} />
     </section>
   );
 }

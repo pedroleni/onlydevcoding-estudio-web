@@ -273,11 +273,15 @@ async function ContenidoLeccion({
     if (resultadoTeleprompter.status === "rejected") {
       const error = resultadoTeleprompter.reason;
       if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
-        return <AvisoApi error={error} />;
+        if (pestana !== "guion") return <AvisoApi error={error} />;
+        // Las escenas del guion siguen disponibles aunque falle su vista editable.
+        teleprompter = null;
+      } else {
+        throw error;
       }
-      throw error;
+    } else {
+      teleprompter = resultadoTeleprompter.value;
     }
-    teleprompter = resultadoTeleprompter.value;
     // El guion sigue disponible aunque falle el catálogo: el aviso se muestra sin botón.
     acciones = resultadoAcciones.status === "fulfilled" ? resultadoAcciones.value : null;
   } else if (pestana === "video" || pestana === "shorts") {

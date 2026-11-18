@@ -6,6 +6,8 @@ import PaginaCurso from "@/app/cursos/[curso]/page";
 import PaginaLeccion from "@/app/cursos/[curso]/[numero]/page";
 import { notFound } from "next/navigation";
 import {
+  ApiNoDisponible,
+  ErrorApi,
   obtenerAcciones,
   obtenerCursos,
   obtenerLeccion,
@@ -251,6 +253,20 @@ describe("shell de las páginas dinámicas", () => {
 
     expect(screen.getByRole("tabpanel")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Primera escena" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["la API no está disponible", () => new ApiNoDisponible()],
+    ["la API rechaza el teleprompter", () => new ErrorApi(422)],
+  ])("mantiene el guion sin edición si %s", async (_caso, crearError) => {
+    vi.mocked(obtenerTeleprompter).mockRejectedValue(crearError());
+
+    render(await renderizarContenidoLeccion());
+
+    expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Primera escena" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Ganchos de los shorts" })).not.toBeInTheDocument();
   });
 
   it.each(["grabaciones", "video", "shorts"])(

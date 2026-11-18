@@ -192,14 +192,17 @@ describe("GuionEditable", () => {
     expect(screen.queryByRole("heading", { name: "Ganchos de los shorts" })).not.toBeInTheDocument();
   });
 
-  it("solo mantiene una escena en edición", async () => {
+  it("protege el texto de E03 desactivando las demás ediciones", async () => {
     pintar();
 
-    const botones = screen.getAllByRole("button", { name: "Editar" });
-    await userEvent.click(botones[0]);
-    expect(screen.getByLabelText("Frase 2")).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole("button", { name: "Editar" })[1]);
-    expect(screen.queryByLabelText("Frase 2")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Punto 2")).toBeInTheDocument();
+    const tarjetaE03 = screen.getByRole("heading", { name: "Escena de voz ficticia" }).closest("article");
+    await userEvent.click(within(tarjetaE03!).getByRole("button", { name: "Editar" }));
+    await userEvent.type(screen.getByLabelText("Frase 2"), " con cambios");
+
+    expect(within(tarjetaE03!).queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+    const tarjetaE04 = screen.getByRole("heading", { name: "Escena de cámara ficticia" }).closest("article");
+    expect(within(tarjetaE04!).getByRole("button", { name: "Editar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Editar ganchos" })).toBeDisabled();
+    expect(screen.getByLabelText("Frase 2")).toHaveValue("Segunda frase ficticia. con cambios");
   });
 });

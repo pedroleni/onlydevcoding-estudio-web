@@ -16,7 +16,7 @@ import type {
 type Edicion = { tipo: "escena"; id: string } | { tipo: "ganchos" } | null;
 
 const BOTON_EDITAR =
-  "min-h-10 border border-borde px-4 text-sm font-semibold text-texto transition-colors hover:border-marca hover:bg-carbon";
+  "min-h-10 border border-borde px-4 text-sm font-semibold text-texto transition-colors hover:border-marca hover:bg-carbon disabled:cursor-not-allowed disabled:opacity-60";
 
 export function GuionEditable({
   curso,
@@ -59,10 +59,11 @@ export function GuionEditable({
               <TarjetaEscena
                 escena={escena}
                 previa={previa}
-                acciones={editable ? (
+                acciones={editable && !editando ? (
                   <button
                     type="button"
                     className={BOTON_EDITAR}
+                    disabled={edicion !== null}
                     onClick={() => setEdicion({ tipo: "escena", id: escena.id })}
                   >
                     Editar
@@ -96,6 +97,7 @@ export function GuionEditable({
               <button
                 type="button"
                 className={BOTON_EDITAR}
+                disabled={edicion !== null}
                 onClick={() => setEdicion({ tipo: "ganchos" })}
               >
                 Editar ganchos
