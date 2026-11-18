@@ -77,6 +77,47 @@ describe("ListaPiezas", () => {
     expect(screen.getByRole("button", { name: "Previa 3" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("distingue con su etiqueta las previas que comparten número", () => {
+    render(
+      <VistaVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        pieza={null}
+        previas={[
+          "ruta/previa-v13.mp4",
+          "ruta/previa-v13-camaras-reales.mp4",
+        ]}
+        acciones={null}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Previa 13" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Previa 13 · camaras reales" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previa 13" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("permite envolver los botones sin ensanchar la página", () => {
+    render(
+      <VistaVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        pieza={null}
+        previas={["ruta/previa-v10-estudio-720p.mp4"]}
+        acciones={null}
+      />,
+    );
+
+    expect(screen.getByLabelText("Elegir una previa")).toHaveClass(
+      "max-w-full",
+      "flex-wrap",
+    );
+  });
+
   it("tras un render nuevo pasa a la última previa", async () => {
     const props = {
       curso: "curso-ficticio",

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { BotonAccion } from "@/components/acciones/BotonAccion";
-import { numeroPrevia } from "@/lib/numero-previa";
+import { etiquetaPrevia, numeroPrevia, previaPorDefecto } from "@/lib/numero-previa";
 import type { EstadoAccion } from "@/lib/tipos";
 
 function siguientePrevia(previas: string[]): number {
@@ -28,7 +28,7 @@ export function PanelVideoFinal({
   const [previaElegida, setPreviaElegida] = useState<string | null>(null);
   const previaValida = previaElegida && videoFinal?.opciones.includes(previaElegida)
     ? previaElegida
-    : videoFinal?.opciones.at(-1) ?? "";
+    : previaPorDefecto(videoFinal?.opciones ?? []) ?? "";
   const siguiente = siguientePrevia(previas);
   const videoFinalDisponible = (videoFinal?.opciones.length ?? 0) > 0;
   // La acción derivada solo cambia con datos nuevos: BotonAccion borra su mensaje cuando cambia.
@@ -70,16 +70,16 @@ export function PanelVideoFinal({
       {accionVideoFinal ? (
         <div className="grid justify-items-start gap-3 border-t border-borde pt-5">
           {videoFinalDisponible ? (
-            <label className="grid gap-2 text-sm font-medium text-texto">
+            <label className="grid max-w-full min-w-0 gap-2 text-sm font-medium text-texto">
               Previa para el vídeo final
               <select
-                className="min-h-11 border border-borde bg-carbon px-3 text-sm text-texto"
+                className="min-h-11 w-full max-w-full border border-borde bg-carbon px-3 text-sm text-texto"
                 value={previaValida}
                 onChange={(evento) => setPreviaElegida(evento.target.value)}
               >
-                {accionVideoFinal.opciones.map((previa) => (
-                  <option key={previa} value={previa}>
-                    {previa}
+                {accionVideoFinal.opciones.map((previa, indice) => (
+                  <option key={`${previa}-${indice}`} value={previa}>
+                    {etiquetaPrevia(previa) ?? previa}
                   </option>
                 ))}
               </select>
