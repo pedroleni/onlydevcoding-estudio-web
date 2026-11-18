@@ -178,6 +178,16 @@ describe("shell de las páginas dinámicas", () => {
     expect(within(grabaciones).queryByText("⬜")).not.toBeInTheDocument();
   });
 
+  it("mantiene Grabaciones con su vista básica si no hay teleprompter", async () => {
+    vi.mocked(obtenerTeleprompter).mockResolvedValue(null);
+
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+
+    const grabaciones = screen.getByRole("tabpanel");
+    expect(within(grabaciones).getByRole("heading", { name: "Voz en off" })).toBeInTheDocument();
+    expect(within(grabaciones).getByText("voz-uno")).toBeInTheDocument();
+  });
+
   it.each(["1e2", "0x10", "1.0", "01"])(
     "rechaza el número de lección no canónico %s",
     async (numero) => {
@@ -267,6 +277,19 @@ describe("shell de las páginas dinámicas", () => {
     expect(screen.getByRole("heading", { name: "Primera escena" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Ganchos de los shorts" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["la API no está disponible", () => new ApiNoDisponible()],
+    ["la API rechaza el teleprompter", () => new ErrorApi(422)],
+  ])("mantiene Grabaciones con su vista básica si %s", async (_caso, crearError) => {
+    vi.mocked(obtenerTeleprompter).mockRejectedValue(crearError());
+
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+
+    const grabaciones = screen.getByRole("tabpanel");
+    expect(within(grabaciones).getByRole("heading", { name: "Voz en off" })).toBeInTheDocument();
+    expect(within(grabaciones).getByText("voz-uno")).toBeInTheDocument();
   });
 
   it.each(["grabaciones", "video", "shorts"])(

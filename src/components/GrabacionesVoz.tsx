@@ -1,6 +1,6 @@
 import { BotonAccion } from "@/components/acciones/BotonAccion";
 import { textoLegible } from "@/lib/texto-legible";
-import { urlMedio } from "@/lib/medios";
+import { urlToma } from "@/lib/medios";
 import type {
   Avance,
   EscenaTeleprompter,
@@ -50,11 +50,7 @@ export function GrabacionesVoz({
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {escenas.map((escena) => {
             const src = escena.toma
-              ? `${urlMedio(escena.toma)}${
-                  escena.version_toma === null
-                    ? ""
-                    : `&v=${encodeURIComponent(String(escena.version_toma))}`
-                }`
+              ? urlToma(escena.toma, escena.version_toma)
               : null;
 
             return (

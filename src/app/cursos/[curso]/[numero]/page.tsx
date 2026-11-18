@@ -203,6 +203,17 @@ function CargandoLeccion() {
   );
 }
 
+async function lecturaApiOpcional<T>(lectura: Promise<T>): Promise<T | null> {
+  try {
+    return await lectura;
+  } catch (error) {
+    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function ContenidoLeccion({
   params,
   searchParams,
@@ -266,29 +277,12 @@ async function ContenidoLeccion({
     }
   }
   if (pestana === "guion" || pestana === "grabaciones") {
-    const [resultadoTeleprompter, resultadoAcciones] = await Promise.allSettled([
-      obtenerTeleprompter(curso, numero),
-      obtenerAcciones(curso, numero),
+    [teleprompter, acciones] = await Promise.all([
+      lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
+      obtenerAcciones(curso, numero).catch(() => null),
     ]);
-    if (resultadoTeleprompter.status === "rejected") {
-      const error = resultadoTeleprompter.reason;
-      if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
-        if (pestana !== "guion") return <AvisoApi error={error} />;
-        // Las escenas del guion siguen disponibles aunque falle su vista editable.
-        teleprompter = null;
-      } else {
-        throw error;
-      }
-    } else {
-      teleprompter = resultadoTeleprompter.value;
-    }
-    // El guion sigue disponible aunque falle el catálogo: el aviso se muestra sin botón.
-    acciones = resultadoAcciones.status === "fulfilled" ? resultadoAcciones.value : null;
   } else if (pestana === "video" || pestana === "shorts") {
-    const [resultadoAcciones] = await Promise.allSettled([
-      obtenerAcciones(curso, numero),
-    ]);
-    acciones = resultadoAcciones.status === "fulfilled" ? resultadoAcciones.value : null;
+    acciones = await obtenerAcciones(curso, numero).catch(() => null);
   }
 
   return (

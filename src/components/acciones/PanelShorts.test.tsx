@@ -96,4 +96,20 @@ describe("PanelShorts", () => {
       { short: "s2" },
     );
   });
+
+  it("muestra una sola vez el motivo compartido por preparar y renderizar", () => {
+    const motivo = "Falta preparar los shorts";
+    render(
+      <PanelShorts
+        curso="curso-ficticio"
+        numero={4}
+        acciones={[
+          { ...preparar, disponible: false, motivo },
+          { ...renderizar, disponible: false, motivo },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText(motivo)).toHaveLength(1);
+  });
 });

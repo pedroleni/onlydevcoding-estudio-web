@@ -29,10 +29,8 @@ export function PanelVideoFinal({
 }) {
   const renderizar = acciones?.find(({ id }) => id === "render-leccion");
   const videoFinal = acciones?.find(({ id }) => id === "video-final");
-  const [previaElegida, setPreviaElegida] = useState(
-    videoFinal?.opciones.at(-1) ?? "",
-  );
-  const previaValida = videoFinal?.opciones.includes(previaElegida)
+  const [previaElegida, setPreviaElegida] = useState<string | null>(null);
+  const previaValida = previaElegida && videoFinal?.opciones.includes(previaElegida)
     ? previaElegida
     : videoFinal?.opciones.at(-1) ?? "";
   const numeroPrevia = siguientePrevia(previas);

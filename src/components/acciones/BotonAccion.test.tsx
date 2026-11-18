@@ -245,6 +245,65 @@ describe("BotonAccion", () => {
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("Cancelado")).toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("no refresca dos veces si la respuesta de cancelar llega después que el sondeo", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const cancelado = trabajo({ estado: "cancelado", error: "Cancelado", fin: "2026-11-18T10:01:00Z" });
+    let resolver!: (resultado: { ok: true; trabajo: Trabajo }) => void;
+    vi.mocked(cancelarTrabajo).mockReturnValue(
+      new Promise((resolve) => {
+        resolver = resolve;
+      }),
+    );
+    vi.mocked(leerTrabajo).mockResolvedValue(cancelado);
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({ ultimo: trabajo() })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await avanzar(2000);
+    expect(screen.getByText("Cancelado")).toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalledOnce();
+
+    resolver({ ok: true, trabajo: cancelado });
+    await avanzar(0);
+    await avanzar(6000);
+
+    expect(screen.getByText("Cancelado")).toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("limpia el error de cancelación cuando el sondeo ve el estado final", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(cancelarTrabajo).mockResolvedValue({
+      ok: false,
+      mensaje: "Ese trabajo no está en marcha",
+    });
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ estado: "hecho", progreso: 1, fin: "2026-11-18T10:01:00Z" }),
+    );
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({ ultimo: trabajo() })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await avanzar(0);
+    expect(screen.getByRole("alert")).toHaveTextContent("Ese trabajo no está en marcha");
+
+    await avanzar(2000);
+
+    expect(screen.getByText("Hecho")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("no lanza si se rechaza la confirmación", async () => {

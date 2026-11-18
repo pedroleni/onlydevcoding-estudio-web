@@ -83,6 +83,88 @@ describe("PanelVideoFinal", () => {
     );
   });
 
+  it("envía la previa elegida a mano", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo });
+    render(
+      <PanelVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        previas={[]}
+        acciones={[
+          accion("video-final", {
+            opciones: ["previa-v2.mp4", "previa-v11.mp4"],
+          }),
+        ]}
+      />,
+    );
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Previa para el vídeo final" }),
+      "previa-v2.mp4",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Crear el vídeo final (−14 LUFS)" }),
+    );
+
+    expect(lanzarAccion).toHaveBeenCalledWith(
+      "curso-ficticio",
+      4,
+      "video-final",
+      { previa: "previa-v2.mp4" },
+    );
+  });
+
+  it("sigue la última previa nueva hasta que el usuario elige otra", async () => {
+    const { rerender } = render(
+      <PanelVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        previas={[]}
+        acciones={[
+          accion("video-final", {
+            opciones: ["previa-v2.mp4", "previa-v11.mp4"],
+          }),
+        ]}
+      />,
+    );
+    const selector = screen.getByRole("combobox", { name: "Previa para el vídeo final" });
+
+    rerender(
+      <PanelVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        previas={[]}
+        acciones={[
+          accion("video-final", {
+            opciones: ["previa-v2.mp4", "previa-v11.mp4", "previa-v12.mp4"],
+          }),
+        ]}
+      />,
+    );
+    expect(selector).toHaveValue("previa-v12.mp4");
+
+    await userEvent.selectOptions(selector, "previa-v2.mp4");
+    rerender(
+      <PanelVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        previas={[]}
+        acciones={[
+          accion("video-final", {
+            opciones: [
+              "previa-v2.mp4",
+              "previa-v11.mp4",
+              "previa-v12.mp4",
+              "previa-v13.mp4",
+            ],
+          }),
+        ]}
+      />,
+    );
+    expect(selector).toHaveValue("previa-v2.mp4");
+  });
+
   it("calcula el siguiente número y desactiva Renderizar con el motivo de la API", () => {
     render(
       <PanelVideoFinal

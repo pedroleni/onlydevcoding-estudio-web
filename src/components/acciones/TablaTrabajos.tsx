@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState } from "react";
 
-import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
-import { cancelarTrabajo } from "@/lib/acciones-estudio";
+import { useCancelacionTrabajo } from "@/components/acciones/useCancelacionTrabajo";
 import type { IdAccion, Trabajo } from "@/lib/tipos";
 
 export const ETIQUETAS_ACCION: Record<IdAccion, string> = {
@@ -39,60 +37,27 @@ function etiqueta(accion: string): string {
   return ETIQUETAS_ACCION[accion as IdAccion] ?? accion;
 }
 
-function haTerminado(trabajo: Trabajo): boolean {
-  return trabajo.estado !== "en_marcha";
-}
-
 function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
-  const router = useRouter();
   const [base, setBase] = useState(inicial);
   const [inicialAnterior, setInicialAnterior] = useState(inicial);
-  const [mensaje, setMensaje] = useState<string | null>(null);
-  const [cancelandoId, setCancelandoId] = useState<number | null>(null);
-  const terminado = useRef<Trabajo | null>(haTerminado(inicial) ? inicial : null);
-  const [pendiente, iniciar] = useTransition();
 
   if (inicial !== inicialAnterior) {
     setInicialAnterior(inicial);
     setBase(inicial);
   }
 
-  useEffect(() => {
-    terminado.current = haTerminado(inicial) ? inicial : null;
-  }, [inicial]);
-
-  const trabajo = useSeguimientoTrabajo({
-    trabajo: base,
-    alTerminar: (trabajoTerminado) => {
-      terminado.current = trabajoTerminado;
-      setBase(trabajoTerminado);
-      setCancelandoId(null);
-    },
-  }) ?? base;
-
-  function cancelar() {
-    setMensaje(null);
-    setCancelandoId(trabajo.id);
-    iniciar(async () => {
-      const resultado = await cancelarTrabajo(trabajo.id);
-      if (terminado.current?.id === trabajo.id) return;
-
-      if (resultado.ok) {
-        setBase(resultado.trabajo);
-        if (haTerminado(resultado.trabajo)) {
-          terminado.current = resultado.trabajo;
-          setCancelandoId(null);
-          router.refresh();
-        }
-      } else {
-        setCancelandoId(null);
-        setMensaje(resultado.mensaje);
-      }
-    });
-  }
-
-  const cancelando =
-    trabajo.estado === "en_marcha" && cancelandoId === trabajo.id;
+  const {
+    cancelar,
+    cancelando,
+    mensaje,
+    pendiente,
+    trabajo: trabajoSeguido,
+  } = useCancelacionTrabajo({
+    trabajoBase: base,
+    trabajoRecibido: inicial,
+    actualizarTrabajo: setBase,
+  });
+  const trabajo = trabajoSeguido ?? base;
 
   return (
     <tr className="border-t border-borde align-top">
@@ -113,7 +78,7 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
       </td>
       <td className="px-4 py-4 font-mono text-xs">{trabajo.objetivo ?? "—"}</td>
       <td className="px-4 py-4">
-        {cancelando && trabajo.estado === "en_marcha"
+        {cancelando
           ? "Cancelando…"
           : ESTADOS[trabajo.estado]}
       </td>

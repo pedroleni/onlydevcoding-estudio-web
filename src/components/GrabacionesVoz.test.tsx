@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GrabacionesVoz } from "@/components/GrabacionesVoz";
-import { urlMedio } from "@/lib/medios";
+import { urlToma } from "@/lib/medios";
 import type { EstadoAccion, EscenaTeleprompter } from "@/lib/tipos";
 
 vi.mock("@/components/acciones/BotonAccion", () => ({
@@ -61,7 +61,7 @@ describe("GrabacionesVoz", () => {
     expect(screen.getByText(/Voz sin alinear:/)).toHaveTextContent("E03");
     expect(screen.getByLabelText("Toma de E03")).toHaveAttribute(
       "src",
-      `${urlMedio("tomas/curso-ficticio/E03-voz.wav")}&v=7`,
+      urlToma("tomas/curso-ficticio/E03-voz.wav", 7),
     );
     expect(screen.getByLabelText("Toma de E03")).toHaveAttribute("preload", "none");
     expect(screen.getByText("E04").closest("li")).toHaveTextContent("Sin grabar");

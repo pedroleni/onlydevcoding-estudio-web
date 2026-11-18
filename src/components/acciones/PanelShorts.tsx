@@ -12,10 +12,17 @@ export function PanelShorts({
 }) {
   const preparar = acciones?.find(({ id }) => id === "preparar-shorts");
   const renderizar = acciones?.find(({ id }) => id === "render-short");
+  const motivoPrepararVisible =
+    preparar?.disponible === false && preparar.motivo === renderizar?.motivo;
+  const accionRenderizar = renderizar
+    ? {
+        ...renderizar,
+        motivo: motivoPrepararVisible ? null : renderizar.motivo,
+      }
+    : undefined;
   const motivoSinShorts =
-    renderizar?.opciones.length === 0 &&
-    renderizar.motivo !== preparar?.motivo
-      ? renderizar.motivo
+    accionRenderizar?.opciones.length === 0
+      ? accionRenderizar.motivo
       : null;
 
   if (!preparar && !renderizar) return null;
@@ -33,9 +40,9 @@ export function PanelShorts({
         <BotonAccion curso={curso} numero={numero} accion={preparar} />
       ) : null}
 
-      {renderizar && renderizar.opciones.length > 0 ? (
+      {accionRenderizar && accionRenderizar.opciones.length > 0 ? (
         <ul className="grid gap-3 border-t border-borde pt-5">
-          {renderizar.opciones.map((short) => (
+          {accionRenderizar.opciones.map((short) => (
             <li
               key={short}
               className="flex flex-wrap items-center justify-between gap-4 border border-borde bg-carbon p-4"
@@ -46,7 +53,7 @@ export function PanelShorts({
               <BotonAccion
                 curso={curso}
                 numero={numero}
-                accion={renderizar}
+                accion={accionRenderizar}
                 objetivo={short}
                 textoBoton="Renderizar"
               />

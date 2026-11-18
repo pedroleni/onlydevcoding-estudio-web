@@ -1,14 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
-import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
-import {
-  cancelarTrabajo,
-  lanzarAccion,
-  type OpcionesAccion,
-} from "@/lib/acciones-estudio";
+import { useCancelacionTrabajo } from "@/components/acciones/useCancelacionTrabajo";
+import { lanzarAccion, type OpcionesAccion } from "@/lib/acciones-estudio";
 import type { EstadoAccion, Trabajo } from "@/lib/tipos";
 
 const BOTON_PRINCIPAL =
@@ -53,10 +48,6 @@ function EstadoTrabajo({ trabajo }: { trabajo: Trabajo }) {
   );
 }
 
-function haTerminado(trabajo: Trabajo | null): trabajo is Trabajo {
-  return trabajo !== null && trabajo.estado !== "en_marcha";
-}
-
 export function BotonAccion({
   curso,
   numero,
@@ -74,43 +65,37 @@ export function BotonAccion({
   textoBoton?: string;
   confirmar?: string;
 }) {
-  const router = useRouter();
   const trabajoRecibido = objetivo
     ? accion.ultimos[objetivo] ?? null
     : accion.ultimo;
   const [trabajoBase, setTrabajoBase] = useState(trabajoRecibido);
   const [ultimoRecibido, setUltimoRecibido] = useState(trabajoRecibido);
-  const [mensaje, setMensaje] = useState<string | null>(null);
-  const [cancelandoId, setCancelandoId] = useState<number | null>(null);
-  const terminado = useRef<Trabajo | null>(
-    haTerminado(trabajoRecibido) ? trabajoRecibido : null,
-  );
-  const [pendiente, iniciar] = useTransition();
+  const [mensajeLanzamiento, setMensajeLanzamiento] = useState<string | null>(null);
+  const [lanzando, iniciarLanzamiento] = useTransition();
 
   if (trabajoRecibido !== ultimoRecibido) {
     setUltimoRecibido(trabajoRecibido);
     setTrabajoBase(trabajoRecibido);
   }
 
-  useEffect(() => {
-    terminado.current = haTerminado(trabajoRecibido) ? trabajoRecibido : null;
-  }, [trabajoRecibido]);
-
-  const trabajo = useSeguimientoTrabajo({
-    trabajo: trabajoBase,
-    alTerminar: (trabajoTerminado) => {
-      terminado.current = trabajoTerminado;
-      setTrabajoBase(trabajoTerminado);
-      setCancelandoId(null);
-    },
+  const {
+    cancelar,
+    cancelando,
+    mensaje: mensajeCancelacion,
+    pendiente: cancelandoPendiente,
+    prepararNuevoTrabajo,
+    trabajo,
+  } = useCancelacionTrabajo({
+    trabajoBase,
+    trabajoRecibido,
+    actualizarTrabajo: setTrabajoBase,
   });
 
   function lanzar() {
     if (confirmar && !window.confirm(confirmar)) return;
-    setMensaje(null);
-    terminado.current = null;
-    setCancelandoId(null);
-    iniciar(async () => {
+    setMensajeLanzamiento(null);
+    prepararNuevoTrabajo();
+    iniciarLanzamiento(async () => {
       const resultado = await lanzarAccion(
         curso,
         numero,
@@ -118,38 +103,17 @@ export function BotonAccion({
         objetivo ? { short: objetivo } : opciones,
       );
       if (resultado.ok) setTrabajoBase(resultado.trabajo);
-      else setMensaje(resultado.mensaje);
-    });
-  }
-
-  function cancelar() {
-    if (!trabajo) return;
-    setMensaje(null);
-    setCancelandoId(trabajo.id);
-    iniciar(async () => {
-      const resultado = await cancelarTrabajo(trabajo.id);
-      if (terminado.current?.id === trabajo.id) return;
-
-      if (resultado.ok) {
-        setTrabajoBase(resultado.trabajo);
-        if (haTerminado(resultado.trabajo)) {
-          terminado.current = resultado.trabajo;
-          setCancelandoId(null);
-          router.refresh();
-        }
-      } else {
-        setCancelandoId(null);
-        setMensaje(resultado.mensaje);
-      }
+      else setMensajeLanzamiento(resultado.mensaje);
     });
   }
 
   const enMarcha = trabajo?.estado === "en_marcha";
-  const cancelando = enMarcha && cancelandoId === trabajo.id;
+  const pendiente = lanzando || cancelandoPendiente;
+  const mensaje = mensajeCancelacion ?? mensajeLanzamiento;
 
   return (
     <div className="grid justify-items-start gap-2">
-      {cancelando && enMarcha ? (
+      {cancelando ? (
         <span role="status" className="text-sm text-tenue">Cancelando…</span>
       ) : trabajo ? (
         <EstadoTrabajo trabajo={trabajo} />
