@@ -113,6 +113,97 @@ describe("pestaña Publicar", () => {
     expect(screen.getByText("Instagram", { selector: "p" })).toBeInTheDocument();
   });
 
+  it("al pulsar Instagram oculta YouTube y muestra solo el panel activo", async () => {
+    render(
+      <PublicarLeccion
+        vista={vista}
+        piezaSeleccionada="leccion"
+        redSeleccionada="youtube"
+      />,
+    );
+
+    expect(
+      screen.getByRole("tabpanel", { name: "YouTube" }),
+    ).toBeVisible();
+
+    const pestanaInstagram = screen.getByRole("tab", { name: "Instagram" });
+    pestanaInstagram.addEventListener("click", (evento) => evento.preventDefault());
+    await userEvent.click(pestanaInstagram);
+
+    expect(
+      screen.queryByRole("tabpanel", { name: "YouTube", hidden: true }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("tabpanel", { name: "Instagram" }),
+    ).toBeVisible();
+  });
+
+  it("no deja montado ningún panel de una red inactiva", async () => {
+    render(
+      <PublicarLeccion
+        vista={vista}
+        piezaSeleccionada="leccion"
+        redSeleccionada="youtube"
+      />,
+    );
+
+    const pestanaTikTok = screen.getByRole("tab", { name: "TikTok" });
+    pestanaTikTok.addEventListener("click", (evento) => evento.preventDefault());
+    await userEvent.click(pestanaTikTok);
+
+    for (const nombre of ["YouTube", "Instagram", "LinkedIn"]) {
+      expect(
+        screen.queryByRole("tabpanel", { name: nombre, hidden: true }),
+      ).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole("tabpanel", { name: "TikTok" })).toBeVisible();
+  });
+
+  it("muestra los textos de la pieza nueva al cambiar de pieza", () => {
+    const textoLeccion = "Texto de LinkedIn de la lección ficticia";
+    const textoShort = "Texto de LinkedIn del short ficticio";
+    const conTextosDistintos: VistaPublicacion = {
+      ...vista,
+      piezas: vista.piezas.map((piezaVista) => ({
+        ...piezaVista,
+        redes: piezaVista.redes.map((redVista) =>
+          redVista.red === "linkedin"
+            ? {
+                ...redVista,
+                textos: {
+                  ...textosYoutube,
+                  titulos: [],
+                  descripcion: null,
+                  texto:
+                    piezaVista.id === "leccion" ? textoLeccion : textoShort,
+                },
+              }
+            : redVista,
+        ),
+      })),
+    };
+    const { rerender } = render(
+      <PublicarLeccion
+        vista={conTextosDistintos}
+        piezaSeleccionada="leccion"
+        redSeleccionada="linkedin"
+      />,
+    );
+
+    expect(screen.getByText(textoLeccion)).toBeInTheDocument();
+
+    rerender(
+      <PublicarLeccion
+        vista={conTextosDistintos}
+        piezaSeleccionada="short-1"
+        redSeleccionada="linkedin"
+      />,
+    );
+
+    expect(screen.getByText(textoShort)).toBeInTheDocument();
+    expect(screen.queryByText(textoLeccion)).not.toBeInTheDocument();
+  });
+
   it("usa la primera pieza cuando ?pieza= no es válida", () => {
     render(
       <PublicarLeccion
