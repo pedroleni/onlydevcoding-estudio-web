@@ -5,8 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PaginaCurso from "@/app/cursos/[curso]/page";
 import PaginaLeccion from "@/app/cursos/[curso]/[numero]/page";
 import { notFound } from "next/navigation";
-import { obtenerCursos, obtenerLeccion, obtenerPublicacion } from "@/lib/api";
-import type { Leccion, VistaPublicacion } from "@/lib/tipos";
+import {
+  obtenerAcciones,
+  obtenerCursos,
+  obtenerLeccion,
+  obtenerPublicacion,
+  obtenerTeleprompter,
+} from "@/lib/api";
+import type { Leccion, Teleprompter, VistaPublicacion } from "@/lib/tipos";
 
 vi.mock("next/server", () => ({
   connection: vi.fn().mockResolvedValue(undefined),
@@ -27,6 +33,14 @@ vi.mock("@/lib/acciones", () => ({
   elegirPortada: vi.fn(),
 }));
 
+vi.mock("@/lib/acciones-teleprompter", () => ({
+  guardarTextos: vi.fn(),
+}));
+
+vi.mock("@/components/acciones/BotonAccion", () => ({
+  BotonAccion: () => <button>Acción ficticia</button>,
+}));
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/api")>();
   return {
@@ -35,6 +49,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
     obtenerLecciones: vi.fn(),
     obtenerLeccion: vi.fn(),
     obtenerPublicacion: vi.fn(),
+    obtenerTeleprompter: vi.fn(),
+    obtenerAcciones: vi.fn(),
   };
 });
 
@@ -126,6 +142,8 @@ beforeEach(() => {
     },
   ]);
   vi.mocked(obtenerPublicacion).mockResolvedValue(null);
+  vi.mocked(obtenerTeleprompter).mockResolvedValue(null);
+  vi.mocked(obtenerAcciones).mockResolvedValue(null);
 });
 
 describe("shell de las páginas dinámicas", () => {
@@ -186,6 +204,38 @@ describe("shell de las páginas dinámicas", () => {
       "aria-selected",
       "true",
     );
+  });
+
+  it("carga el teleprompter y las acciones solo para la pestaña Guion", async () => {
+    const teleprompter = {
+      curso: "curso-ficticio",
+      numero: 1,
+      version: "a".repeat(64),
+      escenas: [],
+      ganchos: [],
+    } as unknown as Teleprompter;
+    vi.mocked(obtenerTeleprompter).mockResolvedValue(teleprompter);
+
+    render(await renderizarContenidoLeccion());
+
+    expect(obtenerTeleprompter).toHaveBeenCalledWith("curso-ficticio", 1);
+    expect(obtenerAcciones).toHaveBeenCalledWith("curso-ficticio", 1);
+    expect(screen.getByRole("heading", { name: "Ganchos de los shorts" })).toBeInTheDocument();
+
+    vi.clearAllMocks();
+    vi.mocked(obtenerPublicacion).mockResolvedValue(null);
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+    expect(obtenerTeleprompter).not.toHaveBeenCalled();
+    expect(obtenerAcciones).not.toHaveBeenCalled();
+  });
+
+  it("mantiene la pestaña Guion si falla la lectura de acciones", async () => {
+    vi.mocked(obtenerAcciones).mockRejectedValue(new Error("fallo simulado"));
+
+    render(await renderizarContenidoLeccion());
+
+    expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Primera escena" })).toBeInTheDocument();
   });
 
   it("pasa la pieza y la red de la URL a la pestaña Publicar", async () => {

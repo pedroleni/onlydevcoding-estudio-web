@@ -11,21 +11,25 @@ import {
   PestanasLeccion,
   type PestanaLeccion,
 } from "@/components/PestanasLeccion";
-import { TarjetaEscena } from "@/components/TarjetaEscena";
+import { GuionEditable } from "@/components/guion/GuionEditable";
 import { PublicarLeccion } from "@/components/publicar/PublicarLeccion";
 import {
   ApiNoDisponible,
   ErrorApi,
+  obtenerAcciones,
   obtenerCursos,
   obtenerLeccion,
   obtenerPublicacion,
+  obtenerTeleprompter,
 } from "@/lib/api";
 import { CURSO_VALIDO } from "@/lib/curso";
 import { textoLegible } from "@/lib/texto-legible";
 import type {
   Escena,
+  EstadoAccion,
   EstadoLeccion,
   Leccion,
+  Teleprompter,
   VistaPublicacion,
 } from "@/lib/tipos";
 
@@ -80,15 +84,21 @@ function BloqueGrabacion({
 }
 
 function ContenidoPestana({
+  curso,
   leccion,
   pestana,
   publicacion,
+  teleprompter,
+  acciones,
   piezaSeleccionada,
   redSeleccionada,
 }: {
+  curso: string;
   leccion: Leccion;
   pestana: PestanaLeccion;
   publicacion: VistaPublicacion | null;
+  teleprompter: Teleprompter | null;
+  acciones: EstadoAccion[] | null;
   piezaSeleccionada?: string;
   redSeleccionada?: string;
 }) {
@@ -155,21 +165,15 @@ function ContenidoPestana({
     leccion.previas.at(-1) ?? leccion.estado.previa ?? null;
 
   return (
-    <div role="tabpanel" className="grid gap-4">
-      {leccion.escenas.length > 0 ? (
-        leccion.escenas.map((escena) => (
-          <TarjetaEscena
-            key={escena.id}
-            escena={escena}
-            previa={ultimaPrevia}
-          />
-        ))
-      ) : (
-        <p className="border border-borde bg-superficie p-6 text-tenue">
-          Esta lección todavía no tiene escenas.
-        </p>
-      )}
-    </div>
+    <GuionEditable
+      curso={curso}
+      numero={leccion.numero}
+      escenas={leccion.escenas}
+      previa={ultimaPrevia}
+      teleprompter={teleprompter}
+      montaje={leccion.montaje}
+      acciones={acciones}
+    />
   );
 }
 
@@ -231,6 +235,8 @@ async function ContenidoLeccion({
   const valorRed = Array.isArray(consulta.red) ? consulta.red[0] : consulta.red;
 
   let publicacion: VistaPublicacion | null = null;
+  let teleprompter: Teleprompter | null = null;
+  let acciones: EstadoAccion[] | null = null;
   if (pestana === "publicar") {
     try {
       publicacion = await obtenerPublicacion(curso, numero);
@@ -240,6 +246,22 @@ async function ContenidoLeccion({
       }
       throw error;
     }
+  }
+  if (pestana === "guion") {
+    const [resultadoTeleprompter, resultadoAcciones] = await Promise.allSettled([
+      obtenerTeleprompter(curso, numero),
+      obtenerAcciones(curso, numero),
+    ]);
+    if (resultadoTeleprompter.status === "rejected") {
+      const error = resultadoTeleprompter.reason;
+      if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+        return <AvisoApi error={error} />;
+      }
+      throw error;
+    }
+    teleprompter = resultadoTeleprompter.value;
+    // El guion sigue disponible aunque falle el catálogo: el aviso se muestra sin botón.
+    acciones = resultadoAcciones.status === "fulfilled" ? resultadoAcciones.value : null;
   }
 
   return (
@@ -281,9 +303,12 @@ async function ContenidoLeccion({
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <ContenidoPestana
+          curso={curso}
           leccion={leccion}
           pestana={pestana}
           publicacion={publicacion}
+          teleprompter={teleprompter}
+          acciones={acciones}
           piezaSeleccionada={valorPieza}
           redSeleccionada={valorRed}
         />
