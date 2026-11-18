@@ -1770,12 +1770,18 @@ describe("Teleprompter: la zona de entrega mientras se lee", () => {
     expect(
       prompter.compareDocumentPosition(contenedor) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(clases(contenedor)).toEqual(expect.arrayContaining(["overflow-y-auto", "max-h-[45dvh]"]));
+    expect(clases(contenedor)).toEqual(expect.arrayContaining(["overflow-y-auto", "max-h-[30dvh]"]));
+    // En el teleprompter la zona va compacta: una sola franja, para dejar sitio al texto.
+    expect(clases(zona.querySelector("label") as HTMLElement)).toContain("py-2.5");
     expect(clases(contenedor)).not.toContain("shrink-0");
     expect(clases(contenedor).some((c) => /^(md:)?(absolute|fixed|sticky)$/.test(c))).toBe(false);
     expect(clases(contenedor).some((c) => /^(md:)?min-h-/.test(c))).toBe(true);
     // El texto cede su sitio primero (base 0) y nunca empuja a la zona fuera de la caja.
     expect(clases(prompter)).toEqual(expect.arrayContaining(["md:min-h-0", "md:flex-1"]));
+    // El margen de arriba se mide con la altura de la propia caja, no con la de la ventana:
+    // en pantallas bajas la primera línea no queda fuera de la vista.
+    expect(clases(prompter)).toContain("[container-type:size]");
+    expect(clases(prompter.firstElementChild as HTMLElement)).toContain("pt-[30cqh]");
 
     // La caja de la escena encoge a su hueco y recorta su desborde (no pinta encima del pie).
     expect(clases(escenaCaja)).toEqual(

@@ -284,6 +284,7 @@ export function EntregaTomas({
   escena,
   acciones,
   alCambiarSubiendo,
+  compacta = false,
 }: {
   curso: string;
   numero: number;
@@ -293,6 +294,8 @@ export function EntregaTomas({
   acciones?: EstadoAccion[] | null;
   // Avisa de si hay alguna subida en curso (el teleprompter pregunta antes de cambiar de lección).
   alCambiarSubiendo?: (subiendo: boolean) => void;
+  // Una sola franja baja (en el teleprompter, para no quitar sitio al texto).
+  compacta?: boolean;
 }) {
   const router = useRouter();
   const [entregas, setEntregas] = useState<Entregas | null>(null);
@@ -605,9 +608,13 @@ export function EntregaTomas({
   }
 
   return (
-    <section aria-label="Entregar las tomas de cámara" className="grid gap-4">
+    <section aria-label="Entregar las tomas de cámara" className={`grid ${compacta ? "gap-2" : "gap-4"}`}>
       <label
-        className={`grid justify-items-center gap-1 border border-dashed p-6 text-center transition-colors ${
+        className={`border border-dashed text-center transition-colors ${
+          compacta
+            ? "flex flex-wrap items-baseline justify-center gap-x-3 px-4 py-2.5"
+            : "grid justify-items-center gap-1 p-6"
+        } ${
           entregaDesactivada
             ? "cursor-default border-borde bg-superficie opacity-60"
             : `cursor-pointer focus-within:border-marca hover:border-marca ${

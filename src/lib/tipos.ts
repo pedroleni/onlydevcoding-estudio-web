@@ -15,6 +15,8 @@ export interface EstadoLeccion {
   miniatura: string | null;
   previa: string | null;
   publicado: Record<string, boolean>;
+  // Piezas publicadas de las previstas en cada red (las APIs anteriores no lo envían).
+  publicado_avance?: Record<string, Avance>;
 }
 
 export interface Escena {

@@ -551,7 +551,7 @@ function SesionTeleprompter({
           className="relative flex min-h-0 flex-1 flex-col md:overflow-y-auto"
         >
           <div
-            className={`flex flex-wrap items-baseline gap-x-4 gap-y-2 px-4 pt-[18px] md:px-12 ${apartado}`}
+            className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-2.5 md:px-12 ${apartado}`}
           >
             <span
               className={`rounded-md px-2.5 py-1 text-[13px] font-extrabold tracking-[0.14em] uppercase ${
@@ -560,10 +560,10 @@ function SesionTeleprompter({
             >
               {voz ? "Voz en off · leer" : "Cámara · con tus palabras"}
             </span>
-            <h1 className="m-0 text-2xl font-semibold text-balance md:text-[28px]">
+            <h1 className="m-0 text-2xl font-semibold text-balance">
               {`${escena.id} · ${textoLegible(escena.titulo)}`}
             </h1>
-            <span className="font-mono text-tenue">{duracion}</span>
+            <span className="font-mono text-sm text-tenue">{duracion}</span>
             {voz ? null : (
               <span className="text-sm text-ambar">🎥 Se graba con la cámara · horizontal</span>
             )}
@@ -573,7 +573,7 @@ function SesionTeleprompter({
           </div>
           {!voz && !puntos && !editando && escena.puntos.length > 0 ? (
             <ul
-              className={`mx-4 mt-3.5 list-disc rounded-xl border border-borde bg-superficie py-2.5 pr-[18px] pl-[34px] text-[17px] leading-[1.45] text-ambar md:mx-12 ${
+              className={`mx-4 mt-2 list-disc rounded-xl border border-borde bg-superficie py-2 pr-[18px] pl-[34px] text-[15px] leading-[1.4] text-ambar md:mx-12 ${
                 conPrevia ? "md:mr-[calc(var(--ancho-previa)+72px)]" : ""
               }`}
             >
@@ -601,7 +601,7 @@ function SesionTeleprompter({
             data-testid="prompter"
             data-con-previa={conPrevia ? "" : undefined}
             style={{ "--letra": `${pref.letra}px` } as CSSProperties}
-            className={`relative h-[60dvh] overflow-y-auto scroll-smooth px-4 motion-reduce:scroll-auto md:h-auto md:min-h-0 md:flex-1 md:px-12 ${apartado}`}
+            className={`relative h-[60dvh] overflow-y-auto scroll-smooth px-4 [container-type:size] motion-reduce:scroll-auto md:h-auto md:min-h-0 md:flex-1 md:px-12 ${apartado}`}
           >
             {/* El margen va dentro: en el propio contenedor impediría que encogiera a su hueco. */}
             {editando ? (
@@ -628,7 +628,9 @@ function SesionTeleprompter({
                 </ul>
               </div>
             ) : (
-              <div className="pt-[32vh] pb-[60vh]">
+              // Márgenes en cqh (altura de esta caja): la lectura deja la palabra al 35 % de la
+              // caja, y con vh la primera línea se salía de la vista en pantallas bajas.
+              <div className="pt-[30cqh] pb-[60cqh]">
                 <TextoConRitmo key={escena.id} cues={escena.cues} />
               </div>
             )}
@@ -642,13 +644,14 @@ function SesionTeleprompter({
             <div
               hidden={voz || enMarcha}
               data-sin-atajos=""
-              className={`max-h-[45dvh] min-h-32 overflow-y-auto border-t border-borde px-4 py-4 md:px-12 ${apartado}`}
+              className={`max-h-[30dvh] min-h-14 overflow-y-auto border-t border-borde px-4 py-2 md:px-12 ${apartado}`}
             >
               <EntregaTomas
                 curso={guion.curso}
                 numero={guion.numero}
                 escena={voz ? undefined : escena.id}
                 acciones={acciones}
+                compacta
                 alCambiarSubiendo={(subiendo) => {
                   subiendoTomasRef.current = subiendo;
                 }}

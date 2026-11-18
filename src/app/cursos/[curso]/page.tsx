@@ -11,7 +11,7 @@ import {
   obtenerCursos,
   obtenerLecciones,
 } from "@/lib/api";
-import { CURSO_VALIDO, estaPublicado, REDES } from "@/lib/curso";
+import { CURSO_VALIDO, marcaPublicacion, REDES } from "@/lib/curso";
 
 function CargandoCurso() {
   return (
@@ -100,15 +100,17 @@ async function ContenidoCurso({
                 <span className="border border-borde bg-carbon px-2 py-1">
                   {leccion.estado.video_final ? "✅" : "⬜"} Vídeo final
                 </span>
-                {REDES.map(([clave, nombre]) => (
-                  <span
-                    key={clave}
-                    className="border border-borde bg-carbon px-2 py-1"
-                  >
-                    {estaPublicado(leccion.estado, clave, nombre) ? "✅" : "⬜"}{" "}
-                    {nombre}
-                  </span>
-                ))}
+                {REDES.map(([clave, nombre]) => {
+                  const marca = marcaPublicacion(leccion.estado, clave, nombre);
+                  return (
+                    <span
+                      key={clave}
+                      className="border border-borde bg-carbon px-2 py-1"
+                    >
+                      {marca.icono} {marca.texto}
+                    </span>
+                  );
+                })}
               </div>
             </Link>
           ))}

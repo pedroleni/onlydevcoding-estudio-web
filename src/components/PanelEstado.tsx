@@ -1,4 +1,4 @@
-import { estaPublicado, REDES } from "@/lib/curso";
+import { marcaPublicacion, REDES } from "@/lib/curso";
 import type { EstadoLeccion, EstadoMontaje } from "@/lib/tipos";
 
 const MONTAJE: Record<EstadoMontaje["estado"], { icono: string; texto: string }> = {
@@ -67,14 +67,15 @@ export function PanelEstado({
       <div className="mt-6 border-t border-borde pt-5">
         <h3 className="text-sm font-semibold text-texto">Publicación</h3>
         <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-tenue">
-          {REDES.map(([clave, nombre]) => (
-            <li key={clave} className="flex items-center gap-2">
-              <span aria-hidden="true">
-                {estaPublicado(estado, clave, nombre) ? "✅" : "⬜"}
-              </span>
-              <span>{nombre}</span>
-            </li>
-          ))}
+          {REDES.map(([clave, nombre]) => {
+            const marca = marcaPublicacion(estado, clave, nombre);
+            return (
+              <li key={clave} className="flex items-center gap-2">
+                <span aria-hidden="true">{marca.icono}</span>
+                <span>{marca.texto}</span>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </aside>
