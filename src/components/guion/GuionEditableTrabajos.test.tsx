@@ -286,6 +286,33 @@ describe("GuionEditable: edición mientras se prepara la lección", () => {
     expect(router.refresh).toHaveBeenCalledOnce();
   });
 
+  it("no deja editar mientras se identifican las tomas (la API lo bloquea)", () => {
+    const identificar = trabajo({ id: 70, accion: "identificar-tomas" });
+    vi.mocked(leerTrabajo).mockReturnValue(new Promise(() => undefined));
+    render(guion({
+      montaje: montaje("al_dia"),
+      acciones: [
+        ...acciones(),
+        {
+          id: "identificar-tomas",
+          etiqueta: "Identificar las tomas",
+          disponible: true,
+          motivo: null,
+          opciones: [],
+          ultimo: identificar,
+          ultimos: {},
+        },
+      ],
+    }));
+
+    const editar = screen.getByRole("button", { name: "Editar E03" });
+    expect(editar).toBeDisabled();
+    expect(editar).toHaveAccessibleDescription(
+      "Espera a que termine: Identificar las tomas en marcha.",
+    );
+    expect(screen.getByRole("button", { name: "Editar ganchos" })).toBeDisabled();
+  });
+
   it("muestra el 409 de la lección ocupada como un error normal", async () => {
     vi.useRealTimers();
     vi.mocked(guardarTextos).mockResolvedValue({

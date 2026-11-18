@@ -21,7 +21,12 @@ import type {
 const ACEPTA = "video/quicktime,video/mp4,.mov,.mp4";
 const MAXIMO_TEXTO = 140;
 const CIERRE = "cierre";
+// Mensajes fijos para cuando una Server Action no llega a responder: sin detalles internos.
 const SIN_LANZAR = "No se han podido identificar las tomas. Vuelve a intentarlo.";
+const SIN_LEER = "No se han podido leer las tomas entregadas. Vuelve a intentarlo.";
+const SIN_QUITAR = "No se ha podido quitar la toma. Vuelve a intentarlo.";
+const SIN_COLOCAR = "No se han podido colocar las tomas. Vuelve a intentarlo.";
+const SIN_COLOR = "No se ha podido ajustar el color de los ganchos. Vuelve a intentarlo.";
 const BOTON =
   "inline-flex min-h-11 cursor-pointer items-center justify-center border border-marca bg-carbon px-4 text-sm font-semibold text-texto transition-colors hover:enabled:bg-marca disabled:cursor-default disabled:opacity-40";
 const BOTON_QUITAR =
@@ -358,23 +363,33 @@ export function EntregaTomas({
 
   useEffect(() => {
     let vivo = true;
-    void leerEntregas(curso, numero).then((resultado) => {
-      if (!vivo) return;
-      if (resultado.ok) {
-        conocer(resultado.entregas);
-        setEntregas(resultado.entregas);
-        setErrorLectura(null);
-      } else {
-        setErrorLectura(resultado.mensaje);
-      }
-    });
+    void leerEntregas(curso, numero).then(
+      (resultado) => {
+        if (!vivo) return;
+        if (resultado.ok) {
+          conocer(resultado.entregas);
+          setEntregas(resultado.entregas);
+          setErrorLectura(null);
+        } else {
+          setErrorLectura(resultado.mensaje);
+        }
+      },
+      () => {
+        if (vivo) setErrorLectura(SIN_LEER);
+      },
+    );
     return () => {
       vivo = false;
     };
   }, [curso, numero]);
 
   async function recargar(reiniciarSeleccion: boolean): Promise<Entregas | null> {
-    const resultado = await leerEntregas(curso, numero);
+    let resultado: Awaited<ReturnType<typeof leerEntregas>>;
+    try {
+      resultado = await leerEntregas(curso, numero);
+    } catch {
+      resultado = { ok: false, mensaje: SIN_LEER };
+    }
     if (!montado.current) return null;
     if (resultado.ok) {
       conocer(resultado.entregas);
@@ -547,7 +562,10 @@ export function EntregaTomas({
     archivo,
     destino: valorDe(archivo) || null,
   }));
-  const bloqueada = ocupado || subiendo || identificando;
+  // Mientras se lanza o sigue una identificación, o se ajusta el color, la propuesta puede
+  // cambiar o los ganchos están en uso: no se quita ni se coloca nada.
+  const bloqueada =
+    ocupado || subiendo || identificando || lanzandoIdentificacion || enMarcha(color);
   const textoSinAnalizar = identificando
     ? "Pendiente de identificar"
     : entregas?.propuesta
@@ -558,11 +576,19 @@ export function EntregaTomas({
     if (!window.confirm(`¿Quitar ${archivo}? Se borra de las tomas entregadas.`)) return;
     setMensaje(null);
     setOcupado(true);
-    const resultado = await quitarEntrega(curso, numero, archivo);
-    if (!montado.current) return;
-    if (!resultado.ok) setMensaje(resultado.mensaje);
-    await recargar(false);
-    setOcupado(false);
+    try {
+      let resultado: Awaited<ReturnType<typeof quitarEntrega>>;
+      try {
+        resultado = await quitarEntrega(curso, numero, archivo);
+      } catch {
+        resultado = { ok: false, mensaje: SIN_QUITAR };
+      }
+      if (!montado.current) return;
+      if (!resultado.ok) setMensaje(resultado.mensaje);
+      await recargar(false);
+    } finally {
+      if (montado.current) setOcupado(false);
+    }
   }
 
   async function colocar() {
@@ -574,23 +600,36 @@ export function EntregaTomas({
     setMensaje(null);
     setColocadas(false);
     setOcupado(true);
-    const resultado = await colocarTomas(curso, numero, asignaciones);
-    if (!montado.current) return;
-    if (!resultado.ok) {
-      setMensaje(resultado.mensaje);
-      setOcupado(false);
-      return;
-    }
-    setColocadas(true);
-    if (resultado.resultado.ganchos > 0) {
-      const lanzado = await lanzarAccion(curso, numero, "color-ganchos", {});
+    try {
+      let resultado: Awaited<ReturnType<typeof colocarTomas>>;
+      try {
+        resultado = await colocarTomas(curso, numero, asignaciones);
+      } catch {
+        resultado = { ok: false, mensaje: SIN_COLOCAR };
+      }
       if (!montado.current) return;
-      if (lanzado.ok) setTrabajoColor(lanzado.trabajo);
-      else setMensaje(lanzado.mensaje);
+      if (!resultado.ok) {
+        setMensaje(resultado.mensaje);
+        return;
+      }
+      setColocadas(true);
+      if (resultado.resultado.ganchos > 0) {
+        let lanzado: Awaited<ReturnType<typeof lanzarAccion>>;
+        try {
+          lanzado = await lanzarAccion(curso, numero, "color-ganchos", {});
+        } catch {
+          lanzado = { ok: false, mensaje: SIN_COLOR };
+        }
+        if (!montado.current) return;
+        if (lanzado.ok) setTrabajoColor(lanzado.trabajo);
+        else setMensaje(lanzado.mensaje);
+      }
+      await recargar(true);
+      if (!montado.current) return;
+      router.refresh();
+    } finally {
+      if (montado.current) setOcupado(false);
     }
-    await recargar(true);
-    setOcupado(false);
-    router.refresh();
   }
 
   return (

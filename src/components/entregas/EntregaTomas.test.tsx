@@ -704,3 +704,132 @@ describe("EntregaTomas: ronda 1", () => {
     expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeEnabled();
   });
 });
+
+describe("EntregaTomas: fallos de las Server Actions y revisión bloqueada", () => {
+  const SIN_LEER = "No se han podido leer las tomas entregadas. Vuelve a intentarlo.";
+  const SIN_QUITAR = "No se ha podido quitar la toma. Vuelve a intentarlo.";
+  const SIN_COLOCAR = "No se han podido colocar las tomas. Vuelve a intentarlo.";
+  const SIN_COLOR = "No se ha podido ajustar el color de los ganchos. Vuelve a intentarlo.";
+
+  beforeEach(() => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: entregas() });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  function estadoColor(enMarchaColor: Trabajo) {
+    return [
+      {
+        id: "color-ganchos" as const,
+        etiqueta: "Ajustar el color de los ganchos",
+        disponible: true,
+        motivo: null,
+        opciones: [],
+        ultimo: enMarchaColor,
+        ultimos: {},
+      },
+    ];
+  }
+
+  it("si la primera lectura lanza, lo dice con un mensaje fijo", async () => {
+    vi.mocked(leerEntregas).mockRejectedValue(new Error("detalle interno ficticio"));
+    render(<EntregaTomas curso="react" numero={4} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(SIN_LEER);
+    expect(screen.queryByText(/detalle interno ficticio/)).not.toBeInTheDocument();
+  });
+
+  it("si quitar lanza, lo dice y la revisión vuelve a estar activa", async () => {
+    vi.mocked(quitarEntrega).mockRejectedValue(new Error("detalle interno ficticio"));
+    render(<EntregaTomas curso="react" numero={4} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Quitar Toma rota.MOV" }));
+
+    expect(await screen.findByText(SIN_QUITAR)).toBeInTheDocument();
+    expect(screen.getByText(SIN_QUITAR)).toHaveAttribute("role", "alert");
+    expect(screen.queryByText(/detalle interno ficticio/)).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Quitar Toma rota.MOV" })).toBeEnabled(),
+    );
+    expect(screen.getByRole("button", { name: "Colocar las tomas" })).toBeEnabled();
+  });
+
+  it("si colocar lanza, lo dice y la revisión vuelve a estar activa", async () => {
+    vi.mocked(colocarTomas).mockRejectedValue(new Error("detalle interno ficticio"));
+    render(<EntregaTomas curso="react" numero={4} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Colocar las tomas" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(SIN_COLOCAR);
+    expect(screen.queryByText("Tomas colocadas.")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Colocar las tomas" })).toBeEnabled(),
+    );
+    expect(destino("Toma ficticia 1.MOV")).toBeEnabled();
+  });
+
+  it("si lanzar color-ganchos lanza, lo dice y la revisión vuelve a estar activa", async () => {
+    vi.mocked(colocarTomas).mockResolvedValue({
+      ok: true,
+      resultado: {
+        colocadas: [{ archivo: "Facetune ficticio.MOV", destino: "S2" }],
+        ganchos: 1,
+      },
+    });
+    vi.mocked(lanzarAccion).mockRejectedValue(new Error("detalle interno ficticio"));
+    render(<EntregaTomas curso="react" numero={4} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Colocar las tomas" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(SIN_COLOR);
+    expect(screen.getByText("Tomas colocadas.")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Colocar las tomas" })).toBeEnabled(),
+    );
+    expect(screen.queryByText(/detalle interno ficticio/)).not.toBeInTheDocument();
+  });
+
+  it("mientras se lanza la identificación, la revisión está bloqueada", async () => {
+    let responder!: (valor: Awaited<ReturnType<typeof lanzarAccion>>) => void;
+    vi.mocked(lanzarAccion).mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          responder = resolver;
+        }),
+    );
+    render(<EntregaTomas curso="react" numero={4} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Identificar las tomas" }));
+
+    expect(screen.getByRole("button", { name: "Colocar las tomas" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Quitar Toma rota.MOV" })).toBeDisabled();
+    expect(destino("Toma ficticia 1.MOV")).toBeDisabled();
+
+    await act(async () => responder({ ok: false, mensaje: "No hay tomas entregadas" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Colocar las tomas" })).toBeEnabled(),
+    );
+  });
+
+  it("mientras se ajusta el color de los ganchos, la revisión está bloqueada", async () => {
+    vi.mocked(leerTrabajo).mockReturnValue(new Promise(() => undefined));
+    render(
+      <EntregaTomas
+        curso="react"
+        numero={4}
+        acciones={estadoColor(trabajo({ id: 52, accion: "color-ganchos" }))}
+      />,
+    );
+
+    expect(await screen.findByRole("button", { name: "Colocar las tomas" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Quitar Toma rota.MOV" })).toBeDisabled();
+    expect(destino("Toma ficticia 1.MOV")).toBeDisabled();
+    expect(screen.getByText(/Ajustando el color de los ganchos/)).toBeInTheDocument();
+  });
+});

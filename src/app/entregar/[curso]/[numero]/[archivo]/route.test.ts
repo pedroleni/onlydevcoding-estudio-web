@@ -290,4 +290,47 @@ describe("entrega de tomas de cámara", () => {
       detail: "No se puede conectar con la API",
     });
   });
+
+  it.each([
+    ["Origin: null", (request: Request) => request.headers.set("origin", "null")],
+    [
+      "dos cabeceras Origin",
+      (request: Request) => request.headers.append("origin", "http://127.0.0.1:3000"),
+    ],
+    [
+      "un origen con barra final",
+      (request: Request) => request.headers.set("origin", "http://127.0.0.1:3000/"),
+    ],
+  ])("rechaza %s con 403 sin llamar a la API", async (_caso, cambiar) => {
+    const fetchSimulado = vi.fn();
+    vi.stubGlobal("fetch", fetchSimulado);
+    const request = peticion();
+    cambiar(request);
+
+    const respuesta = await PUT(request, contexto());
+
+    expect(respuesta.status).toBe(403);
+    expect(fetchSimulado).not.toHaveBeenCalled();
+  });
+
+  it("no reenvía el X-Estudio-Token que mande el cliente: solo el del servidor", async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json({}, { status: 201 }));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    const respuesta = await PUT(
+      peticion({ "x-estudio-token": "token-del-cliente", cookie: "sesion=ficticia" }),
+      contexto(),
+    );
+
+    expect(respuesta.status).toBe(201);
+    const [, opciones] = fetchSimulado.mock.calls[0] as [string, RequestInit];
+    const enviadas = new Headers(opciones.headers);
+    expect(enviadas.get("x-estudio-token")).toBe("token-solo-para-el-test");
+    expect([...enviadas.keys()].sort()).toEqual([
+      "content-length",
+      "content-type",
+      "x-estudio-token",
+    ]);
+    expect(JSON.stringify(opciones.headers)).not.toContain("token-del-cliente");
+  });
 });

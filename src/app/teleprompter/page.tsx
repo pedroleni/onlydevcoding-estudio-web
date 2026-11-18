@@ -13,23 +13,13 @@ import {
   obtenerTeleprompter,
 } from "@/lib/api";
 import { CURSO_VALIDO } from "@/lib/curso";
+import { lecturaApiOpcional } from "@/lib/lectura-opcional";
 import type { EstadoAccion } from "@/lib/tipos";
 
 const NUMERO_VALIDO = /^[1-9]\d{0,2}$/;
 
 const primero = (valor: string | string[] | undefined) =>
   Array.isArray(valor) ? valor[0] : valor;
-
-// Las acciones solo sirven para seguir una identificación o un color en marcha en la zona de
-// entrega: si la API falla al leerlas, el teleprompter se abre igual.
-async function accionesOpcionales(curso: string, numero: number): Promise<EstadoAccion[] | null> {
-  try {
-    return await obtenerAcciones(curso, numero);
-  } catch (error) {
-    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) return null;
-    throw error;
-  }
-}
 
 async function ContenidoTeleprompter({
   searchParams,
@@ -58,7 +48,9 @@ async function ContenidoTeleprompter({
     const [cursos, teleprompter, accionesLeidas] = await Promise.all([
       obtenerCursos(),
       seleccion ? obtenerTeleprompter(seleccion.curso, seleccion.numero) : null,
-      seleccion ? accionesOpcionales(seleccion.curso, seleccion.numero) : null,
+      // Las acciones solo sirven para seguir una identificación o un color en marcha en la
+      // zona de entrega: si la API falla al leerlas, el teleprompter se abre igual.
+      seleccion ? lecturaApiOpcional(obtenerAcciones(seleccion.curso, seleccion.numero)) : null,
     ]);
     acciones = accionesLeidas;
     const listas = await Promise.all(cursos.map(({ id }) => obtenerLecciones(id)));

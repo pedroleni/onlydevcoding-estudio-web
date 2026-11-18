@@ -1693,3 +1693,63 @@ describe("Teleprompter: ronda final", () => {
     expect(screen.getByTestId("toma").getAttribute("src")).toMatch(/&v=1%26ruta%3Dotra$/);
   });
 });
+
+describe("Teleprompter: la zona de entrega mientras se lee", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "performance",
+      ],
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const avanzar = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("se oculta sin desmontarse mientras se lee y la línea de lectura no se desplaza", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    await avanzar(0);
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    const contenedor = zona.closest("[data-sin-atajos]") as HTMLElement;
+    const prompter = screen.getByTestId("prompter");
+    // jsdom no maqueta: el texto tiene más alto cuando la zona de entrega no le quita sitio.
+    Object.defineProperty(prompter, "clientHeight", {
+      configurable: true,
+      get: () => (contenedor.hidden ? 700 : 400),
+    });
+    const desplazamientos: Array<{ top: number; zonaOculta: boolean }> = [];
+    Object.defineProperty(prompter, "scrollTo", {
+      configurable: true,
+      value: (opciones: { top: number }) =>
+        desplazamientos.push({ top: opciones.top, zonaOculta: contenedor.hidden }),
+    });
+    expect(zona).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /Empezar/ }));
+    // Ya en la cuenta atrás: el texto tiene su alto definitivo antes de empezar a moverse.
+    expect(zona).not.toBeVisible();
+    await avanzar(2500 + 1500);
+    expect(screen.getByRole("status")).toHaveTextContent("En marcha: cuéntalo a tu manera.");
+
+    const lectura = desplazamientos.filter(({ top }) => top !== 0);
+    expect(lectura.length).toBeGreaterThan(0);
+    expect(lectura.every(({ zonaOculta }) => zonaOculta)).toBe(true);
+    expect(new Set(lectura.map(({ top }) => top))).toEqual(new Set([-700 * 0.35]));
+
+    fireEvent.click(screen.getByRole("button", { name: /Parar/ }));
+    await avanzar(0);
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBe(zona);
+    expect(zona).toBeVisible();
+    expect(leerEntregas).toHaveBeenCalledOnce();
+  });
+});

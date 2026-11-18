@@ -19,11 +19,13 @@ import type {
 type Edicion = { tipo: "escena"; id: string } | { tipo: "ganchos" } | null;
 
 // Mientras corre una de estas, el guion no se edita: el trabajo ya lo leyó al empezar y
-// dejaría el montaje (o los shorts) «al día» sin la edición.
+// dejaría el montaje (o los shorts, o la propuesta de tomas) «al día» sin la edición. La API
+// también bloquea la edición de los textos mientras se identifican las tomas.
 const ACCIONES_QUE_LEEN_EL_GUION: readonly IdAccion[] = [
   "alinear-voz",
   "preparar-montaje",
   "preparar-shorts",
+  "identificar-tomas",
 ];
 const CLAVE_GANCHOS = "ganchos";
 

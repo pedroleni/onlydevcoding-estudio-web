@@ -632,10 +632,11 @@ function SesionTeleprompter({
             )}
           </div>
           {hayCamara ? (
-            // Montada para toda la lección y solo oculta en las escenas de voz: pasar por una
-            // de ellas no corta una subida en curso.
+            // Montada para toda la lección y solo oculta en las escenas de voz y mientras se lee
+            // (desde la cuenta atrás, para que el texto tenga ya su alto al empezar a moverse):
+            // ocultarla no corta una subida en curso.
             <div
-              hidden={voz}
+              hidden={voz || enMarcha}
               data-sin-atajos=""
               className={`max-h-[45dvh] shrink-0 overflow-y-auto border-t border-borde px-4 py-4 md:px-12 ${apartado}`}
             >

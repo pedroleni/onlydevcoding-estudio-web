@@ -164,11 +164,39 @@ describe("Server Actions de las entregas", () => {
       ["con un nombre con ruta", [{ archivo: "../x.mov", destino: "E17" }]],
       ["con un destino que no es texto", [{ archivo: "toma.mov", destino: 17 }]],
       ["con un destino vacío", [{ archivo: "toma.mov", destino: "" }]],
+      ["con un destino con ruta", [{ archivo: "toma.mov", destino: "../E17" }]],
+      ["con un destino con barra", [{ archivo: "toma.mov", destino: "E17/x" }]],
+      ["con un destino con espacios", [{ archivo: "toma.mov", destino: "E 17" }]],
+      ["con un destino con salto de línea", [{ archivo: "toma.mov", destino: "E17\n" }]],
+      ["con un destino de 41 caracteres", [{ archivo: "toma.mov", destino: "a".repeat(41) }]],
+      ["con un destino no ASCII", [{ archivo: "toma.mov", destino: "escena-ñ" }]],
     ])("rechaza asignaciones %s antes de escribir", async (_caso, valor) => {
       await expect(
         colocarTomas("react", 4, valor as never),
       ).resolves.toMatchObject({ ok: false });
       expect(escribirSimulado).not.toHaveBeenCalled();
+    });
+
+    it("acepta escenas de cámara, ganchos, el cierre y un id de 40 caracteres", async () => {
+      escribirSimulado.mockResolvedValue({
+        ok: true,
+        respuesta: Response.json({ colocadas: [], ganchos: 0 }),
+      });
+      const validas = [
+        { archivo: "toma-1.mov", destino: "E08" },
+        { archivo: "toma-2.mov", destino: "S2" },
+        { archivo: "toma-3.mov", destino: "cierre" },
+        { archivo: "toma-4.mov", destino: "gancho_ficticio-1" },
+        { archivo: "toma-5.mov", destino: "a".repeat(40) },
+        { archivo: "toma-6.mov", destino: null },
+      ];
+
+      await expect(colocarTomas("react", 4, validas)).resolves.toMatchObject({ ok: true });
+      expect(escribirSimulado).toHaveBeenCalledWith(
+        "/api/cursos/react/lecciones/4/entregas/colocar",
+        { asignaciones: validas },
+        "POST",
+      );
     });
 
     it("rechaza un origen ajeno antes de escribir", async () => {

@@ -27,6 +27,7 @@ import {
 } from "@/lib/api";
 import { obtenerCamara } from "@/lib/camara";
 import { CURSO_VALIDO } from "@/lib/curso";
+import { lecturaApiOpcional } from "@/lib/lectura-opcional";
 import { textoLegible } from "@/lib/texto-legible";
 import type {
   Escena,
@@ -208,17 +209,6 @@ function CargandoLeccion() {
       Cargando lección…
     </div>
   );
-}
-
-async function lecturaApiOpcional<T>(lectura: Promise<T>): Promise<T | null> {
-  try {
-    return await lectura;
-  } catch (error) {
-    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
-      return null;
-    }
-    throw error;
-  }
 }
 
 async function ContenidoLeccion({

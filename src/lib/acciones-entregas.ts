@@ -7,9 +7,11 @@ import { esNombreEntrega } from "@/lib/entregas";
 import { origenPermitido } from "@/lib/origen-servidor";
 import type { AsignacionToma, Entregas, ResultadoColocar } from "@/lib/tipos";
 
-// Lo mismo que acepta la API en `/entregas/colocar` (`max_length=200` y destino de hasta 100).
+// Lo mismo que acepta la API en `/entregas/colocar` (`max_length=200`).
 const MAXIMO_ASIGNACIONES = 200;
-const MAXIMO_DESTINO = 100;
+// Destinos cerrados: una escena de cámara (E08), el cierre o el id de un gancho. La API admite
+// hasta 100 caracteres libres; aquí no se reenvía nada que no tenga forma de id.
+const DESTINO_VALIDO = /^(?:E[0-9]{2}|cierre|[A-Za-z0-9_-]{1,40})$/;
 const ESTADOS_CON_DETALLE = new Set([404, 409, 422, 503]);
 
 type Fallo = { ok: false; mensaje: string };
@@ -73,10 +75,7 @@ function normalizarAsignaciones(valor: unknown): AsignacionToma[] | null {
     if (claves.some((clave) => clave !== "archivo" && clave !== "destino")) return null;
     const { archivo, destino } = elemento as Record<string, unknown>;
     if (!esNombreEntrega(archivo)) return null;
-    if (
-      destino !== null &&
-      (typeof destino !== "string" || destino.length < 1 || destino.length > MAXIMO_DESTINO)
-    ) {
+    if (destino !== null && (typeof destino !== "string" || !DESTINO_VALIDO.test(destino))) {
       return null;
     }
     asignaciones.push({ archivo, destino });
