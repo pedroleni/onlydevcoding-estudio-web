@@ -259,6 +259,18 @@ describe("EditorTextos", () => {
     expect(guardarTextos).not.toHaveBeenCalled();
   });
 
+  it("no envía un texto formado solo por espacios", async () => {
+    pintar();
+
+    fireEvent.change(screen.getByLabelText("Frase 2"), { target: { value: "     " } });
+    await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Cada texto tiene que tener entre 1 y 1000 caracteres.",
+    );
+    expect(guardarTextos).not.toHaveBeenCalled();
+  });
+
   it("mientras guarda no deja guardar otra vez", async () => {
     let resolver!: (valor: Awaited<ReturnType<typeof guardarTextos>>) => void;
     vi.mocked(guardarTextos).mockReturnValue(

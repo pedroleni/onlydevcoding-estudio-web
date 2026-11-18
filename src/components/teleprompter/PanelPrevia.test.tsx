@@ -7,6 +7,7 @@ import { useSeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPr
 import { generarPreviaGrabacion } from "@/lib/acciones-teleprompter";
 import { urlMedio } from "@/lib/medios";
 import type { EstadoPrevia, Montaje, Trabajo } from "@/lib/tipos";
+import { TrabajoInexistente } from "@/lib/error-trabajo";
 import { leerTrabajo } from "@/lib/trabajos";
 
 const router = { refresh: vi.fn() };
@@ -52,6 +53,7 @@ function trabajo(cambios: Partial<Trabajo> = {}): Trabajo {
     accion: "previa-grabacion",
     curso: "react",
     numero: 4,
+    objetivo: null,
     estado: "en_marcha",
     progreso: 0.4,
     inicio: "2026-01-01T10:00:00",
@@ -232,6 +234,19 @@ describe("PanelPrevia", () => {
     expect(leerTrabajo).toHaveBeenCalledTimes(1);
   });
 
+  it("si el trabajo ya no existe, deja de consultar, lo dice y deja generarla", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(leerTrabajo).mockRejectedValue(new TrabajoInexistente());
+    pintar({ ...sinPrevia, trabajo: trabajo() });
+
+    await avanzar(2000);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("El trabajo ya no existe.");
+    expect(screen.getByRole("button", { name: "Generar vista previa" })).toBeEnabled();
+    await avanzar(10_000);
+    expect(leerTrabajo).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["error", "No se encontró /ruta/ficticia/previa.mp4"],
     ["interrumpido", "No se encontró C:\\carpeta\\ficticia\\previa.mp4"],
@@ -267,6 +282,13 @@ describe("PanelPrevia", () => {
     pintar({ ...sinPrevia, trabajo: trabajo({ estado: "interrumpido" }) });
 
     expect(screen.getByText(/Falló la última vez \(se interrumpió\)\./)).toBeInTheDocument();
+  });
+
+  it("un trabajo cancelado dice que se canceló y deja regenerar", () => {
+    pintar({ ...sinPrevia, trabajo: trabajo({ estado: "cancelado", error: "Cancelado" }) });
+
+    expect(screen.getByText(/Falló la última vez \(se canceló\)\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generar vista previa" })).toBeInTheDocument();
   });
 
   it("no consulta con la página oculta y vuelve a hacerlo al verse", async () => {

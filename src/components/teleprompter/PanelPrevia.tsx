@@ -3,19 +3,25 @@
 import type { Ref } from "react";
 
 import type { SeguimientoPrevia } from "@/components/teleprompter/useSeguimientoPrevia";
+import { textoErrorTrabajo } from "@/lib/error-trabajo";
 import { urlToma } from "@/lib/medios";
 import type { EstadoPrevia, Montaje } from "@/lib/tipos";
 
 const BOTON =
   "inline-flex cursor-pointer items-center justify-self-center rounded-[10px] border border-marca bg-marca px-4 py-2.5 font-semibold text-white transition-colors hover:enabled:border-tenue disabled:cursor-default disabled:opacity-40";
 
-// El error de un trabajo ya viene de la API como un mensaje genérico. Si aun así trae algo que
-// parece una ruta del disco, no se enseña: el teleprompter sale en capturas y vídeos.
-function textoFallo(error: string | null, interrumpido: boolean): string {
-  const motivo = error ?? (interrumpido ? "se interrumpió" : null);
-  return motivo && !/[/\\]/.test(motivo)
-    ? `Falló la última vez (${motivo}).`
-    : "Falló la última vez.";
+// El error de un trabajo pasa por el filtro común (`textoErrorTrabajo`): el teleprompter sale en
+// capturas y vídeos y nunca debe enseñar una ruta del disco.
+function textoFallo(
+  error: string | null,
+  estado: "error" | "interrumpido" | "cancelado",
+): string {
+  const motivo =
+    estado === "cancelado"
+      ? "se canceló"
+      : textoErrorTrabajo(error) ??
+        (estado === "interrumpido" && error === null ? "se interrumpió" : null);
+  return motivo ? `Falló la última vez (${motivo}).` : "Falló la última vez.";
 }
 
 // Solo pinta: el seguimiento del trabajo vive en la sesión (`useSeguimientoPrevia`), así que
@@ -38,9 +44,12 @@ export function PanelPrevia({
   const { trabajo, generando, perdida, pidiendo, mensaje, generar } = seguimiento;
   const escenaMontaje = montaje?.escenas.find(({ id }) => id === escena);
   const hay = Boolean(previa.existe && previa.ruta && escenaMontaje) && !generando && !perdida;
-  const fallido =
-    trabajo !== null && (trabajo.estado === "error" || trabajo.estado === "interrumpido");
-  const fallo = fallido ? textoFallo(trabajo.error, trabajo.estado === "interrumpido") : null;
+  const fallo =
+    trabajo?.estado === "error" ||
+    trabajo?.estado === "interrumpido" ||
+    trabajo?.estado === "cancelado"
+      ? textoFallo(trabajo.error, trabajo.estado)
+      : null;
 
   const fuente = previa.ruta === null ? null : urlToma(previa.ruta, previa.version);
   const porcentaje = Math.round((trabajo?.progreso ?? 0) * 100);

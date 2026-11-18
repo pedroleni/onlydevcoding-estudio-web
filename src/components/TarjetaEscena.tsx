@@ -1,6 +1,7 @@
 import { urlMedio } from "@/lib/medios";
 import { textoLegible } from "@/lib/texto-legible";
 import type { Escena } from "@/lib/tipos";
+import type { ReactNode } from "react";
 
 const ETIQUETAS_MODO: Record<Escena["modo"], string> = {
   camara: "cámara",
@@ -21,9 +22,11 @@ function extractoTextos(textos: string[]): string {
 export function TarjetaEscena({
   escena,
   previa,
+  acciones,
 }: {
   escena: Escena;
   previa: string | null;
+  acciones?: ReactNode;
 }) {
   const fuenteFotograma =
     previa !== null && escena.inicio_s !== null
@@ -51,11 +54,14 @@ export function TarjetaEscena({
       </div>
 
       <div className="p-5 md:p-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="font-mono text-xs text-tenue">{escena.id}</span>
-          <span className="border border-borde bg-carbon px-2 py-1 text-xs font-medium text-texto">
-            {ETIQUETAS_MODO[escena.modo]}
-          </span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-mono text-xs text-tenue">{escena.id}</span>
+            <span className="border border-borde bg-carbon px-2 py-1 text-xs font-medium text-texto">
+              {ETIQUETAS_MODO[escena.modo]}
+            </span>
+          </div>
+          {acciones}
         </div>
         <h3 className="mt-3 text-lg font-semibold tracking-[-0.02em]">
           {textoLegible(escena.titulo)}

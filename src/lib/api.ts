@@ -1,10 +1,12 @@
 import type {
   Curso,
+  EstadoAccion,
   Leccion,
   LeccionResumen,
   TareasDelRango,
   Teleprompter,
   TipoTarea,
+  Trabajo,
   VistaPublicacion,
 } from "@/lib/tipos";
 
@@ -143,4 +145,27 @@ export async function obtenerTeleprompter(
     `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/teleprompter`,
     { nullEn404: true },
   );
+}
+
+export async function obtenerAcciones(
+  curso: string,
+  numero: number,
+): Promise<EstadoAccion[] | null> {
+  if (!Number.isInteger(numero) || numero < 1 || numero > 999) {
+    return null;
+  }
+
+  return pedir<EstadoAccion[]>(
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/acciones`,
+    { nullEn404: true },
+  );
+}
+
+export async function obtenerTrabajos(limite = 20): Promise<Trabajo[]> {
+  if (!Number.isInteger(limite) || limite < 1 || limite > 100) {
+    throw new RangeError("El límite de trabajos debe estar entre 1 y 100");
+  }
+
+  const parametros = new URLSearchParams({ limite: String(limite) });
+  return pedir<Trabajo[]>(`/api/trabajos?${parametros}`);
 }

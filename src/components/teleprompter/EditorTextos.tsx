@@ -5,18 +5,11 @@ import { useState, useTransition, type CSSProperties } from "react";
 
 import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
 import { guardarTextos, type TextosEscena } from "@/lib/acciones-teleprompter";
+import { limpio, sinSaltos, valido } from "@/lib/textos-guion";
 import type { EscenaTeleprompter, Teleprompter } from "@/lib/tipos";
 
 const BOTON =
   "inline-flex min-h-10 cursor-pointer items-center rounded-[10px] border px-4 py-2 font-semibold transition-colors hover:enabled:border-tenue disabled:cursor-default disabled:opacity-40";
-
-// Un texto por línea: los saltos se cambian por espacios y, al guardar, se juntan los espacios.
-const sinSaltos = (texto: string) => texto.replace(/[\r\n]+/g, " ");
-const limpio = (texto: string) => texto.replace(/\s+/g, " ").trim();
-const valido = (texto: string) => {
-  const longitud = Array.from(texto).length;
-  return longitud >= 1 && longitud <= 1000;
-};
 
 export function EditorTextos({
   curso,

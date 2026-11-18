@@ -61,6 +61,7 @@ const datos: DatosTeleprompter = {
   guion: "curso-ficticio-04",
   titulo: "Lección ficticia",
   version: "0".repeat(64),
+  ganchos: [],
   escenas: [
     escena("E01", "animacion"),
     escena("E02", "camara"),
@@ -1208,6 +1209,7 @@ describe("Teleprompter: ronda 1", () => {
         accion: "previa-grabacion",
         curso: "curso-ficticio",
         numero: 4,
+        objetivo: null,
         estado: "en_marcha" as const,
         progreso: 0.4,
         inicio: "2026-01-01T10:00:00",

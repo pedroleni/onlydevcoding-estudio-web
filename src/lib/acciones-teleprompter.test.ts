@@ -23,6 +23,7 @@ const teleprompter = {
   guion: "react-04",
   titulo: "Lección de prueba",
   version: "b".repeat(64),
+  ganchos: [],
   escenas: [],
   montaje: null,
   previa: {
@@ -76,6 +77,27 @@ describe("Server Actions del teleprompter", () => {
     });
   });
 
+  it("el 409 de una lección en preparación es un error normal, sin conflicto", async () => {
+    escribirSimulado.mockResolvedValueOnce({
+      ok: true,
+      respuesta: Response.json(
+        {
+          detail:
+            "No se puede cambiar mientras se prepara esta lección. Espera a que termine el trabajo.",
+        },
+        { status: 409 },
+      ),
+    });
+
+    await expect(guardarTextos("react", 4, "a".repeat(64), [
+      { id: "E01", cues: ["Texto válido"] },
+    ])).resolves.toEqual({
+      ok: false,
+      mensaje:
+        "No se puede cambiar mientras se prepara esta lección. Espera a que termine el trabajo.",
+    });
+  });
+
   it("reconstruye y recorta un cuerpo válido antes de escribir", async () => {
     await expect(guardarTextos("react", 4, "a".repeat(64), [
       {
@@ -98,6 +120,38 @@ describe("Server Actions del teleprompter", () => {
       "PUT",
     );
     expect(refreshSimulado).toHaveBeenCalledOnce();
+  });
+
+  it("acepta escenas vacías si envía todos los ganchos", async () => {
+    await expect(guardarTextos("react", 4, "a".repeat(64), [], [
+      { id: "gancho-1", texto: "  Texto de gancho válido  " },
+      { id: "gancho_2", texto: "Otro texto válido" },
+    ])).resolves.toEqual({ ok: true, teleprompter });
+
+    expect(escribirSimulado).toHaveBeenCalledWith(
+      "/api/cursos/react/lecciones/4/guion/textos",
+      {
+        version: "a".repeat(64),
+        escenas: [],
+        ganchos: [
+          { id: "gancho-1", texto: "Texto de gancho válido" },
+          { id: "gancho_2", texto: "Otro texto válido" },
+        ],
+      },
+      "PUT",
+    );
+  });
+
+  it.each([
+    ["ningún gancho", []],
+    ["más de 20 ganchos", Array.from({ length: 21 }, (_, i) => ({ id: `g-${i}`, texto: "Texto" }))],
+    ["un id inválido", [{ id: "gancho/1", texto: "Texto" }]],
+    ["un id demasiado largo", [{ id: "g".repeat(41), texto: "Texto" }]],
+    ["un texto vacío", [{ id: "gancho-1", texto: "  " }]],
+    ["un salto", [{ id: "gancho-1", texto: "Primera\nsegunda" }]],
+  ])("rechaza %s antes de escribir", async (_caso, ganchos) => {
+    await expect(guardarTextos("react", 4, "a".repeat(64), [], ganchos)).resolves.toMatchObject({ ok: false });
+    expect(escribirSimulado).not.toHaveBeenCalled();
   });
 
   it("rechaza una lista de textos con huecos antes de escribir", async () => {

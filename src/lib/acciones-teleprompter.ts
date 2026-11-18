@@ -1,23 +1,30 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { headers } from "next/headers";
 
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
-import { HOST_ESTUDIO, ORIGEN_ESTUDIO } from "@/lib/origen-estudio";
+import { origenPermitido } from "@/lib/origen-servidor";
 import type { Teleprompter, Trabajo } from "@/lib/tipos";
 
 const VERSION_VALIDA = /^[0-9a-f]{64}$/;
 const ESCENA_VALIDA = /^E\d{2}$/;
+const GANCHO_VALIDO = /^[A-Za-z0-9_-]{1,40}$/;
 const MAXIMO_ELEMENTOS = 200;
+const MAXIMO_GANCHOS = 20;
 const ESTADOS_CON_DETALLE = new Set([404, 409, 422]);
+const LECCION_OCUPADA = "No se puede cambiar mientras se prepara esta lección";
 
 export interface TextosEscena {
   id: string;
   cues?: string[];
   puntos?: string[];
+}
+
+export interface TextoGancho {
+  id: string;
+  texto: string;
 }
 
 export type ResultadoGuardarTextos =
@@ -71,7 +78,7 @@ function normalizarLista(valor: unknown): string[] | null {
 function normalizarEscenas(valor: unknown): TextosEscena[] | null {
   if (!Array.isArray(valor)) return null;
   const longitud = valor.length;
-  if (longitud < 1 || longitud > MAXIMO_ELEMENTOS) return null;
+  if (longitud > MAXIMO_ELEMENTOS) return null;
 
   const escenas: TextosEscena[] = [];
   for (let indice = 0; indice < longitud; indice += 1) {
@@ -93,12 +100,23 @@ function normalizarEscenas(valor: unknown): TextosEscena[] | null {
   return escenas;
 }
 
-async function origenPermitido(): Promise<boolean> {
-  const cabeceras = await headers();
-  return (
-    cabeceras.get("host") === HOST_ESTUDIO &&
-    cabeceras.get("origin") === ORIGEN_ESTUDIO
-  );
+function normalizarGanchos(valor: unknown): TextoGancho[] | undefined | null {
+  if (valor === undefined) return undefined;
+  if (!Array.isArray(valor) || valor.length < 1 || valor.length > MAXIMO_GANCHOS) {
+    return null;
+  }
+
+  const ganchos: TextoGancho[] = [];
+  for (let indice = 0; indice < valor.length; indice += 1) {
+    const candidato = valor[indice];
+    if (typeof candidato !== "object" || candidato === null) return null;
+    const { id, texto } = candidato as Record<string, unknown>;
+    if (typeof id !== "string" || !GANCHO_VALIDO.test(id) || !textoValido(texto)) {
+      return null;
+    }
+    ganchos.push({ id, texto: texto.trim() });
+  }
+  return ganchos;
 }
 
 function mensajeEstado(estado: number): string {
@@ -119,20 +137,32 @@ export async function guardarTextos(
   numero: number,
   version: string,
   escenas: TextosEscena[],
+  ganchos?: TextoGancho[],
 ): Promise<ResultadoGuardarTextos> {
   if (!destinoValido(curso, numero)) return error("La lección no es válida");
   if (typeof version !== "string" || !VERSION_VALIDA.test(version)) {
     return error("La versión del guion no es válida");
   }
   const escenasNormalizadas = normalizarEscenas(escenas);
-  if (!escenasNormalizadas) return error("Los textos no son válidos");
+  const ganchosNormalizados = normalizarGanchos(ganchos);
+  if (
+    !escenasNormalizadas ||
+    ganchosNormalizados === null ||
+    (escenasNormalizadas.length === 0 && ganchosNormalizados === undefined)
+  ) {
+    return error("Los textos no son válidos");
+  }
   if (!(await origenPermitido())) return error("Origen no permitido");
 
   let escritura;
   try {
     escritura = await escribir(
       `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/guion/textos`,
-      { version, escenas: escenasNormalizadas },
+      {
+        version,
+        escenas: escenasNormalizadas,
+        ...(ganchosNormalizados === undefined ? {} : { ganchos: ganchosNormalizados }),
+      },
       "PUT",
     );
   } catch (causa) {
@@ -149,7 +179,9 @@ export async function guardarTextos(
       ? await detalleDe(respuesta, { textoBruto: false })
       : undefined;
     const mensaje = typeof detalle === "string" ? detalle : mensajeEstado(respuesta.status);
-    return respuesta.status === 409
+    // Un 409 es un conflicto de versión (se ofrece recargar), salvo cuando la lección está
+    // ocupada por un trabajo: eso se enseña como un error normal.
+    return respuesta.status === 409 && !mensaje.startsWith(LECCION_OCUPADA)
       ? { ok: false, mensaje, conflicto: true }
       : error(mensaje);
   }

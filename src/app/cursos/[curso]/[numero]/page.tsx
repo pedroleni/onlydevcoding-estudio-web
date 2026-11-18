@@ -4,28 +4,34 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
+import { GrabacionesVoz } from "@/components/GrabacionesVoz";
 import { ListaPiezas, VistaVideoFinal } from "@/components/ListaPiezas";
 import { PanelEstado } from "@/components/PanelEstado";
+import { PanelShorts } from "@/components/acciones/PanelShorts";
 import {
   esPestanaLeccion,
   PestanasLeccion,
   type PestanaLeccion,
 } from "@/components/PestanasLeccion";
-import { TarjetaEscena } from "@/components/TarjetaEscena";
+import { GuionEditable } from "@/components/guion/GuionEditable";
 import { PublicarLeccion } from "@/components/publicar/PublicarLeccion";
 import {
   ApiNoDisponible,
   ErrorApi,
+  obtenerAcciones,
   obtenerCursos,
   obtenerLeccion,
   obtenerPublicacion,
+  obtenerTeleprompter,
 } from "@/lib/api";
 import { CURSO_VALIDO } from "@/lib/curso";
 import { textoLegible } from "@/lib/texto-legible";
 import type {
   Escena,
+  EstadoAccion,
   EstadoLeccion,
   Leccion,
+  Teleprompter,
   VistaPublicacion,
 } from "@/lib/tipos";
 
@@ -80,27 +86,45 @@ function BloqueGrabacion({
 }
 
 function ContenidoPestana({
+  curso,
   leccion,
   pestana,
   publicacion,
+  teleprompter,
+  acciones,
   piezaSeleccionada,
   redSeleccionada,
 }: {
+  curso: string;
   leccion: Leccion;
   pestana: PestanaLeccion;
   publicacion: VistaPublicacion | null;
+  teleprompter: Teleprompter | null;
+  acciones: EstadoAccion[] | null;
   piezaSeleccionada?: string;
   redSeleccionada?: string;
 }) {
   if (pestana === "grabaciones") {
+    const escenasVoz = teleprompter?.escenas.filter(({ modo }) => modo === "voz");
     return (
       <div role="tabpanel" className="grid gap-8">
-        <BloqueGrabacion
-          id="grabacion-voz"
-          titulo="Voz en off"
-          escenas={leccion.escenas.filter(({ modo }) => modo === "voz")}
-          avance={leccion.estado.voz}
-        />
+        {escenasVoz ? (
+          <GrabacionesVoz
+            curso={curso}
+            numero={leccion.numero}
+            escenas={escenasVoz}
+            avance={leccion.estado.voz}
+            sinAlinear={leccion.montaje?.sin_alinear ?? []}
+            accion={acciones?.find(({ id }) => id === "alinear-voz") ?? null}
+          />
+        ) : (
+          <BloqueGrabacion
+            id="grabacion-voz"
+            titulo="Voz en off"
+            escenas={leccion.escenas.filter(({ modo }) => modo === "voz")}
+            avance={leccion.estado.voz}
+          />
+        )}
         <BloqueGrabacion
           id="grabacion-camara"
           titulo="Cámara"
@@ -116,10 +140,13 @@ function ContenidoPestana({
       <div role="tabpanel">
         <VistaVideoFinal
           key={leccion.slug}
+          curso={curso}
+          numero={leccion.numero}
           pieza={
             leccion.piezas.find(({ tipo }) => tipo === "leccion") ?? null
           }
           previas={leccion.previas}
+          acciones={acciones}
         />
       </div>
     );
@@ -127,7 +154,8 @@ function ContenidoPestana({
 
   if (pestana === "shorts") {
     return (
-      <div role="tabpanel">
+      <div role="tabpanel" className="grid gap-8">
+        <PanelShorts curso={curso} numero={leccion.numero} acciones={acciones} />
         <ListaPiezas
           piezas={leccion.piezas.filter(
             ({ tipo }) => tipo === "reel" || tipo === "short",
@@ -155,21 +183,15 @@ function ContenidoPestana({
     leccion.previas.at(-1) ?? leccion.estado.previa ?? null;
 
   return (
-    <div role="tabpanel" className="grid gap-4">
-      {leccion.escenas.length > 0 ? (
-        leccion.escenas.map((escena) => (
-          <TarjetaEscena
-            key={escena.id}
-            escena={escena}
-            previa={ultimaPrevia}
-          />
-        ))
-      ) : (
-        <p className="border border-borde bg-superficie p-6 text-tenue">
-          Esta lección todavía no tiene escenas.
-        </p>
-      )}
-    </div>
+    <GuionEditable
+      curso={curso}
+      numero={leccion.numero}
+      escenas={leccion.escenas}
+      previa={ultimaPrevia}
+      teleprompter={teleprompter}
+      montaje={leccion.montaje}
+      acciones={acciones}
+    />
   );
 }
 
@@ -179,6 +201,17 @@ function CargandoLeccion() {
       Cargando lección…
     </div>
   );
+}
+
+async function lecturaApiOpcional<T>(lectura: Promise<T>): Promise<T | null> {
+  try {
+    return await lectura;
+  } catch (error) {
+    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function ContenidoLeccion({
@@ -231,6 +264,8 @@ async function ContenidoLeccion({
   const valorRed = Array.isArray(consulta.red) ? consulta.red[0] : consulta.red;
 
   let publicacion: VistaPublicacion | null = null;
+  let teleprompter: Teleprompter | null = null;
+  let acciones: EstadoAccion[] | null = null;
   if (pestana === "publicar") {
     try {
       publicacion = await obtenerPublicacion(curso, numero);
@@ -240,6 +275,14 @@ async function ContenidoLeccion({
       }
       throw error;
     }
+  }
+  if (pestana === "guion" || pestana === "grabaciones") {
+    [teleprompter, acciones] = await Promise.all([
+      lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
+      lecturaApiOpcional(obtenerAcciones(curso, numero)),
+    ]);
+  } else if (pestana === "video" || pestana === "shorts") {
+    acciones = await lecturaApiOpcional(obtenerAcciones(curso, numero));
   }
 
   return (
@@ -281,13 +324,16 @@ async function ContenidoLeccion({
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <ContenidoPestana
+          curso={curso}
           leccion={leccion}
           pestana={pestana}
           publicacion={publicacion}
+          teleprompter={teleprompter}
+          acciones={acciones}
           piezaSeleccionada={valorPieza}
           redSeleccionada={valorRed}
         />
-        <PanelEstado estado={leccion.estado} />
+        <PanelEstado estado={leccion.estado} montaje={leccion.montaje} />
       </div>
     </>
   );
