@@ -17,3 +17,4 @@ anteriores; si cambia el estado de un hallazgo, actualiza su sección de estado.
 | 2026-11-17 | [2026-11-17-fase-3.md](2026-11-17-fase-3.md) | Rama `feat/fase-3` completa (`main...feat/fase-3`), ocho dominios | MUY BAJO, score 0: sin hallazgos, 2 observaciones (aplicadas) |
 | 2026-11-17 | [2026-11-17-fase-4.md](2026-11-17-fase-4.md) | Rama `feat/fase-4` completa (`main...feat/fase-4`), ocho dominios | BAJO, score 3: 0 CRITICAL, 0 HIGH, 1 MEDIUM, 0 LOW, 2 observaciones |
 | 2026-11-18 | [2026-11-18-fase-5.md](2026-11-18-fase-5.md) | Rama `feat/fase-5` completa (`main...feat/fase-5`, desde `1362fa4`), ocho dominios | MUY BAJO, score 0: sin hallazgos, 3 observaciones |
+| 2026-11-18 | [2026-11-18-fase-6.md](2026-11-18-fase-6.md) | Rama `feat/fase-6` completa (`main...feat/fase-6`, desde `be44291`), ocho dominios | MUY BAJO, score 0: sin hallazgos, 3 observaciones |
