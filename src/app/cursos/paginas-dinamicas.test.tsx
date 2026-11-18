@@ -14,7 +14,8 @@ import {
   obtenerPublicacion,
   obtenerTeleprompter,
 } from "@/lib/api";
-import type { Leccion, Teleprompter, VistaPublicacion } from "@/lib/tipos";
+import { obtenerCamara } from "@/lib/camara";
+import type { Leccion, Teleprompter, TomasCamara, VistaPublicacion } from "@/lib/tipos";
 
 vi.mock("next/server", () => ({
   connection: vi.fn().mockResolvedValue(undefined),
@@ -38,6 +39,22 @@ vi.mock("@/lib/acciones", () => ({
 vi.mock("@/lib/acciones-teleprompter", () => ({
   guardarTextos: vi.fn(),
 }));
+
+vi.mock("@/lib/acciones-estudio", () => ({
+  lanzarAccion: vi.fn(),
+  cancelarTrabajo: vi.fn(),
+}));
+
+vi.mock("@/lib/acciones-entregas", () => ({
+  leerEntregas: vi.fn(async () => ({
+    ok: true,
+    entregas: { archivos: [], propuesta: null, destinos: { camara: [], ganchos: [] } },
+  })),
+  quitarEntrega: vi.fn(),
+  colocarTomas: vi.fn(),
+}));
+
+vi.mock("@/lib/camara", () => ({ obtenerCamara: vi.fn() }));
 
 vi.mock("@/components/acciones/BotonAccion", () => ({
   BotonAccion: () => <button>Acción ficticia</button>,
@@ -146,6 +163,7 @@ beforeEach(() => {
   vi.mocked(obtenerPublicacion).mockResolvedValue(null);
   vi.mocked(obtenerTeleprompter).mockResolvedValue(null);
   vi.mocked(obtenerAcciones).mockResolvedValue(null);
+  vi.mocked(obtenerCamara).mockResolvedValue(null);
 });
 
 describe("shell de las páginas dinámicas", () => {
@@ -186,6 +204,88 @@ describe("shell de las páginas dinámicas", () => {
     const grabaciones = screen.getByRole("tabpanel");
     expect(within(grabaciones).getByRole("heading", { name: "Voz en off" })).toBeInTheDocument();
     expect(within(grabaciones).getByText("voz-uno")).toBeInTheDocument();
+  });
+
+  it("monta en Grabaciones las tomas a cámara y los ganchos de /camara", async () => {
+    const camara: TomasCamara = {
+      escenas: [
+        {
+          id: "E02",
+          titulo: "Escena ficticia a cámara",
+          video: "estudio/public/grabaciones/curso-ficticio-01/E02.mov",
+          version: 7,
+          original: "Toma ficticia.MOV",
+          mejorada: false,
+        },
+      ],
+      ganchos: [],
+    };
+    vi.mocked(obtenerCamara).mockResolvedValue(camara);
+
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+
+    expect(obtenerCamara).toHaveBeenCalledWith("curso-ficticio", 1);
+    const grabaciones = screen.getByRole("tabpanel");
+    expect(
+      within(grabaciones).getByRole("heading", { name: "Tomas a cámara y ganchos" }),
+    ).toBeInTheDocument();
+    expect(within(grabaciones).getByLabelText("Toma de E02")).toHaveAttribute(
+      "src",
+      expect.stringContaining("&v=7"),
+    );
+    expect(
+      within(grabaciones).getByRole("region", { name: "Entregar las tomas de cámara" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["la API no está disponible", () => new ApiNoDisponible()],
+    ["la API rechaza /camara", () => new ErrorApi(422)],
+  ])("si %s, el resto de Grabaciones se sigue viendo con un aviso", async (_caso, crearError) => {
+    vi.mocked(obtenerCamara).mockRejectedValue(crearError());
+
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+
+    const grabaciones = screen.getByRole("tabpanel");
+    expect(within(grabaciones).getByRole("heading", { name: "Voz en off" })).toBeInTheDocument();
+    expect(within(grabaciones).getByText("voz-uno")).toBeInTheDocument();
+    expect(
+      within(grabaciones).getByText("No se han podido leer las tomas a cámara."),
+    ).toBeInTheDocument();
+  });
+
+  it("si /camara falla, Grabaciones lista las escenas de cámara del guion con su id y título", async () => {
+    vi.mocked(obtenerLeccion).mockResolvedValue({
+      ...leccion,
+      escenas: [
+        ...leccion.escenas,
+        {
+          id: "E03",
+          modo: "camara",
+          tipo: "camara",
+          titulo: "Escena ficticia a cámara",
+          textos: [],
+          inicio_s: null,
+          duracion_s: null,
+        },
+      ],
+    });
+    vi.mocked(obtenerCamara).mockRejectedValue(new ApiNoDisponible());
+
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+
+    const lista = screen.getByRole("list", { name: "Escenas a cámara del guion" });
+    expect(within(lista).getByText("E03")).toBeInTheDocument();
+    expect(within(lista).getByText("Escena ficticia a cámara")).toBeInTheDocument();
+    expect(within(lista).queryByText("voz-uno")).not.toBeInTheDocument();
+  });
+
+  it("no se traga un fallo que no es de la API al leer /camara", async () => {
+    vi.mocked(obtenerCamara).mockRejectedValue(new TypeError("fallo de programación"));
+
+    await expect(renderizarContenidoLeccion({ pestana: "grabaciones" })).rejects.toThrow(
+      "fallo de programación",
+    );
   });
 
   it.each(["1e2", "0x10", "1.0", "01"])(
@@ -232,6 +332,7 @@ describe("shell de las páginas dinámicas", () => {
 
     expect(obtenerTeleprompter).toHaveBeenCalledWith("curso-ficticio", 1);
     expect(obtenerAcciones).toHaveBeenCalledWith("curso-ficticio", 1);
+    expect(obtenerCamara).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "Ganchos de los shorts" })).toBeInTheDocument();
 
     vi.clearAllMocks();
@@ -239,6 +340,7 @@ describe("shell de las páginas dinámicas", () => {
     render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
     expect(obtenerTeleprompter).toHaveBeenCalledWith("curso-ficticio", 1);
     expect(obtenerAcciones).toHaveBeenCalledWith("curso-ficticio", 1);
+    expect(obtenerCamara).toHaveBeenCalledWith("curso-ficticio", 1);
 
     vi.clearAllMocks();
     render(await renderizarContenidoLeccion({ pestana: "video" }));

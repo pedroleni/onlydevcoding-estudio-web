@@ -9,11 +9,17 @@ import type { IdAccion, Trabajo } from "@/lib/tipos";
 
 const PREVIA_VALIDA = /^previa-v\d{1,4}\.mp4$/;
 const SHORT_VALIDO = /^[a-z0-9-]{1,60}$/;
+const ESCENA_VALIDA = /^E[0-9]{2}$/;
+const GANCHO_VALIDO = /^[A-Za-z0-9_-]{1,40}$/;
 const ESTADOS_CON_DETALLE = new Set([404, 409, 422, 503]);
 
 export interface OpcionesAccion {
   previa?: string;
   short?: string;
+  // Escena de cámara de `mejorar-toma`.
+  escena?: string;
+  // Gancho vertical de `color-ganchos`.
+  gancho?: string;
 }
 
 export type ResultadoTrabajo =
@@ -43,16 +49,26 @@ function normalizarOpciones(valor: unknown): OpcionesAccion | null {
   const candidata = valor as Record<string, unknown>;
   const previa = candidata.previa;
   const short = candidata.short;
+  const escena = candidata.escena;
+  const gancho = candidata.gancho;
   if (previa !== undefined && (typeof previa !== "string" || !PREVIA_VALIDA.test(previa))) {
     return null;
   }
   if (short !== undefined && (typeof short !== "string" || !SHORT_VALIDO.test(short))) {
     return null;
   }
+  if (escena !== undefined && (typeof escena !== "string" || !ESCENA_VALIDA.test(escena))) {
+    return null;
+  }
+  if (gancho !== undefined && (typeof gancho !== "string" || !GANCHO_VALIDO.test(gancho))) {
+    return null;
+  }
 
   return {
     ...(previa === undefined ? {} : { previa }),
     ...(short === undefined ? {} : { short }),
+    ...(escena === undefined ? {} : { escena }),
+    ...(gancho === undefined ? {} : { gancho }),
   };
 }
 

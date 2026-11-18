@@ -6,11 +6,13 @@ import PaginaTeleprompter from "@/app/teleprompter/page";
 import { notFound } from "next/navigation";
 import {
   ApiNoDisponible,
+  ErrorApi,
+  obtenerAcciones,
   obtenerCursos,
   obtenerLecciones,
   obtenerTeleprompter,
 } from "@/lib/api";
-import type { LeccionResumen, Teleprompter } from "@/lib/tipos";
+import type { EstadoAccion, LeccionResumen, Teleprompter } from "@/lib/tipos";
 
 vi.mock("next/server", () => ({
   connection: vi.fn().mockResolvedValue(undefined),
@@ -26,6 +28,20 @@ vi.mock("@/lib/acciones-teleprompter", () => ({
   generarPreviaGrabacion: vi.fn(),
 }));
 
+vi.mock("@/lib/acciones-entregas", () => ({
+  leerEntregas: vi.fn(async () => ({
+    ok: true,
+    entregas: { archivos: [], propuesta: null, destinos: { camara: [], ganchos: [] } },
+  })),
+  quitarEntrega: vi.fn(),
+  colocarTomas: vi.fn(),
+}));
+
+vi.mock("@/lib/acciones-estudio", () => ({
+  lanzarAccion: vi.fn(),
+  cancelarTrabajo: vi.fn(),
+}));
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/api")>();
   return {
@@ -33,6 +49,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     obtenerCursos: vi.fn(),
     obtenerLecciones: vi.fn(),
     obtenerTeleprompter: vi.fn(),
+    obtenerAcciones: vi.fn(),
   };
 });
 
@@ -60,6 +77,7 @@ type PropsTeleprompter = {
   datos: Teleprompter | null;
   lecciones: Array<{ curso: string; numero: number; titulo: string; nombreCurso: string }>;
   seleccion: { curso: string; numero: number } | null;
+  acciones?: EstadoAccion[] | null;
 };
 
 async function cargarContenido(consulta: Record<string, string | string[]>) {
@@ -90,6 +108,7 @@ beforeEach(() => {
     curso === "curso-ficticio" ? [resumen(1, false), resumen(2, true), resumen(3, true)] : null,
   );
   vi.mocked(obtenerTeleprompter).mockResolvedValue(datos);
+  vi.mocked(obtenerAcciones).mockResolvedValue([]);
 });
 
 describe("página del teleprompter", () => {
@@ -114,10 +133,33 @@ describe("página del teleprompter", () => {
     ]);
   });
 
+  it("pasa las acciones de la lección, para seguir una identificación en marcha", async () => {
+    const acciones = [{ id: "identificar-tomas" }] as EstadoAccion[];
+    vi.mocked(obtenerAcciones).mockResolvedValue(acciones);
+
+    const elemento = (await cargarContenido({ curso: "curso-ficticio", leccion: "2" })) as ReactElement<PropsTeleprompter>;
+
+    expect(obtenerAcciones).toHaveBeenCalledWith("curso-ficticio", 2);
+    expect(elemento.props.acciones).toBe(acciones);
+  });
+
+  it.each([
+    ["la API no está disponible", () => new ApiNoDisponible()],
+    ["la API rechaza las acciones", () => new ErrorApi(500)],
+  ])("si %s al leer las acciones, el teleprompter se abre sin ellas", async (_caso, crearError) => {
+    vi.mocked(obtenerAcciones).mockRejectedValue(crearError());
+
+    const elemento = (await cargarContenido({ curso: "curso-ficticio", leccion: "2" })) as ReactElement<PropsTeleprompter>;
+
+    expect(elemento.props.datos).toBe(datos);
+    expect(elemento.props.acciones).toBeNull();
+  });
+
   it("sin parámetros no pide ningún teleprompter", async () => {
     const elemento = (await cargarContenido({ curso: "curso-ficticio" })) as ReactElement<PropsTeleprompter>;
 
     expect(obtenerTeleprompter).not.toHaveBeenCalled();
+    expect(obtenerAcciones).not.toHaveBeenCalled();
     expect(elemento.props.datos).toBeNull();
     expect(elemento.props.seleccion).toBeNull();
   });

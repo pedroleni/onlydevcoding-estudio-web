@@ -97,6 +97,79 @@ describe("Server Actions de las acciones del estudio", () => {
     );
   });
 
+  it("manda la escena de mejorar-toma", async () => {
+    await lanzarAccion("react", 4, "mejorar-toma", { escena: "E17" });
+
+    expect(escribirSimulado).toHaveBeenCalledWith(
+      "/api/cursos/react/lecciones/4/acciones/mejorar-toma",
+      { escena: "E17" },
+      "POST",
+    );
+  });
+
+  it.each(["E1", "e17", "E17;rm", "../E17"])(
+    "rechaza la escena manipulada %j antes de escribir",
+    async (escena) => {
+      await expect(
+        lanzarAccion("react", 4, "mejorar-toma", { escena }),
+      ).resolves.toEqual({ ok: false, mensaje: "Las opciones de la acción no son válidas" });
+
+      expect(escribirSimulado).not.toHaveBeenCalled();
+    },
+  );
+
+  it("manda el gancho de color-ganchos", async () => {
+    await lanzarAccion("react", 4, "color-ganchos", { gancho: "S2" });
+
+    expect(escribirSimulado).toHaveBeenCalledWith(
+      "/api/cursos/react/lecciones/4/acciones/color-ganchos",
+      { gancho: "S2" },
+      "POST",
+    );
+  });
+
+  it.each(["gancho_final-2", "A".repeat(40)])("acepta el gancho %j", async (gancho) => {
+    await lanzarAccion("react", 4, "color-ganchos", { gancho });
+
+    expect(escribirSimulado).toHaveBeenCalledWith(
+      "/api/cursos/react/lecciones/4/acciones/color-ganchos",
+      { gancho },
+      "POST",
+    );
+  });
+
+  it.each(["", "A".repeat(41), "S2;rm", "../S2", "S 2", "S2/x", "ñ"])(
+    "rechaza el gancho manipulado %j antes de escribir",
+    async (gancho) => {
+      await expect(
+        lanzarAccion("react", 4, "color-ganchos", { gancho }),
+      ).resolves.toEqual({ ok: false, mensaje: "Las opciones de la acción no son válidas" });
+
+      expect(escribirSimulado).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rechaza un gancho que no es texto", async () => {
+    await expect(
+      lanzarAccion("react", 4, "color-ganchos", { gancho: 2 } as unknown as { gancho: string }),
+    ).resolves.toEqual({ ok: false, mensaje: "Las opciones de la acción no son válidas" });
+
+    expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it.each(["identificar-tomas"] as const)(
+    "lanza %s sin opciones",
+    async (accion) => {
+      await expect(lanzarAccion("react", 4, accion, {})).resolves.toEqual({ ok: true, trabajo });
+
+      expect(escribirSimulado).toHaveBeenCalledWith(
+        `/api/cursos/react/lecciones/4/acciones/${accion}`,
+        {},
+        "POST",
+      );
+    },
+  );
+
   it("solo manda las claves opcionales presentes", async () => {
     await lanzarAccion("react", 4, "alinear-voz", {});
 

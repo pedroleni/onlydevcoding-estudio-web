@@ -82,6 +82,56 @@ Amplían las decisiones anteriores; lo que no se cite aquí sigue igual.
   guardar. La API también lo rechaza con 409, que la web enseña como un error
   normal (sin «Recargar»). Es coherencia de datos, no un control de acceso.
 
+## Precedentes de la fase 6 (entrega de tomas de cámara)
+
+Amplían las decisiones anteriores; lo que no se cite aquí sigue igual.
+
+- **Rutas fuera del Proxy.** El `matcher` de `src/proxy.ts` excluye solo
+  `/_next/`, `/grabar/` y `/entregar/` (con y sin barra final), porque el
+  Proxy guarda el cuerpo en memoria hasta 10 MB y las tomas pasan de ahí. Bajo
+  esos prefijos solo puede haber Route Handlers de subida, nunca páginas ni
+  Server Actions, y `proxy.test.ts` fija qué rutas parecidas sí pasan por el
+  Proxy. Un prefijo nuevo excluido necesita la misma justificación, su
+  comentario y sus tests.
+- **Route Handlers de subida** (`grabar/[curso]/[numero]/[escena]` y
+  `entregar/[curso]/[numero]/[archivo]`). Cada uno, antes de leer parámetros
+  o cuerpo, exige `Host` exacto `127.0.0.1:3000` y `Origin` exacto
+  `http://127.0.0.1:3000`; después valida la ruta con regex cerradas, exige
+  `Content-Length` de solo dígitos con tope de dígitos y de bytes (200 MiB para
+  el WAV y 4 GiB para el vídeo), rechaza `Transfer-Encoding` y cualquier tipo
+  fuera de su lista cerrada (`audio/wav`; `video/quicktime` o `video/mp4`).
+  Solo exporta `PUT`. Reenvía el cuerpo en streaming con cabeceras construidas
+  desde cero (tipo normalizado, `Content-Length` validado y el token leído de
+  `process.env`), `redirect: "error"` y `cache: "no-store"`, y la respuesta
+  solo copia el `Content-Type` de la API. Un fallo de red da un 502 con
+  mensaje fijo. `Sec-Fetch-Site` no hace falta: un `PUT` siempre lleva
+  `Origin` y el navegador no deja falsificarlo.
+- **Nombres de las tomas entregadas.** `PATRON_ARCHIVO_ENTREGA`
+  (`src/lib/entregas.ts`) es el mismo patrón que aplica la API con
+  `fullmatch`: ASCII, sin barras, sin empezar por punto, hasta 120 caracteres
+  y extensión `.mov` o `.mp4`. Lo usan el navegador (antes de subir), el Route
+  Handler y las Server Actions, y el nombre siempre se codifica con
+  `encodeURIComponent` en la URL hacia la API. Si cambia en la API, cambia en
+  la web.
+- **Server Actions de entregas** (`src/lib/acciones-entregas.ts`).
+  `leerEntregas`, `quitarEntrega` y `colocarTomas` validan curso y número,
+  validan el nombre con `esNombreEntrega` y reconstruyen las asignaciones sin
+  claves extra (como mucho 200), usan `origenPermitido()` antes de tocar la
+  red y solo escriben con `escribir`. `leerEntregas` es un GET sin token. Al
+  navegador solo llegan literales o el `detail` de cadena de 404, 409, 422 y
+  503, que en la API son literales. La opción `escena` de `lanzarAccion`
+  cumple `^E[0-9]{2}$` en la web y en la API, que comprueba además que la
+  escena exista.
+- **Datos de las tomas en pantalla.** El texto reconocido de las tomas, los
+  nombres de archivo (entregados, en cola o de la propuesta), `original` y los
+  títulos de escenas y ganchos son datos del disco: se pintan con JSX y nunca
+  como HTML. `original` llega de la API reducido al nombre, sin carpetas. Un
+  `detail` que muestre `subirEntrega` solo se toma si es una cadena.
+- **URL de vídeo.** Los `<video>` de las tomas a cámara y de los ganchos usan
+  `urlToma(video, version)` sobre `NEXT_PUBLIC_API_URL`: `video` es una ruta
+  pública relativa que resuelve la API y va codificada en `ruta=`, y la
+  versión también se codifica.
+
 ## Hallazgos prioritarios
 
 - Un secreto o ruta privada en `NEXT_PUBLIC_*`, código, tests o documentación:

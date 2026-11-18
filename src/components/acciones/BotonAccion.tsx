@@ -7,13 +7,21 @@ import { useCancelacionTrabajo } from "@/components/acciones/useCancelacionTraba
 import { lanzarAccion, type OpcionesAccion } from "@/lib/acciones-estudio";
 import { textoErrorTrabajo } from "@/lib/error-trabajo";
 import { fechaHoraCorta } from "@/lib/formato-fecha";
-import type { EstadoAccion, Trabajo } from "@/lib/tipos";
+import type { EstadoAccion, IdAccion, Trabajo } from "@/lib/tipos";
 
 const BOTON_PRINCIPAL =
   "inline-flex min-h-11 cursor-pointer items-center justify-center border border-marca bg-carbon px-4 text-sm font-semibold text-texto transition-colors hover:enabled:bg-marca disabled:cursor-default disabled:opacity-40";
 export const BOTON_CANCELAR =
   "inline-flex min-h-10 cursor-pointer items-center justify-center border border-rojo px-3 text-sm font-semibold text-rojo transition-colors hover:enabled:bg-rojo hover:enabled:text-fondo disabled:cursor-default disabled:opacity-40";
 const OTRO_TRABAJO_EN_MARCHA = "Ya hay un trabajo en marcha";
+
+// Las acciones con objetivo lo envían en su opción: la escena en `mejorar-toma`, el gancho en
+// `color-ganchos` y el short en `render-short`.
+function opcionesDelObjetivo(accion: IdAccion, objetivo: string): OpcionesAccion {
+  if (accion === "mejorar-toma") return { escena: objetivo };
+  if (accion === "color-ganchos") return { gancho: objetivo };
+  return { short: objetivo };
+}
 
 export function textoEstadoTrabajo(trabajo: Trabajo): string {
   if (trabajo.estado === "hecho") return "Hecho";
@@ -64,6 +72,8 @@ export function BotonAccion({
   numero: number;
   accion: EstadoAccion;
   opciones?: OpcionesAccion;
+  // Short (`render-short`), escena (`mejorar-toma`) o gancho (`color-ganchos`) del trabajo: se
+  // sigue el de `ultimos[objetivo]`.
   objetivo?: string;
   textoBoton?: string;
   // Nombre para el lector de pantalla cuando el texto visible se repite (p. ej. un botón por short).
@@ -137,7 +147,7 @@ export function BotonAccion({
         curso,
         numero,
         accion.id,
-        objetivo ? { short: objetivo } : opciones,
+        objetivo ? opcionesDelObjetivo(accion.id, objetivo) : opciones,
       );
       if (resultado.ok) {
         setPropio(resultado.trabajo.id);

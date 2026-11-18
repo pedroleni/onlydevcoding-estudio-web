@@ -3,7 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BarraNavegacion } from "@/components/BarraNavegacion";
+import { subirEntrega } from "@/components/entregas/subirEntrega";
 import { Teleprompter } from "@/components/teleprompter/Teleprompter";
+import { leerEntregas } from "@/lib/acciones-entregas";
+import { lanzarAccion } from "@/lib/acciones-estudio";
 import { guardarTextos } from "@/lib/acciones-teleprompter";
 import { leerTrabajo } from "@/lib/trabajos";
 import { subirToma } from "@/lib/teleprompter/grabadora";
@@ -35,6 +38,22 @@ vi.mock("@/lib/acciones-teleprompter", () => ({
 
 vi.mock("@/lib/trabajos", () => ({
   leerTrabajo: vi.fn(),
+}));
+
+vi.mock("@/lib/acciones-estudio", () => ({
+  lanzarAccion: vi.fn(),
+  cancelarTrabajo: vi.fn(),
+}));
+
+vi.mock("@/components/entregas/subirEntrega", () => ({ subirEntrega: vi.fn() }));
+
+vi.mock("@/lib/acciones-entregas", () => ({
+  leerEntregas: vi.fn(async () => ({
+    ok: true,
+    entregas: { archivos: [], propuesta: null, destinos: { camara: [], ganchos: [] } },
+  })),
+  quitarEntrega: vi.fn(),
+  colocarTomas: vi.fn(),
 }));
 
 function escena(
@@ -789,7 +808,7 @@ function medioFalso(elemento: HTMLMediaElement, propiedades: Record<string, unkn
 }
 
 describe("Teleprompter: escenas a cámara", () => {
-  it("muestran 🎥, sus puntos y la línea de cámara; Grabar y Entregar están desactivados", async () => {
+  it("muestran 🎥, sus puntos, la línea de cámara y la zona de entrega; Grabar está desactivado", async () => {
     pintar({
       ...datos,
       escenas: datos.escenas.map((e) => (e.id === "E02" ? { ...e, grabada: true } : e)),
@@ -798,23 +817,155 @@ describe("Teleprompter: escenas a cámara", () => {
     await userEvent.click(screen.getByRole("button", { name: "E02 🎥 ✓" }));
 
     expect(screen.getByText("🎥 Se graba con la cámara · horizontal")).toBeInTheDocument();
+    expect(screen.getByText("✓ Grabada")).toBeInTheDocument();
     expect(screen.getByText("Un punto inventado")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Grabar/ })).toBeDisabled();
-    const entregar = screen.getByRole("button", { name: "⬆ Entregar los vídeos de la cámara" });
-    expect(entregar).toBeDisabled();
-    expect(entregar).toHaveAttribute("title", "Llega en la fase 6");
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    expect(within(zona).getByLabelText(/Entregar los vídeos de la cámara/)).toHaveAttribute(
+      "type",
+      "file",
+    );
+    expect(
+      screen.queryByRole("button", { name: "⬆ Entregar los vídeos de la cámara" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(leerEntregas).toHaveBeenCalledWith("curso-ficticio", 4));
     expect(screen.getByRole("status")).toHaveTextContent(
       "Pulsa Empezar y dale a grabar en tu cámara durante la cuenta atrás.",
     );
   });
 
-  it("las escenas de voz no ofrecen Entregar ni cambiar la vista", () => {
+  it("una escena a cámara sin toma no dice «✓ Grabada»", async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBeInTheDocument();
+    expect(screen.queryByText("✓ Grabada")).not.toBeInTheDocument();
+  });
+
+  it("las escenas de voz no tienen la zona de entrega ni cambian la vista", async () => {
     pintar();
 
     expect(
-      screen.queryByRole("button", { name: "⬆ Entregar los vídeos de la cámara" }),
+      screen.queryByRole("region", { name: "Entregar las tomas de cámara" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).not.toBeVisible();
     expect(screen.queryByRole("button", { name: "Ver solo puntos" })).not.toBeInTheDocument();
+
+    // Volver de una escena a cámara a una de voz también la quita de la vista.
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "E05" }));
+    expect(
+      screen.queryByRole("region", { name: "Entregar las tomas de cámara" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("la zona de entrega sigue montada al pasar por una escena de voz: no se pierde una subida", async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    await userEvent.click(screen.getByRole("button", { name: "E05" }));
+
+    expect(zona).toBeInTheDocument();
+    expect(zona).not.toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBe(zona);
+    expect(leerEntregas).toHaveBeenCalledOnce();
+  });
+
+  it("cambiar de lección con una subida de tomas en curso pide confirmación y, si se cancela, no cambia", async () => {
+    let terminar!: () => void;
+    vi.mocked(subirEntrega).mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          terminar = () => resolver({ ok: true, archivo: "Toma ficticia.MOV", bytes: 6 });
+        }),
+    );
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: false, mensaje: "No hay tomas entregadas" });
+    const confirmar = vi
+      .spyOn(window, "confirm")
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    const entrada = screen.getByLabelText(/Entregar los vídeos de la cámara/);
+    fireEvent.drop(entrada.closest("label") as HTMLElement, {
+      dataTransfer: {
+        files: [new File(["ftypqt"], "Toma ficticia.MOV", { type: "video/quicktime" })],
+        types: ["Files"],
+      },
+    });
+    await waitFor(() => expect(subirEntrega).toHaveBeenCalledOnce());
+
+    await userEvent.selectOptions(screen.getByLabelText("Lección"), "curso-ficticio/2");
+    expect(confirmar).toHaveBeenCalledWith(
+      "Hay una subida de tomas en curso. ¿Cortarla y cambiar de lección?",
+    );
+    expect(router.push).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Lección")).toHaveValue("curso-ficticio/4");
+
+    await userEvent.selectOptions(screen.getByLabelText("Lección"), "curso-ficticio/2");
+    expect(router.push).toHaveBeenCalledWith("/teleprompter?curso=curso-ficticio&leccion=2");
+    await act(async () => terminar());
+  });
+
+  it("con la subida ya terminada cambia de lección sin preguntar por ella", async () => {
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "Toma ficticia.MOV", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: false, mensaje: "No hay tomas entregadas" });
+    const confirmar = vi.spyOn(window, "confirm");
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    fireEvent.drop(
+      screen.getByLabelText(/Entregar los vídeos de la cámara/).closest("label") as HTMLElement,
+      {
+        dataTransfer: {
+          files: [new File(["ftypqt"], "Toma ficticia.MOV", { type: "video/quicktime" })],
+          types: ["Files"],
+        },
+      },
+    );
+    await waitFor(() => expect(screen.getByText("Subida")).toBeInTheDocument());
+
+    await userEvent.selectOptions(screen.getByLabelText("Lección"), "curso-ficticio/2");
+
+    expect(confirmar).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalled();
+  });
+
+  it("los atajos no se disparan con el foco en un botón de la zona de entrega", async () => {
+    vi.mocked(leerEntregas).mockResolvedValueOnce({
+      ok: true,
+      entregas: {
+        archivos: [{ archivo: "Toma ficticia.MOV", bytes: 6 }],
+        propuesta: null,
+        destinos: { camara: [], ganchos: [] },
+      },
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    const quitar = await screen.findByRole("button", { name: "Quitar Toma ficticia.MOV" });
+
+    quitar.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("E02 ·");
+    fireEvent.keyDown(quitar, { code: "Space", key: " " });
+    expect(screen.queryByText("dale a grabar en la cámara")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Parar/ })).toBeDisabled();
+
+    // Fuera de la zona, los atajos siguen funcionando.
+    act(() => quitar.blur());
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("E03 ·");
+  });
+
+  it("una lección sin escenas a cámara no monta la zona de entrega", () => {
+    pintar({ ...datos, escenas: datos.escenas.filter(({ modo }) => modo !== "camara") });
+
+    expect(screen.queryByLabelText(/Entregar los vídeos de la cámara/)).not.toBeInTheDocument();
+    expect(leerEntregas).not.toHaveBeenCalled();
   });
 
   it("Empezar hace la cuenta atrás de cámara", async () => {
@@ -1540,5 +1691,99 @@ describe("Teleprompter: ronda final", () => {
     await userEvent.click(screen.getByRole("button", { name: "E03 ✓" }));
 
     expect(screen.getByTestId("toma").getAttribute("src")).toMatch(/&v=1%26ruta%3Dotra$/);
+  });
+});
+
+describe("Teleprompter: la zona de entrega mientras se lee", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "performance",
+      ],
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const avanzar = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("se oculta sin desmontarse mientras se lee y la línea de lectura no se desplaza", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    await avanzar(0);
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    const contenedor = zona.closest("[data-sin-atajos]") as HTMLElement;
+    const prompter = screen.getByTestId("prompter");
+    // jsdom no maqueta: el texto tiene más alto cuando la zona de entrega no le quita sitio.
+    Object.defineProperty(prompter, "clientHeight", {
+      configurable: true,
+      get: () => (contenedor.hidden ? 700 : 400),
+    });
+    const desplazamientos: Array<{ top: number; zonaOculta: boolean }> = [];
+    Object.defineProperty(prompter, "scrollTo", {
+      configurable: true,
+      value: (opciones: { top: number }) =>
+        desplazamientos.push({ top: opciones.top, zonaOculta: contenedor.hidden }),
+    });
+    expect(zona).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /Empezar/ }));
+    // Ya en la cuenta atrás: el texto tiene su alto definitivo antes de empezar a moverse.
+    expect(zona).not.toBeVisible();
+    await avanzar(2500 + 1500);
+    expect(screen.getByRole("status")).toHaveTextContent("En marcha: cuéntalo a tu manera.");
+
+    const lectura = desplazamientos.filter(({ top }) => top !== 0);
+    expect(lectura.length).toBeGreaterThan(0);
+    expect(lectura.every(({ zonaOculta }) => zonaOculta)).toBe(true);
+    expect(new Set(lectura.map(({ top }) => top))).toEqual(new Set([-700 * 0.35]));
+
+    fireEvent.click(screen.getByRole("button", { name: /Parar/ }));
+    await avanzar(0);
+    expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBe(zona);
+    expect(zona).toBeVisible();
+    expect(leerEntregas).toHaveBeenCalledOnce();
+  });
+
+  it("encoge entre el texto y el pie con su propio scroll en vez de tapar los controles", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    await avanzar(0);
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    const contenedor = zona.closest("[data-sin-atajos]") as HTMLElement;
+    const escenaCaja = contenedor.parentElement as HTMLElement;
+    const prompter = screen.getByTestId("prompter");
+    const pie = screen.getByRole("contentinfo");
+    const clases = (el: Element) => el.className.split(/\s+/);
+
+    // jsdom no maqueta: se fija la estructura que lo garantiza en el navegador.
+    // La zona va en el flujo, debajo del texto, y puede encoger con scroll propio.
+    expect(prompter.parentElement).toBe(escenaCaja);
+    expect(
+      prompter.compareDocumentPosition(contenedor) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(clases(contenedor)).toEqual(expect.arrayContaining(["overflow-y-auto", "max-h-[45dvh]"]));
+    expect(clases(contenedor)).not.toContain("shrink-0");
+    expect(clases(contenedor).some((c) => /^(md:)?(absolute|fixed|sticky)$/.test(c))).toBe(false);
+    expect(clases(contenedor).some((c) => /^(md:)?min-h-/.test(c))).toBe(true);
+    // El texto cede su sitio primero (base 0) y nunca empuja a la zona fuera de la caja.
+    expect(clases(prompter)).toEqual(expect.arrayContaining(["md:min-h-0", "md:flex-1"]));
+
+    // La caja de la escena encoge a su hueco y recorta su desborde (no pinta encima del pie).
+    expect(clases(escenaCaja)).toEqual(
+      expect.arrayContaining(["flex", "flex-col", "flex-1", "min-h-0", "md:overflow-y-auto"]),
+    );
+    // El pie no está dentro de nada que la zona pueda desbordar: es hermano de la caja.
+    expect(escenaCaja.contains(pie)).toBe(false);
+    expect(pie.parentElement).toBe(escenaCaja.parentElement);
+    expect(clases(pie)).toContain("shrink-0");
   });
 });

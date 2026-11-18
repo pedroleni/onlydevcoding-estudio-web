@@ -7,11 +7,14 @@ import { Teleprompter, type OpcionLeccion } from "@/components/teleprompter/Tele
 import {
   ApiNoDisponible,
   ErrorApi,
+  obtenerAcciones,
   obtenerCursos,
   obtenerLecciones,
   obtenerTeleprompter,
 } from "@/lib/api";
 import { CURSO_VALIDO } from "@/lib/curso";
+import { lecturaApiOpcional } from "@/lib/lectura-opcional";
+import type { EstadoAccion } from "@/lib/tipos";
 
 const NUMERO_VALIDO = /^[1-9]\d{0,2}$/;
 
@@ -40,11 +43,16 @@ async function ContenidoTeleprompter({
 
   let datos;
   let lecciones: OpcionLeccion[];
+  let acciones: EstadoAccion[] | null = null;
   try {
-    const [cursos, teleprompter] = await Promise.all([
+    const [cursos, teleprompter, accionesLeidas] = await Promise.all([
       obtenerCursos(),
       seleccion ? obtenerTeleprompter(seleccion.curso, seleccion.numero) : null,
+      // Las acciones solo sirven para seguir una identificación o un color en marcha en la
+      // zona de entrega: si la API falla al leerlas, el teleprompter se abre igual.
+      seleccion ? lecturaApiOpcional(obtenerAcciones(seleccion.curso, seleccion.numero)) : null,
     ]);
+    acciones = accionesLeidas;
     const listas = await Promise.all(cursos.map(({ id }) => obtenerLecciones(id)));
     datos = teleprompter;
     lecciones = cursos.flatMap(({ nombre }, i) =>
@@ -64,7 +72,9 @@ async function ContenidoTeleprompter({
     throw error;
   }
 
-  return <Teleprompter datos={datos} lecciones={lecciones} seleccion={seleccion} />;
+  return (
+    <Teleprompter datos={datos} lecciones={lecciones} seleccion={seleccion} acciones={acciones} />
+  );
 }
 
 export default function PaginaTeleprompter({ searchParams }: PageProps<"/teleprompter">) {
