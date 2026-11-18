@@ -544,9 +544,11 @@ function SesionTeleprompter({
       />
 
       {escena ? (
+        // Encoge a su hueco y desplaza (md) lo que no quepa: así nada se pinta encima del pie,
+        // que va fuera de esta caja.
         <div
           style={{ "--ancho-previa": `${pref.tamPrevia}px` } as CSSProperties}
-          className="relative flex min-h-0 flex-1 flex-col"
+          className="relative flex min-h-0 flex-1 flex-col md:overflow-y-auto"
         >
           <div
             className={`flex flex-wrap items-baseline gap-x-4 gap-y-2 px-4 pt-[18px] md:px-12 ${apartado}`}
@@ -634,11 +636,13 @@ function SesionTeleprompter({
           {hayCamara ? (
             // Montada para toda la lección y solo oculta en las escenas de voz y mientras se lee
             // (desde la cuenta atrás, para que el texto tenga ya su alto al empezar a moverse):
-            // ocultarla no corta una subida en curso.
+            // ocultarla no corta una subida en curso. Ocupa solo el hueco que queda entre el texto
+            // y el pie, con su propio scroll: puede encoger (no lleva shrink-0) hasta un mínimo
+            // usable, y si ni eso cabe desplaza la caja de la escena en vez de tapar el pie.
             <div
               hidden={voz || enMarcha}
               data-sin-atajos=""
-              className={`max-h-[45dvh] shrink-0 overflow-y-auto border-t border-borde px-4 py-4 md:px-12 ${apartado}`}
+              className={`max-h-[45dvh] min-h-32 overflow-y-auto border-t border-borde px-4 py-4 md:px-12 ${apartado}`}
             >
               <EntregaTomas
                 curso={guion.curso}

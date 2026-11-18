@@ -53,7 +53,7 @@ export function PieControles({
   toma: string | null;
 }) {
   return (
-    <footer className="flex flex-wrap items-center gap-2.5 border-t border-borde px-4 py-3.5 md:px-6">
+    <footer className="flex shrink-0 flex-wrap items-center gap-2.5 border-t border-borde px-4 py-3.5 md:px-6">
       <button
         type="button"
         onClick={alEnsayar}

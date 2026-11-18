@@ -1752,4 +1752,38 @@ describe("Teleprompter: la zona de entrega mientras se lee", () => {
     expect(zona).toBeVisible();
     expect(leerEntregas).toHaveBeenCalledOnce();
   });
+
+  it("encoge entre el texto y el pie con su propio scroll en vez de tapar los controles", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    await avanzar(0);
+    const zona = screen.getByRole("region", { name: "Entregar las tomas de cámara" });
+    const contenedor = zona.closest("[data-sin-atajos]") as HTMLElement;
+    const escenaCaja = contenedor.parentElement as HTMLElement;
+    const prompter = screen.getByTestId("prompter");
+    const pie = screen.getByRole("contentinfo");
+    const clases = (el: Element) => el.className.split(/\s+/);
+
+    // jsdom no maqueta: se fija la estructura que lo garantiza en el navegador.
+    // La zona va en el flujo, debajo del texto, y puede encoger con scroll propio.
+    expect(prompter.parentElement).toBe(escenaCaja);
+    expect(
+      prompter.compareDocumentPosition(contenedor) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(clases(contenedor)).toEqual(expect.arrayContaining(["overflow-y-auto", "max-h-[45dvh]"]));
+    expect(clases(contenedor)).not.toContain("shrink-0");
+    expect(clases(contenedor).some((c) => /^(md:)?(absolute|fixed|sticky)$/.test(c))).toBe(false);
+    expect(clases(contenedor).some((c) => /^(md:)?min-h-/.test(c))).toBe(true);
+    // El texto cede su sitio primero (base 0) y nunca empuja a la zona fuera de la caja.
+    expect(clases(prompter)).toEqual(expect.arrayContaining(["md:min-h-0", "md:flex-1"]));
+
+    // La caja de la escena encoge a su hueco y recorta su desborde (no pinta encima del pie).
+    expect(clases(escenaCaja)).toEqual(
+      expect.arrayContaining(["flex", "flex-col", "flex-1", "min-h-0", "md:overflow-y-auto"]),
+    );
+    // El pie no está dentro de nada que la zona pueda desbordar: es hermano de la caja.
+    expect(escenaCaja.contains(pie)).toBe(false);
+    expect(pie.parentElement).toBe(escenaCaja.parentElement);
+    expect(clases(pie)).toContain("shrink-0");
+  });
 });
