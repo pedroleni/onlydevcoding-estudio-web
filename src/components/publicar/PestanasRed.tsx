@@ -5,12 +5,12 @@ import { useId, useState } from "react";
 
 import { EstadoPublicacion } from "@/components/publicar/EstadoPublicacion";
 import { PanelTextosRed } from "@/components/publicar/TextosRed";
-import { REDES } from "@/lib/curso";
+import {
+  avisoRedesAusentes,
+  nombreRed,
+  redesDisponibles,
+} from "@/lib/redes-publicacion";
 import type { PiezaVista, RedVista } from "@/lib/tipos";
-
-function nombreRed(id: string): string {
-  return REDES.find(([red]) => red === id)?.[1] ?? id;
-}
 
 export function PestanasRed({
   curso,
@@ -25,8 +25,9 @@ export function PestanasRed({
 }) {
   const prefijo = useId();
   const [redActivaId, setRedActivaId] = useState(redInicial);
-  const redActiva =
-    pieza.redes.find(({ red }) => red === redActivaId) ?? pieza.redes[0];
+  const redes = redesDisponibles(pieza.redes);
+  const ausentes = avisoRedesAusentes(pieza.redes);
+  const redActiva = redes.find(({ red }) => red === redActivaId) ?? redes[0];
 
   if (!redActiva) return null;
 
@@ -46,7 +47,7 @@ export function PestanasRed({
         className="mt-4 max-w-full overflow-x-auto"
       >
         <div role="tablist" className="flex min-w-max border-b border-borde">
-          {pieza.redes.map((redVista) => {
+          {redes.map((redVista) => {
             const seleccionada = redVista.red === redActiva.red;
             return (
               <Link
@@ -73,6 +74,9 @@ export function PestanasRed({
           })}
         </div>
       </nav>
+      {ausentes ? (
+        <p className="mt-2 text-xs text-tenue">{ausentes}</p>
+      ) : null}
 
       <div
         key={`${pieza.id}-${redActiva.red}`}

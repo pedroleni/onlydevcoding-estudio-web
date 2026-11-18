@@ -4,6 +4,7 @@ import { ElegirPortada } from "@/components/publicar/ElegirPortada";
 import { PestanasRed } from "@/components/publicar/PestanasRed";
 import { SelectorPieza } from "@/components/publicar/SelectorPieza";
 import { LIMITES_PUBLICACION } from "@/lib/limites";
+import { redesDisponibles } from "@/lib/redes-publicacion";
 import type { VistaPublicacion } from "@/lib/tipos";
 
 export function PublicarLeccion({
@@ -19,14 +20,16 @@ export function PublicarLeccion({
     vista.piezas.find(({ id }) => id === piezaSeleccionada) ??
     vista.piezas[0] ??
     null;
+  const disponibles = pieza ? redesDisponibles(pieza.redes) : [];
+  // Un ?red= que apunta a una red sin textos ni estado cae en la primera disponible.
   const red =
-    pieza?.redes.find(({ red: id }) => id === redSeleccionada) ??
-    pieza?.redes.find(({ textos }) => textos !== null) ??
-    pieza?.redes[0] ??
+    disponibles.find(({ red: id }) => id === redSeleccionada) ??
+    disponibles[0] ??
     null;
   const sinTextos = vista.piezas.every((elemento) =>
     elemento.redes.every(({ textos }) => textos === null),
   );
+  const avisoSinTextos = sinTextos && !vista.error;
 
   return (
     <div role="tabpanel" className="grid min-w-0 gap-8">
@@ -58,7 +61,7 @@ export function PublicarLeccion({
             pieza={pieza}
           />
 
-          {sinTextos && !vista.error ? (
+          {avisoSinTextos ? (
             <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
               Esta lección todavía no tiene textos de publicación
             </p>
@@ -72,7 +75,7 @@ export function PublicarLeccion({
               pieza={pieza}
               redInicial={red.red}
             />
-          ) : (
+          ) : avisoSinTextos ? null : (
             <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
               Esta pieza no tiene redes de publicación.
             </p>

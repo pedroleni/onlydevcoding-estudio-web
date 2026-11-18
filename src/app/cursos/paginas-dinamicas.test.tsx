@@ -419,6 +419,75 @@ describe("shell de las páginas dinámicas", () => {
     },
   );
 
+  it("en Shorts y reels cruza las piezas con la publicación para la duración y la portada", async () => {
+    vi.mocked(obtenerLeccion).mockResolvedValue({
+      ...leccion,
+      piezas: [
+        {
+          id: "short-1",
+          tipo: "short",
+          titulo: "Short ficticio",
+          video: null,
+          portadas: ["cursos/ficticio/a.jpg", "cursos/ficticio/b.jpg"],
+        },
+      ],
+    });
+    vi.mocked(obtenerPublicacion).mockResolvedValue({
+      curso: "curso-ficticio",
+      numero: 1,
+      piezas: [
+        {
+          id: "short-1",
+          tipo: "short",
+          titulo: "Short ficticio",
+          video: null,
+          duracion: "0:42",
+          fecha_propuesta: null,
+          portadas: ["cursos/ficticio/a.jpg", "cursos/ficticio/b.jpg"],
+          portada_elegida: "cursos/ficticio/b.jpg",
+          redes: [],
+        },
+      ],
+      despues_de_publicar: [],
+      notas: null,
+      error: null,
+      guia: null,
+      aviso: null,
+    });
+
+    render(await renderizarContenidoLeccion({ pestana: "shorts" }));
+
+    expect(obtenerPublicacion).toHaveBeenCalledWith("curso-ficticio", 1);
+    expect(screen.getByText("0:42")).toBeInTheDocument();
+    expect(screen.getAllByText("✓ Elegida")).toHaveLength(1);
+  });
+
+  it.each([
+    ["la API no está disponible", () => new ApiNoDisponible()],
+    ["la API rechaza la publicación", () => new ErrorApi(500)],
+  ])("mantiene Shorts y reels si %s al leer la publicación", async (_caso, crearError) => {
+    vi.mocked(obtenerLeccion).mockResolvedValue({
+      ...leccion,
+      piezas: [
+        {
+          id: "short-1",
+          tipo: "short",
+          titulo: "Short ficticio",
+          video: null,
+          portadas: ["cursos/ficticio/a.jpg"],
+        },
+      ],
+    });
+    vi.mocked(obtenerPublicacion).mockRejectedValue(crearError());
+
+    render(await renderizarContenidoLeccion({ pestana: "shorts" }));
+
+    expect(screen.getByRole("link", { name: "Elegir en Publicar" })).toHaveAttribute(
+      "href",
+      "?pestana=publicar&pieza=short-1",
+    );
+  });
+
   it("pasa la pieza y la red de la URL a la pestaña Publicar", async () => {
     const publicacion: VistaPublicacion = {
       curso: "curso-ficticio",
