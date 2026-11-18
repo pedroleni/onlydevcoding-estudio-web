@@ -4,6 +4,7 @@ import { urlToma } from "@/lib/medios";
 import { textoLegible } from "@/lib/texto-legible";
 import type {
   Avance,
+  Escena,
   EscenaCamara,
   EstadoAccion,
   GanchoCamara,
@@ -54,7 +55,8 @@ function FilaEscena({
           numero={numero}
           accion={mejorar}
           objetivo={escena.id}
-          nombreAccesible={`Mejorar ${escena.id} con IA`}
+          // El nombre accesible empieza por el texto visible del botón (WCAG 2.5.3).
+          nombreAccesible={`${mejorar.etiqueta} (${escena.id})`}
           confirmar={`Tarda unos 15 minutos por toma. ¿Mejorar ${escena.id} con IA?`}
         />
       ) : null}
@@ -91,6 +93,23 @@ function FilaGancho({ gancho }: { gancho: GanchoCamara }) {
   );
 }
 
+const VACIO = "m-0 border border-borde bg-superficie p-5 text-sm text-tenue";
+
+// Respaldo si `/camara` falla: las escenas de cámara del guion, solo con su id y título.
+function EscenasDelGuion({ escenas }: { escenas: Escena[] }) {
+  if (escenas.length === 0) return <p className={VACIO}>No hay escenas de cámara.</p>;
+  return (
+    <ul aria-label="Escenas a cámara del guion" className="grid gap-3 sm:grid-cols-2">
+      {escenas.map((escena) => (
+        <li key={escena.id} className="border border-borde bg-superficie p-4 text-sm">
+          <span className="font-medium">{textoLegible(escena.titulo)}</span>
+          <span className="mt-2 block font-mono text-xs text-tenue">{escena.id}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // Grabaciones: entrega de las tomas de la lección y lo ya colocado de cámara y de los ganchos.
 export function TomasCamara({
   curso,
@@ -98,6 +117,7 @@ export function TomasCamara({
   camara,
   acciones,
   avance,
+  escenas,
 }: {
   curso: string;
   numero: number;
@@ -105,6 +125,8 @@ export function TomasCamara({
   camara: DatosCamara | null;
   acciones: EstadoAccion[] | null;
   avance: Avance;
+  // Escenas de cámara de la lección (de su guion), para la lista básica si `/camara` falla.
+  escenas: Escena[];
 }) {
   const mejorar = acciones?.find(({ id }) => id === "mejorar-toma") ?? null;
   const color = acciones?.find(({ id }) => id === "color-ganchos") ?? null;
@@ -139,9 +161,7 @@ export function TomasCamara({
                 ))}
               </ul>
             ) : (
-              <p className="m-0 border border-borde bg-superficie p-5 text-sm text-tenue">
-                No hay escenas de cámara.
-              </p>
+              <p className={VACIO}>No hay escenas de cámara.</p>
             )}
           </div>
 
@@ -157,16 +177,17 @@ export function TomasCamara({
                 </ul>
               </>
             ) : (
-              <p className="m-0 border border-borde bg-superficie p-5 text-sm text-tenue">
-                No hay ganchos.
-              </p>
+              <p className={VACIO}>No hay ganchos.</p>
             )}
           </div>
         </>
       ) : (
-        <p className="m-0 border border-borde bg-superficie p-5 text-sm text-ambar">
-          No se han podido leer las tomas a cámara.
-        </p>
+        <>
+          <p className="m-0 border border-borde bg-superficie p-5 text-sm text-ambar">
+            No se han podido leer las tomas a cámara.
+          </p>
+          <EscenasDelGuion escenas={escenas} />
+        </>
       )}
     </section>
   );

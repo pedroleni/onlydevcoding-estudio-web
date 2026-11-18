@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { BOTON_CANCELAR, textoEstadoTrabajo } from "@/components/acciones/BotonAccion";
 import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
@@ -21,6 +21,7 @@ import type {
 const ACEPTA = "video/quicktime,video/mp4,.mov,.mp4";
 const MAXIMO_TEXTO = 140;
 const CIERRE = "cierre";
+const SIN_LANZAR = "No se han podido identificar las tomas. Vuelve a intentarlo.";
 const BOTON =
   "inline-flex min-h-11 cursor-pointer items-center justify-center border border-marca bg-carbon px-4 text-sm font-semibold text-texto transition-colors hover:enabled:bg-marca disabled:cursor-default disabled:opacity-40";
 const BOTON_QUITAR =
@@ -284,6 +285,7 @@ export function EntregaTomas({
   numero,
   escena,
   acciones,
+  alCambiarSubiendo,
 }: {
   curso: string;
   numero: number;
@@ -291,6 +293,8 @@ export function EntregaTomas({
   escena?: string;
   // Estado de las acciones de la lección, para seguir una identificación o un color en marcha.
   acciones?: EstadoAccion[] | null;
+  // Avisa de si hay alguna subida en curso (el teleprompter pregunta antes de cambiar de lección).
+  alCambiarSubiendo?: (subiendo: boolean) => void;
 }) {
   const router = useRouter();
   const [entregas, setEntregas] = useState<Entregas | null>(null);
@@ -325,6 +329,13 @@ export function EntregaTomas({
 
   const subiendo = subidas.some(enCurso);
   useAvisoAlSalir(subiendo);
+
+  const avisarSubiendo = useEffectEvent((valor: boolean) => {
+    alCambiarSubiendo?.(valor);
+  });
+  useEffect(() => {
+    avisarSubiendo(subiendo);
+  }, [subiendo]);
 
   useEffect(() => {
     montado.current = true;
@@ -409,29 +420,47 @@ export function EntregaTomas({
     setMensaje(null);
     setLanzandoIdentificacion(true);
     for (const archivo of conocidas.current) vistasAlIdentificar.current.add(archivo);
-    const resultado = await lanzarAccion(curso, numero, "identificar-tomas", {});
-    if (!montado.current) return;
-    setLanzandoIdentificacion(false);
-    if (!resultado.ok) {
-      setMensaje(resultado.mensaje);
-      await recargar(false);
-      return;
+    try {
+      let resultado: Awaited<ReturnType<typeof lanzarAccion>>;
+      try {
+        resultado = await lanzarAccion(curso, numero, "identificar-tomas", {});
+      } catch {
+        // La Server Action no ha llegado a responder: un mensaje fijo, sin detalles internos.
+        resultado = { ok: false, mensaje: SIN_LANZAR };
+      }
+      if (!montado.current) return;
+      if (!resultado.ok) {
+        setMensaje(resultado.mensaje);
+        await recargar(false);
+        return;
+      }
+      setTrabajoIdentificar(resultado.trabajo);
+      if (!enMarcha(resultado.trabajo)) await trasIdentificar(resultado.trabajo);
+    } finally {
+      setLanzandoIdentificacion(false);
     }
-    setTrabajoIdentificar(resultado.trabajo);
-    if (!enMarcha(resultado.trabajo)) await trasIdentificar(resultado.trabajo);
   }
 
   // Al terminar bien, si en entregas/ hay tomas fuera de la propuesta que ninguna identificación
   // de esta visita ha visto (llegaron mientras se identificaba), se identifica otra vez. Las que
   // ya se intentaron se quedan como «No se ha podido analizar»: no se repite en bucle.
+  // Mientras se lee, la zona y el botón siguen desactivados: si no, entre el final del trabajo
+  // y la lectura se podría lanzar otra identificación a la vez que la de aquí.
   async function trasIdentificar(terminado: Trabajo) {
-    const leidas = await recargar(true);
-    if (!leidas || !montado.current || terminado.estado !== "hecho") return;
-    const enPropuesta = new Set((leidas.propuesta?.archivos ?? []).map(({ archivo }) => archivo));
-    const nuevas = leidas.archivos.some(
-      ({ archivo }) => !enPropuesta.has(archivo) && !vistasAlIdentificar.current.has(archivo),
-    );
-    if (nuevas) await identificar();
+    setLanzandoIdentificacion(true);
+    try {
+      const leidas = await recargar(true);
+      if (!leidas || !montado.current || terminado.estado !== "hecho") return;
+      const enPropuesta = new Set(
+        (leidas.propuesta?.archivos ?? []).map(({ archivo }) => archivo),
+      );
+      const nuevas = leidas.archivos.some(
+        ({ archivo }) => !enPropuesta.has(archivo) && !vistasAlIdentificar.current.has(archivo),
+      );
+      if (nuevas) await identificar();
+    } finally {
+      setLanzandoIdentificacion(false);
+    }
   }
 
   // Las subidas van de una en una: 4 GiB a la vez por el mismo disco no acaban antes. Un error

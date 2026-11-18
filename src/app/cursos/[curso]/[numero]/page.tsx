@@ -136,6 +136,7 @@ function ContenidoPestana({
           camara={camara}
           acciones={acciones}
           avance={leccion.estado.camara}
+          escenas={leccion.escenas.filter(({ modo }) => modo === "camara")}
         />
       </div>
     );

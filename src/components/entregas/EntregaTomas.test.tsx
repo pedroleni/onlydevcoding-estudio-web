@@ -44,7 +44,9 @@ function trabajo(cambios: Partial<Trabajo> = {}): Trabajo {
   };
 }
 
-const TEXTO_LARGO = `${"palabra ".repeat(30)}final que no se ve`;
+const MENSAJE_SIN_LANZAR = "No se han podido identificar las tomas. Vuelve a intentarlo.";
+
+const TEXTO_LARGO =`${"palabra ".repeat(30)}final que no se ve`;
 
 function propuesta(): PropuestaTomas {
   return {
@@ -598,5 +600,107 @@ describe("EntregaTomas", () => {
     expect(
       await screen.findByRole("combobox", { name: "Destino de Toma nueva.MOV" }),
     ).toHaveValue("E08");
+  });
+});
+
+describe("EntregaTomas: ronda 1", () => {
+  beforeEach(() => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: true, entregas: VACIAS });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  it("avisa con alCambiarSubiendo de cuándo empieza y acaba una subida", async () => {
+    let terminar!: () => void;
+    vi.mocked(subirEntrega).mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          terminar = () => resolver({ ok: true, archivo: "x.mov", bytes: 6 });
+        }),
+    );
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockReturnValue(new Promise(() => undefined));
+    const alCambiarSubiendo = vi.fn();
+    render(<EntregaTomas curso="react" numero={4} alCambiarSubiendo={alCambiarSubiendo} />);
+    await waitFor(() => expect(leerEntregas).toHaveBeenCalledOnce());
+    expect(alCambiarSubiendo).toHaveBeenLastCalledWith(false);
+
+    soltar([video("x.mov")]);
+    await waitFor(() => expect(alCambiarSubiendo).toHaveBeenLastCalledWith(true));
+
+    await act(async () => terminar());
+    await waitFor(() => expect(alCambiarSubiendo).toHaveBeenLastCalledWith(false));
+  });
+
+  it("si la Server Action de identificar lanza, la zona vuelve a estar activa y lo dice", async () => {
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "x.mov", bytes: 6 });
+    vi.mocked(lanzarAccion).mockRejectedValue(new Error("fallo de red ficticio"));
+    render(<EntregaTomas curso="react" numero={4} />);
+    await waitFor(() => expect(leerEntregas).toHaveBeenCalledOnce());
+
+    soltar([video("x.mov")]);
+
+    await waitFor(() => expect(lanzarAccion).toHaveBeenCalledOnce());
+    expect(await screen.findByText(MENSAJE_SIN_LANZAR)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeEnabled();
+    expect(screen.queryByText(/fallo de red ficticio/)).not.toBeInTheDocument();
+  });
+
+  it("al terminar la identificación, la zona sigue desactivada mientras se vuelven a leer las entregas", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "x.mov", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ estado: "hecho", progreso: 1, fin: "2026-11-18T10:03:00Z" }),
+    );
+    render(<EntregaTomas curso="react" numero={4} />);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    soltar([video("x.mov")]);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(lanzarAccion).toHaveBeenCalledOnce();
+
+    let leer!: (entregas: Entregas) => void;
+    vi.mocked(leerEntregas).mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          leer = (leidas) => resolver({ ok: true, entregas: leidas });
+        }),
+    );
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+
+    expect(leerEntregas).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Identificando las tomas/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeDisabled();
+    soltar([video("otra.mov")]);
+    expect(subirEntrega).toHaveBeenCalledOnce();
+
+    await act(async () => leer(VACIAS));
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeEnabled();
+    expect(lanzarAccion).toHaveBeenCalledOnce();
+  });
+
+  it("si la lectura tras identificar falla, la zona vuelve a estar activa", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "x.mov", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ estado: "hecho", progreso: 1, fin: "2026-11-18T10:03:00Z" }),
+    );
+    render(<EntregaTomas curso="react" numero={4} />);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    soltar([video("x.mov")]);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    vi.mocked(leerEntregas).mockResolvedValue({ ok: false, mensaje: "La API no responde" });
+
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("La API no responde");
+    expect(screen.getByLabelText(/Entregar los vídeos de la cámara/)).toBeEnabled();
   });
 });

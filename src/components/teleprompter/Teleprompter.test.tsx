@@ -3,8 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BarraNavegacion } from "@/components/BarraNavegacion";
+import { subirEntrega } from "@/components/entregas/subirEntrega";
 import { Teleprompter } from "@/components/teleprompter/Teleprompter";
 import { leerEntregas } from "@/lib/acciones-entregas";
+import { lanzarAccion } from "@/lib/acciones-estudio";
 import { guardarTextos } from "@/lib/acciones-teleprompter";
 import { leerTrabajo } from "@/lib/trabajos";
 import { subirToma } from "@/lib/teleprompter/grabadora";
@@ -42,6 +44,8 @@ vi.mock("@/lib/acciones-estudio", () => ({
   lanzarAccion: vi.fn(),
   cancelarTrabajo: vi.fn(),
 }));
+
+vi.mock("@/components/entregas/subirEntrega", () => ({ subirEntrega: vi.fn() }));
 
 vi.mock("@/lib/acciones-entregas", () => ({
   leerEntregas: vi.fn(async () => ({
@@ -869,6 +873,92 @@ describe("Teleprompter: escenas a cámara", () => {
     await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
     expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBe(zona);
     expect(leerEntregas).toHaveBeenCalledOnce();
+  });
+
+  it("cambiar de lección con una subida de tomas en curso pide confirmación y, si se cancela, no cambia", async () => {
+    let terminar!: () => void;
+    vi.mocked(subirEntrega).mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          terminar = () => resolver({ ok: true, archivo: "Toma ficticia.MOV", bytes: 6 });
+        }),
+    );
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: false, mensaje: "No hay tomas entregadas" });
+    const confirmar = vi
+      .spyOn(window, "confirm")
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    const entrada = screen.getByLabelText(/Entregar los vídeos de la cámara/);
+    fireEvent.drop(entrada.closest("label") as HTMLElement, {
+      dataTransfer: {
+        files: [new File(["ftypqt"], "Toma ficticia.MOV", { type: "video/quicktime" })],
+        types: ["Files"],
+      },
+    });
+    await waitFor(() => expect(subirEntrega).toHaveBeenCalledOnce());
+
+    await userEvent.selectOptions(screen.getByLabelText("Lección"), "curso-ficticio/2");
+    expect(confirmar).toHaveBeenCalledWith(
+      "Hay una subida de tomas en curso. ¿Cortarla y cambiar de lección?",
+    );
+    expect(router.push).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Lección")).toHaveValue("curso-ficticio/4");
+
+    await userEvent.selectOptions(screen.getByLabelText("Lección"), "curso-ficticio/2");
+    expect(router.push).toHaveBeenCalledWith("/teleprompter?curso=curso-ficticio&leccion=2");
+    await act(async () => terminar());
+  });
+
+  it("con la subida ya terminada cambia de lección sin preguntar por ella", async () => {
+    vi.mocked(subirEntrega).mockResolvedValue({ ok: true, archivo: "Toma ficticia.MOV", bytes: 6 });
+    vi.mocked(lanzarAccion).mockResolvedValue({ ok: false, mensaje: "No hay tomas entregadas" });
+    const confirmar = vi.spyOn(window, "confirm");
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    fireEvent.drop(
+      screen.getByLabelText(/Entregar los vídeos de la cámara/).closest("label") as HTMLElement,
+      {
+        dataTransfer: {
+          files: [new File(["ftypqt"], "Toma ficticia.MOV", { type: "video/quicktime" })],
+          types: ["Files"],
+        },
+      },
+    );
+    await waitFor(() => expect(screen.getByText("Subida")).toBeInTheDocument());
+
+    await userEvent.selectOptions(screen.getByLabelText("Lección"), "curso-ficticio/2");
+
+    expect(confirmar).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalled();
+  });
+
+  it("los atajos no se disparan con el foco en un botón de la zona de entrega", async () => {
+    vi.mocked(leerEntregas).mockResolvedValueOnce({
+      ok: true,
+      entregas: {
+        archivos: [{ archivo: "Toma ficticia.MOV", bytes: 6 }],
+        propuesta: null,
+        destinos: { camara: [], ganchos: [] },
+      },
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "E02 🎥" }));
+    const quitar = await screen.findByRole("button", { name: "Quitar Toma ficticia.MOV" });
+
+    quitar.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("E02 ·");
+    fireEvent.keyDown(quitar, { code: "Space", key: " " });
+    expect(screen.queryByText("dale a grabar en la cámara")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Parar/ })).toBeDisabled();
+
+    // Fuera de la zona, los atajos siguen funcionando.
+    act(() => quitar.blur());
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("E03 ·");
   });
 
   it("una lección sin escenas a cámara no monta la zona de entrega", () => {

@@ -254,6 +254,32 @@ describe("shell de las páginas dinámicas", () => {
     ).toBeInTheDocument();
   });
 
+  it("si /camara falla, Grabaciones lista las escenas de cámara del guion con su id y título", async () => {
+    vi.mocked(obtenerLeccion).mockResolvedValue({
+      ...leccion,
+      escenas: [
+        ...leccion.escenas,
+        {
+          id: "E03",
+          modo: "camara",
+          tipo: "camara",
+          titulo: "Escena ficticia a cámara",
+          textos: [],
+          inicio_s: null,
+          duracion_s: null,
+        },
+      ],
+    });
+    vi.mocked(obtenerCamara).mockRejectedValue(new ApiNoDisponible());
+
+    render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+
+    const lista = screen.getByRole("list", { name: "Escenas a cámara del guion" });
+    expect(within(lista).getByText("E03")).toBeInTheDocument();
+    expect(within(lista).getByText("Escena ficticia a cámara")).toBeInTheDocument();
+    expect(within(lista).queryByText("voz-uno")).not.toBeInTheDocument();
+  });
+
   it("no se traga un fallo que no es de la API al leer /camara", async () => {
     vi.mocked(obtenerCamara).mockRejectedValue(new TypeError("fallo de programación"));
 

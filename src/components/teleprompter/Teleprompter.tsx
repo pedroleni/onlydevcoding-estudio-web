@@ -201,6 +201,8 @@ function SesionTeleprompter({
   const nivelRef = useRef<HTMLSpanElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const bucleTomaRef = useRef(0);
+  // Si la zona de entrega tiene una subida en curso (cambiar de lección la cortaría).
+  const subiendoTomasRef = useRef(false);
   const lectura = useLectura({ prompterRef, relojRef });
   const sesion = useSesionGrabacion({
     curso: guion.curso,
@@ -427,6 +429,12 @@ function SesionTeleprompter({
     if (pendientes.length > 0 && !window.confirm("Hay una toma sin guardar. ¿Descartarla?")) {
       return;
     }
+    if (
+      subiendoTomasRef.current &&
+      !window.confirm("Hay una subida de tomas en curso. ¿Cortarla y cambiar de lección?")
+    ) {
+      return;
+    }
     alCambiarLeccion(valor);
   }
 
@@ -458,7 +466,8 @@ function SesionTeleprompter({
     const destino = evento.target;
     if (
       destino instanceof Element &&
-      destino.closest("input, select, textarea, [contenteditable]")
+      // Tampoco en la zona de entrega: sus botones y campos usan el teclado a su manera.
+      destino.closest("input, select, textarea, [contenteditable], [data-sin-atajos]")
     ) {
       return;
     }
@@ -627,6 +636,7 @@ function SesionTeleprompter({
             // de ellas no corta una subida en curso.
             <div
               hidden={voz}
+              data-sin-atajos=""
               className={`max-h-[45dvh] shrink-0 overflow-y-auto border-t border-borde px-4 py-4 md:px-12 ${apartado}`}
             >
               <EntregaTomas
@@ -634,6 +644,9 @@ function SesionTeleprompter({
                 numero={guion.numero}
                 escena={voz ? undefined : escena.id}
                 acciones={acciones}
+                alCambiarSubiendo={(subiendo) => {
+                  subiendoTomasRef.current = subiendo;
+                }}
               />
             </div>
           ) : null}

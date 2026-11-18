@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TomasCamara } from "@/components/entregas/TomasCamara";
 import { lanzarAccion } from "@/lib/acciones-estudio";
-import type { EstadoAccion, TomasCamara as DatosCamara, Trabajo } from "@/lib/tipos";
+import type { Escena, EstadoAccion, TomasCamara as DatosCamara, Trabajo } from "@/lib/tipos";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/acciones-estudio", () => ({
@@ -111,7 +111,28 @@ const CAMARA: DatosCamara = {
   ],
 };
 
-function pintar(camara: DatosCamara | null = CAMARA, acciones: EstadoAccion[] | null = ACCIONES) {
+function escenaGuion(id: string, titulo: string): Escena {
+  return {
+    id,
+    modo: "camara",
+    tipo: "camara",
+    titulo,
+    textos: [],
+    inicio_s: null,
+    duracion_s: null,
+  };
+}
+
+const ESCENAS_GUION: Escena[] = [
+  escenaGuion("E08", "Escena ficticia ocho"),
+  escenaGuion("E17", "Escena ficticia diecisiete"),
+];
+
+function pintar(
+  camara: DatosCamara | null = CAMARA,
+  acciones: EstadoAccion[] | null = ACCIONES,
+  escenas: Escena[] = ESCENAS_GUION,
+) {
   return render(
     <TomasCamara
       curso="react"
@@ -119,6 +140,7 @@ function pintar(camara: DatosCamara | null = CAMARA, acciones: EstadoAccion[] | 
       camara={camara}
       acciones={acciones}
       avance={{ hechas: 2, total: 3 }}
+      escenas={escenas}
     />,
   );
 }
@@ -173,7 +195,7 @@ describe("TomasCamara", () => {
     vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo: trabajo() });
     pintar();
 
-    await userEvent.click(screen.getByRole("button", { name: "Mejorar E17 con IA" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mejorar con IA (E17)" }));
 
     expect(window.confirm).toHaveBeenCalledWith(
       "Tarda unos 15 minutos por toma. ¿Mejorar E17 con IA?",
@@ -186,7 +208,7 @@ describe("TomasCamara", () => {
     vi.mocked(window.confirm).mockReturnValue(false);
     pintar();
 
-    await userEvent.click(screen.getByRole("button", { name: "Mejorar E08 con IA" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mejorar con IA (E08)" }));
 
     expect(lanzarAccion).not.toHaveBeenCalled();
   });
@@ -229,6 +251,14 @@ describe("TomasCamara", () => {
     expect(lanzarAccion).toHaveBeenCalledWith("react", 4, "color-ganchos", {});
   });
 
+  it("el nombre accesible del botón de IA contiene su texto visible", () => {
+    pintar();
+
+    const boton = screen.getByRole("button", { name: "Mejorar con IA (E17)" });
+    expect(boton).toHaveTextContent("Mejorar con IA");
+    expect(boton.getAttribute("aria-label")).toContain(boton.textContent?.trim());
+  });
+
   it("sin datos de /camara avisa y deja la entrega a la vista", () => {
     pintar(null);
 
@@ -236,6 +266,36 @@ describe("TomasCamara", () => {
     expect(screen.getByText("No se han podido leer las tomas a cámara.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Entregar las tomas de cámara" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Mejorar/ })).not.toBeInTheDocument();
+  });
+
+  it("sin datos de /camara pinta debajo del aviso la lista básica de escenas del guion", () => {
+    pintar(null);
+
+    const lista = screen.getByRole("list", { name: "Escenas a cámara del guion" });
+    const filas = within(lista).getAllByRole("listitem");
+    expect(filas).toHaveLength(2);
+    expect(within(filas[0]).getByText("Escena ficticia ocho")).toBeInTheDocument();
+    expect(within(filas[0]).getByText("E08")).toBeInTheDocument();
+    expect(within(filas[1]).getByText("Escena ficticia diecisiete")).toBeInTheDocument();
+    expect(within(filas[1]).getByText("E17")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Toma de/)).not.toBeInTheDocument();
+    const aviso = screen.getByText("No se han podido leer las tomas a cámara.");
+    expect(aviso.compareDocumentPosition(lista) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("sin datos de /camara ni escenas de cámara en el guion, lo dice", () => {
+    pintar(null, ACCIONES, []);
+
+    expect(screen.getByText("No se han podido leer las tomas a cámara.")).toBeInTheDocument();
+    expect(screen.getByText("No hay escenas de cámara.")).toBeInTheDocument();
+  });
+
+  it("con datos de /camara no repite la lista básica", () => {
+    pintar();
+
+    expect(
+      screen.queryByRole("list", { name: "Escenas a cámara del guion" }),
+    ).not.toBeInTheDocument();
   });
 
   it("sin acciones no ofrece mejorar ni ajustar el color", () => {
