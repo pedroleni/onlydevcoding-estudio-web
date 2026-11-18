@@ -25,7 +25,7 @@ export function PestanasRed({
 }) {
   const prefijo = useId();
   const [redActivaId, setRedActivaId] = useState(redInicial);
-  const redes = redesDisponibles(pieza.redes);
+  const redes = redesDisponibles(pieza);
   const ausentes = avisoRedesAusentes(pieza.redes);
   const redActiva = redes.find(({ red }) => red === redActivaId) ?? redes[0];
 

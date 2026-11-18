@@ -20,7 +20,7 @@ export function PublicarLeccion({
     vista.piezas.find(({ id }) => id === piezaSeleccionada) ??
     vista.piezas[0] ??
     null;
-  const disponibles = pieza ? redesDisponibles(pieza.redes) : [];
+  const disponibles = pieza ? redesDisponibles(pieza) : [];
   // Un ?red= que apunta a una red sin textos ni estado cae en la primera disponible.
   const red =
     disponibles.find(({ red: id }) => id === redSeleccionada) ??

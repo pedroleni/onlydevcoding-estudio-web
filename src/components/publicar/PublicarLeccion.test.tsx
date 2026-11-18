@@ -406,7 +406,9 @@ describe("pestaña Publicar", () => {
       screen.getByText("Esta lección todavía no tiene textos de publicación"),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Portada/ })).toBeInTheDocument();
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("tab").map((pestana) => pestana.textContent),
+    ).toEqual(["YouTube", "LinkedIn"]);
     expect(
       screen.queryByText("Esta pieza no tiene redes de publicación."),
     ).not.toBeInTheDocument();
@@ -500,14 +502,31 @@ describe("pestaña Publicar", () => {
     expect(screen.getByRole("tabpanel", { name: "YouTube" })).toBeVisible();
   });
 
-  it("avisa sin pestañas cuando la pieza no tiene nada en ninguna red", () => {
+  it("una lección sin textos ni estado muestra YouTube y LinkedIn con el panel Estado", () => {
+    const sinNada: VistaPublicacion = {
+      ...vista,
+      piezas: [
+        { ...pieza, redes: pieza.redes.map((red) => ({ ...red, textos: null })) },
+      ],
+    };
+    render(<PublicarLeccion vista={sinNada} piezaSeleccionada="leccion" />);
+
+    expect(
+      screen.getAllByRole("tab").map((pestana) => pestana.textContent),
+    ).toEqual(["YouTube", "LinkedIn"]);
+    expect(screen.getByRole("tabpanel", { name: "YouTube" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /Estado/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Esta pieza no se publica en/)).not.toBeInTheDocument();
+  });
+
+  it("un short sin textos ni estado muestra YouTube, Instagram y TikTok", () => {
     render(<PublicarLeccion vista={vista} piezaSeleccionada="short-1" />);
 
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(
-      screen.getByText("Esta pieza no tiene redes de publicación."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Portada/ })).toBeInTheDocument();
+      screen.getAllByRole("tab").map((pestana) => pestana.textContent),
+    ).toEqual(["YouTube", "Instagram", "TikTok"]);
+    expect(screen.getByRole("heading", { name: /Estado/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Esta pieza no se publica en/)).not.toBeInTheDocument();
   });
 
   it("no repite el aviso de textos cuando la lección no tiene piezas", () => {
