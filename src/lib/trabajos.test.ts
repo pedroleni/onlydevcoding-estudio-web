@@ -15,6 +15,7 @@ describe("lectura de trabajos", () => {
       accion: "previa_grabacion",
       curso: "react",
       numero: 4,
+      objetivo: null,
       estado: "en_marcha",
       progreso: 0.5,
       inicio: "2026-11-17T10:00:00Z",

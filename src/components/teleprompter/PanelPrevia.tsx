@@ -11,8 +11,14 @@ const BOTON =
 
 // El error de un trabajo ya viene de la API como un mensaje genérico. Si aun así trae algo que
 // parece una ruta del disco, no se enseña: el teleprompter sale en capturas y vídeos.
-function textoFallo(error: string | null, interrumpido: boolean): string {
-  const motivo = error ?? (interrumpido ? "se interrumpió" : null);
+function textoFallo(
+  error: string | null,
+  estado: "error" | "interrumpido" | "cancelado",
+): string {
+  const motivo =
+    estado === "cancelado"
+      ? "se canceló"
+      : error ?? (estado === "interrumpido" ? "se interrumpió" : null);
   return motivo && !/[/\\]/.test(motivo)
     ? `Falló la última vez (${motivo}).`
     : "Falló la última vez.";
@@ -38,9 +44,12 @@ export function PanelPrevia({
   const { trabajo, generando, perdida, pidiendo, mensaje, generar } = seguimiento;
   const escenaMontaje = montaje?.escenas.find(({ id }) => id === escena);
   const hay = Boolean(previa.existe && previa.ruta && escenaMontaje) && !generando && !perdida;
-  const fallido =
-    trabajo !== null && (trabajo.estado === "error" || trabajo.estado === "interrumpido");
-  const fallo = fallido ? textoFallo(trabajo.error, trabajo.estado === "interrumpido") : null;
+  const fallo =
+    trabajo?.estado === "error" ||
+    trabajo?.estado === "interrumpido" ||
+    trabajo?.estado === "cancelado"
+      ? textoFallo(trabajo.error, trabajo.estado)
+      : null;
 
   const fuente = previa.ruta === null ? null : urlToma(previa.ruta, previa.version);
   const porcentaje = Math.round((trabajo?.progreso ?? 0) * 100);

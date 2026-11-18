@@ -45,6 +45,7 @@ export interface Leccion extends LeccionResumen {
   piezas: Pieza[];
   previas: string[];
   duracion_s: number | null;
+  montaje: EstadoMontaje | null;
 }
 
 export interface Curso {
@@ -159,11 +160,36 @@ export interface Trabajo {
   accion: string;
   curso: string | null;
   numero: number | null;
-  estado: "en_marcha" | "hecho" | "error" | "interrumpido";
+  objetivo: string | null;
+  estado: "en_marcha" | "hecho" | "error" | "interrumpido" | "cancelado";
   progreso: number;
   inicio: string;
   fin: string | null;
   error: string | null;
+}
+
+export type IdAccion =
+  | "alinear-voz"
+  | "preparar-montaje"
+  | "previa-grabacion"
+  | "render-leccion"
+  | "video-final"
+  | "preparar-shorts"
+  | "render-short";
+
+export interface EstadoAccion {
+  id: IdAccion;
+  etiqueta: string;
+  disponible: boolean;
+  motivo: string | null;
+  opciones: string[];
+  ultimo: Trabajo | null;
+  ultimos: Record<string, Trabajo>;
+}
+
+export interface EstadoMontaje {
+  estado: "sin_montaje" | "voz_sin_alinear" | "guion_cambiado" | "al_dia";
+  sin_alinear: string[];
 }
 
 export interface EstadoPrevia {
@@ -206,6 +232,11 @@ export interface Teleprompter {
   guion: string;
   titulo: string;
   version: string;
+  ganchos: Array<{
+    id: string;
+    titulo: string;
+    texto: string;
+  }>;
   escenas: EscenaTeleprompter[];
   montaje: Montaje | null;
   previa: EstadoPrevia;

@@ -4,10 +4,12 @@ import {
   ApiNoDisponible,
   ErrorApi,
   obtenerCursos,
+  obtenerAcciones,
   obtenerLeccion,
   obtenerPublicacion,
   obtenerTeleprompter,
   obtenerTareas,
+  obtenerTrabajos,
   obtenerTiposTarea,
 } from "@/lib/api";
 
@@ -118,6 +120,7 @@ describe("cliente de la API local", () => {
       guion: "react-04",
       titulo: "Lección de prueba",
       version: "a".repeat(64),
+      ganchos: [],
       escenas: [],
       montaje: null,
       previa: {
@@ -164,6 +167,36 @@ describe("cliente de la API local", () => {
     await expect(obtenerTiposTarea()).resolves.toEqual(tipos);
     expect(fetchSimulado).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/tipos-tarea",
+      { cache: "no-store" },
+    );
+  });
+
+  it("obtiene el catálogo de acciones de una lección", async () => {
+    const acciones = [{ id: "alinear-voz", etiqueta: "Alinear la voz" }];
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(acciones));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(obtenerAcciones("react", 4)).resolves.toEqual(acciones);
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/cursos/react/lecciones/4/acciones",
+      { cache: "no-store" },
+    );
+  });
+
+  it("devuelve null si no existe la lección al obtener sus acciones", async () => {
+    fetchCon(404);
+
+    await expect(obtenerAcciones("react", 99)).resolves.toBeNull();
+  });
+
+  it("obtiene los últimos trabajos con un límite", async () => {
+    const trabajos = [{ id: 7, estado: "hecho" }];
+    const fetchSimulado = vi.fn().mockResolvedValue(Response.json(trabajos));
+    vi.stubGlobal("fetch", fetchSimulado);
+
+    await expect(obtenerTrabajos(20)).resolves.toEqual(trabajos);
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/trabajos?limite=20",
       { cache: "no-store" },
     );
   });

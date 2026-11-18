@@ -23,6 +23,7 @@ const teleprompter = {
   guion: "react-04",
   titulo: "Lección de prueba",
   version: "b".repeat(64),
+  ganchos: [],
   escenas: [],
   montaje: null,
   previa: {

@@ -1,13 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useEffectEvent, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
+import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
 import { generarPreviaGrabacion } from "@/lib/acciones-teleprompter";
 import type { EstadoPrevia, Trabajo } from "@/lib/tipos";
-import { leerTrabajo } from "@/lib/trabajos";
 
-const CONSULTA_MS = 2000;
 // Tras acabar en `hecho`: cuántas veces se piden los datos nuevos y cuánto se espera a cada uno.
 export const MAXIMO_REFRESCOS = 3;
 const ESPERA_REFRESCO_MS = 5000;
@@ -25,58 +24,6 @@ export type SeguimientoPrevia = {
 };
 
 type Espera = { versionAntes: number | null; intentos: number };
-
-// Consulta el trabajo cada 2 s mientras está en marcha y la página se ve. Para al desmontar.
-function useSeguirTrabajo(id: number | null, alLeer: (trabajo: Trabajo) => void) {
-  const avisar = useEffectEvent(alLeer);
-
-  useEffect(() => {
-    if (id === null) return;
-    let vivo = true;
-    let consultando = false;
-    let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-    const programar = () => {
-      clearTimeout(temporizador);
-      temporizador = undefined;
-      if (vivo && !consultando && document.visibilityState === "visible") {
-        temporizador = setTimeout(consultar, CONSULTA_MS);
-      }
-    };
-
-    async function consultar() {
-      temporizador = undefined;
-      if (document.visibilityState !== "visible") return;
-      consultando = true;
-      let trabajo: Trabajo | null = null;
-      try {
-        trabajo = await leerTrabajo(id as number);
-      } catch {
-        // Un fallo suelto de la API no detiene el seguimiento: se vuelve a probar.
-      }
-      consultando = false;
-      if (!vivo) return;
-      if (trabajo) avisar(trabajo);
-      if (!trabajo || trabajo.estado === "en_marcha") programar();
-    }
-
-    const alCambiarVisibilidad = () => {
-      if (document.visibilityState === "visible") programar();
-      else {
-        clearTimeout(temporizador);
-        temporizador = undefined;
-      }
-    };
-
-    programar();
-    document.addEventListener("visibilitychange", alCambiarVisibilidad);
-    return () => {
-      vivo = false;
-      clearTimeout(temporizador);
-      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
-    };
-  }, [id]);
-}
 
 // El trabajo de la vista previa se sigue en la sesión del teleprompter, no en el panel: así no se
 // pierde al ocultarlo y el refresco al acabar llega igual.
@@ -129,21 +76,35 @@ export function useSeguimientoPrevia({
   // Cada espera nueva pide los datos otra vez; si no llegan en 5 s, cuenta como otro intento.
   useEffect(() => {
     if (!espera) return;
-    router.refresh();
+    if (espera.intentos >= MAXIMO_REFRESCOS) {
+      const temporizador = setTimeout(() => rendirse(espera.versionAntes), 0);
+      return () => clearTimeout(temporizador);
+    }
+    // El primer refresco lo hace el hook general al detectar que el trabajo ha terminado.
+    if (espera.intentos > 0) router.refresh();
     const temporizador = setTimeout(() => {
-      if (espera.intentos >= MAXIMO_REFRESCOS) rendirse(espera.versionAntes);
-      else setEspera({ ...espera, intentos: espera.intentos + 1 });
+      if (espera.intentos + 1 >= MAXIMO_REFRESCOS) {
+        rendirse(espera.versionAntes);
+      } else {
+        setEspera({ ...espera, intentos: espera.intentos + 1 });
+      }
     }, ESPERA_REFRESCO_MS);
     return () => clearTimeout(temporizador);
   }, [espera, router]);
 
-  const trabajo = seguido ?? previa.trabajo;
-
-  useSeguirTrabajo(trabajo?.estado === "en_marcha" ? trabajo.id : null, (leido) => {
-    setSeguido(leido);
-    if (leido.estado === "hecho") {
-      setEspera({ versionAntes: previa.existe ? previa.version : null, intentos: 1 });
-    }
+  const trabajo = useSeguimientoTrabajo({
+    trabajo: seguido ?? previa.trabajo,
+    refrescarAlTerminar: false,
+    alTerminar(leido) {
+      setSeguido(leido);
+      if (leido.estado === "hecho") {
+        setEspera({
+          versionAntes: previa.existe ? previa.version : null,
+          intentos: 0,
+        });
+        router.refresh();
+      }
+    },
   });
 
   function generar() {

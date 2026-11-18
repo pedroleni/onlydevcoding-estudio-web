@@ -67,6 +67,7 @@ const leccion: Leccion = {
   piezas: [],
   previas: [],
   duracion_s: null,
+  montaje: null,
   estado: {
     guion: true,
     voz: { hechas: 1, total: 2 },

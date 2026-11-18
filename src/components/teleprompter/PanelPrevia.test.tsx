@@ -52,6 +52,7 @@ function trabajo(cambios: Partial<Trabajo> = {}): Trabajo {
     accion: "previa-grabacion",
     curso: "react",
     numero: 4,
+    objetivo: null,
     estado: "en_marcha",
     progreso: 0.4,
     inicio: "2026-01-01T10:00:00",
@@ -267,6 +268,13 @@ describe("PanelPrevia", () => {
     pintar({ ...sinPrevia, trabajo: trabajo({ estado: "interrumpido" }) });
 
     expect(screen.getByText(/Falló la última vez \(se interrumpió\)\./)).toBeInTheDocument();
+  });
+
+  it("un trabajo cancelado dice que se canceló y deja regenerar", () => {
+    pintar({ ...sinPrevia, trabajo: trabajo({ estado: "cancelado", error: "Cancelado" }) });
+
+    expect(screen.getByText(/Falló la última vez \(se canceló\)\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generar vista previa" })).toBeInTheDocument();
   });
 
   it("no consulta con la página oculta y vuelve a hacerlo al verse", async () => {
