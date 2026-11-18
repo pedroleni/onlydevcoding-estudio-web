@@ -8,6 +8,9 @@ export const IDS_ACCION = [
   "video-final",
   "preparar-shorts",
   "render-short",
+  "identificar-tomas",
+  "color-ganchos",
+  "mejorar-toma",
 ] as const;
 
 export type IdAccion = (typeof IDS_ACCION)[number];
@@ -20,6 +23,9 @@ export const ETIQUETAS_ACCION: Record<IdAccion, string> = {
   "video-final": "Crear el vídeo final (−14 LUFS)",
   "preparar-shorts": "Preparar los shorts",
   "render-short": "Renderizar el short",
+  "identificar-tomas": "Identificar las tomas",
+  "color-ganchos": "Ajustar el color de los ganchos",
+  "mejorar-toma": "Mejorar con IA",
 };
 
 const IDS = new Set<string>(IDS_ACCION);

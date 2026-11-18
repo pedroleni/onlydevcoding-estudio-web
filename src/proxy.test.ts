@@ -107,9 +107,15 @@ describe("proxy", () => {
     })).toBe(true);
   });
 
-  // Solo se salta el Proxy bajo /grabar/: cualquier otra ruta que se le parezca sí pasa por él.
+  // Solo se salta el Proxy bajo /grabar/ y /entregar/: cualquier otra ruta que se les parezca
+  // sí pasa por él.
   it.each([
     ["/grabar/react/4/E03", false],
+    ["/entregar/react/4/Toma%20ficticia.MOV", false],
+    ["/entregar", false],
+    ["/entregarlo", true],
+    ["/entregar-x", true],
+    ["/Entregar/react/4/toma.mov", true],
     ["/grabarlo", true],
     ["/grabar-x", true],
     ["/Grabar/react/4/E03", true],

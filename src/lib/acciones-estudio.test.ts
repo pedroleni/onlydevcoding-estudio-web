@@ -97,6 +97,40 @@ describe("Server Actions de las acciones del estudio", () => {
     );
   });
 
+  it("manda la escena de mejorar-toma", async () => {
+    await lanzarAccion("react", 4, "mejorar-toma", { escena: "E17" });
+
+    expect(escribirSimulado).toHaveBeenCalledWith(
+      "/api/cursos/react/lecciones/4/acciones/mejorar-toma",
+      { escena: "E17" },
+      "POST",
+    );
+  });
+
+  it.each(["E1", "e17", "E17;rm", "../E17"])(
+    "rechaza la escena manipulada %j antes de escribir",
+    async (escena) => {
+      await expect(
+        lanzarAccion("react", 4, "mejorar-toma", { escena }),
+      ).resolves.toEqual({ ok: false, mensaje: "Las opciones de la acción no son válidas" });
+
+      expect(escribirSimulado).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["identificar-tomas", "color-ganchos"] as const)(
+    "lanza %s sin opciones",
+    async (accion) => {
+      await expect(lanzarAccion("react", 4, accion, {})).resolves.toEqual({ ok: true, trabajo });
+
+      expect(escribirSimulado).toHaveBeenCalledWith(
+        `/api/cursos/react/lecciones/4/acciones/${accion}`,
+        {},
+        "POST",
+      );
+    },
+  );
+
   it("solo manda las claves opcionales presentes", async () => {
     await lanzarAccion("react", 4, "alinear-voz", {});
 

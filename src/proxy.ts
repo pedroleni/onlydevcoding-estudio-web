@@ -49,10 +49,12 @@ export function proxy(request: NextRequest): NextResponse {
   });
 }
 
-// Todo lo que cuelga de `/grabar/` se salta el Proxy: con Proxy, Next guarda el cuerpo en memoria
-// hasta `proxyClientMaxBodySize` (10 MB) y el WAV de una toma puede pasar de ahí. Por eso bajo `/grabar/` solo puede haber Route Handlers que comprueben
-// por sí mismos el `Host` y el `Origin` exactos, como hace `app/grabar/[curso]/[numero]/[escena]`;
-// nunca páginas ni Server Actions. `proxy.test.ts` fija qué rutas parecidas sí pasan por él.
+// Todo lo que cuelga de `/grabar/` y de `/entregar/` se salta el Proxy: con Proxy, Next guarda el
+// cuerpo en memoria hasta `proxyClientMaxBodySize` (10 MB), y el WAV de una toma de voz o el vídeo
+// de una toma de cámara (hasta 4 GiB) pasan de ahí. Por eso bajo esas dos rutas solo puede haber
+// Route Handlers que comprueben por sí mismos el `Host` y el `Origin` exactos, como hacen
+// `app/grabar/[curso]/[numero]/[escena]` y `app/entregar/[curso]/[numero]/[archivo]`; nunca
+// páginas ni Server Actions. `proxy.test.ts` fija qué rutas parecidas sí pasan por él.
 export const config = {
-  matcher: ["/((?!_next(?:/|$)|grabar(?:/|$)).*)"],
+  matcher: ["/((?!_next(?:/|$)|grabar(?:/|$)|entregar(?:/|$)).*)"],
 };

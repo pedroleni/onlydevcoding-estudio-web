@@ -244,3 +244,60 @@ export interface TomaGuardada {
   version: number;
   bytes: number;
 }
+
+// Tomas de cámara entregadas (`GET /api/cursos/{curso}/lecciones/{numero}/entregas`).
+export interface ArchivoEntregado {
+  archivo: string;
+  bytes: number;
+}
+
+export interface DestinoPropuesta {
+  tipo: "camara" | "gancho";
+  id: string;
+}
+
+export interface CandidatoPropuesta extends DestinoPropuesta {
+  puntuacion: number;
+  desde: number;
+  hasta: number;
+  cues?: number[] | null;
+}
+
+export interface TomaPropuesta {
+  archivo: string;
+  bytes: number;
+  orientacion: "horizontal" | "vertical";
+  duracion: number;
+  texto: string;
+  propuesta: DestinoPropuesta | null;
+  repite: DestinoPropuesta | null;
+  candidatos: CandidatoPropuesta[];
+}
+
+export interface PropuestaTomas {
+  version: 1;
+  guion: string;
+  archivos: TomaPropuesta[];
+}
+
+export interface DestinosEntrega {
+  camara: Array<{ id: string; titulo: string; tiene_toma: boolean }>;
+  ganchos: Array<{ id: string; titulo: string; entregado: boolean }>;
+}
+
+export interface Entregas {
+  archivos: ArchivoEntregado[];
+  propuesta: PropuestaTomas | null;
+  destinos: DestinosEntrega;
+}
+
+// Destino de una toma al colocarla: `E17`, el id de un gancho, `"cierre"` o `null` (no usar).
+export interface AsignacionToma {
+  archivo: string;
+  destino: string | null;
+}
+
+export interface ResultadoColocar {
+  colocadas: Array<{ archivo: string; destino: string }>;
+  ganchos: number;
+}
