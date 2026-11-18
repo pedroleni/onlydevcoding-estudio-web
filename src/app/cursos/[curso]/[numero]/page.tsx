@@ -296,6 +296,10 @@ async function ContenidoLeccion({
     acciones = await lecturaApiOpcional(obtenerAcciones(curso, numero));
   }
 
+  // El panel separa la publicación por pieza; si la vista no llega, enseña el resumen por red.
+  const vistaPanel =
+    publicacion ?? (await lecturaApiOpcional(obtenerPublicacion(curso, numero)));
+
   return (
     <>
       <header>
@@ -345,7 +349,13 @@ async function ContenidoLeccion({
           piezaSeleccionada={valorPieza}
           redSeleccionada={valorRed}
         />
-        <PanelEstado estado={leccion.estado} montaje={leccion.montaje} />
+        <PanelEstado
+          estado={leccion.estado}
+          montaje={leccion.montaje}
+          curso={curso}
+          numero={numero}
+          piezas={vistaPanel?.piezas ?? null}
+        />
       </div>
     </>
   );

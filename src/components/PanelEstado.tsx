@@ -1,7 +1,24 @@
-import { marcaPublicacion, REDES } from "@/lib/curso";
-import type { EstadoLeccion, EstadoMontaje } from "@/lib/tipos";
+import Link from "next/link";
 
-const MONTAJE: Record<EstadoMontaje["estado"], { icono: string; texto: string }> = {
+import { marcaPublicacion, REDES } from "@/lib/curso";
+import { nombreRed, redesDisponibles } from "@/lib/redes-publicacion";
+import type {
+  EstadoLeccion,
+  EstadoMontaje,
+  EstadoRed,
+  PiezaVista,
+} from "@/lib/tipos";
+
+const ICONO_ESTADO: Record<EstadoRed["estado"], string> = {
+  publicado: "✅",
+  programado: "📅",
+  pendiente: "⬜",
+};
+
+const MONTAJE: Record<
+  EstadoMontaje["estado"],
+  { icono: string; texto: string }
+> = {
   al_dia: { icono: "✅", texto: "al día" },
   guion_cambiado: { icono: "⚠️", texto: "guion cambiado" },
   voz_sin_alinear: { icono: "⚠️", texto: "voz sin alinear" },
@@ -15,9 +32,16 @@ function estaCompleto(hechas: number, total: number): boolean {
 export function PanelEstado({
   estado,
   montaje,
+  curso,
+  numero,
+  piezas,
 }: {
   estado: EstadoLeccion;
   montaje?: EstadoMontaje | null;
+  curso?: string;
+  numero?: number;
+  // Piezas de publicación: cada una con solo las redes en que se publica.
+  piezas?: PiezaVista[] | null;
 }) {
   const vozCompleta = estaCompleto(estado.voz.hechas, estado.voz.total);
   const camaraCompleta = estaCompleto(
@@ -37,7 +61,10 @@ export function PanelEstado({
         Estado de la lección
       </h2>
 
-      <ul className="mt-5 grid gap-3 text-sm" aria-label="Progreso de producción">
+      <ul
+        className="mt-5 grid gap-3 text-sm"
+        aria-label="Progreso de producción"
+      >
         <li>
           <span>{estado.guion ? "✅" : "⬜"} Guion preparado</span>
         </li>
@@ -66,17 +93,51 @@ export function PanelEstado({
 
       <div className="mt-6 border-t border-borde pt-5">
         <h3 className="text-sm font-semibold text-texto">Publicación</h3>
-        <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-tenue">
-          {REDES.map(([clave, nombre]) => {
-            const marca = marcaPublicacion(estado, clave, nombre);
-            return (
-              <li key={clave} className="flex items-center gap-2">
-                <span aria-hidden="true">{marca.icono}</span>
-                <span>{marca.texto}</span>
+        {piezas &&
+        piezas.length > 0 &&
+        curso !== undefined &&
+        numero !== undefined ? (
+          <ul
+            className="mt-3 grid gap-4 text-sm"
+            aria-label="Publicación por pieza"
+          >
+            {piezas.map((pieza) => (
+              <li
+                key={pieza.id}
+                aria-label={pieza.titulo}
+                className="grid gap-1.5"
+              >
+                <span className="line-clamp-2 text-texto">{pieza.titulo}</span>
+                <span className="flex flex-wrap gap-1.5">
+                  {redesDisponibles(pieza).map(({ red, estado: estadoRed }) => (
+                    <Link
+                      key={red}
+                      href={`/cursos/${encodeURIComponent(curso)}/${numero}?pestana=publicar&pieza=${encodeURIComponent(pieza.id)}&red=${red}`}
+                      className="border border-borde bg-carbon px-2 py-0.5 text-xs text-tenue hover:border-marca hover:text-texto"
+                    >
+                      <span aria-hidden="true">
+                        {ICONO_ESTADO[estadoRed.estado]}
+                      </span>{" "}
+                      <span>{nombreRed(red)}</span>
+                    </Link>
+                  ))}
+                </span>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+        ) : (
+          <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-tenue">
+            {REDES.map(([clave, nombre]) => {
+              const marca = marcaPublicacion(estado, clave, nombre);
+              return (
+                <li key={clave} className="flex items-center gap-2">
+                  <span aria-hidden="true">{marca.icono}</span>
+                  <span>{marca.texto}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </aside>
   );
