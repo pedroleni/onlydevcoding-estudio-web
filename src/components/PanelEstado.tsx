@@ -1,11 +1,17 @@
 import { estaPublicado, REDES } from "@/lib/curso";
-import type { EstadoLeccion } from "@/lib/tipos";
+import type { EstadoLeccion, EstadoMontaje } from "@/lib/tipos";
 
 function estaCompleto(hechas: number, total: number): boolean {
   return total > 0 && hechas >= total;
 }
 
-export function PanelEstado({ estado }: { estado: EstadoLeccion }) {
+export function PanelEstado({
+  estado,
+  montaje,
+}: {
+  estado: EstadoLeccion;
+  montaje?: EstadoMontaje | null;
+}) {
   const vozCompleta = estaCompleto(estado.voz.hechas, estado.voz.total);
   const camaraCompleta = estaCompleto(
     estado.camara.hechas,
@@ -43,6 +49,18 @@ export function PanelEstado({ estado }: { estado: EstadoLeccion }) {
         <li>
           <span>{estado.video_final ? "✅" : "⬜"} Vídeo final</span>
         </li>
+        {montaje ? (
+          <li>
+            <span>
+              {montaje.estado === "al_dia"
+                ? "✅"
+                : montaje.estado === "sin_montaje"
+                  ? "⬜"
+                  : "⚠️"}{" "}
+              Montaje
+            </span>
+          </li>
+        ) : null}
       </ul>
 
       <div className="mt-6 border-t border-borde pt-5">

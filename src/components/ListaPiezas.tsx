@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
+import { PanelVideoFinal } from "@/components/acciones/PanelVideoFinal";
 import { urlMedio } from "@/lib/medios";
-import type { Pieza } from "@/lib/tipos";
+import type { EstadoAccion, Pieza } from "@/lib/tipos";
 
 function Reproductor({
   ruta,
@@ -86,11 +87,17 @@ export function ListaPiezas({ piezas }: { piezas: Pieza[] }) {
 }
 
 export function VistaVideoFinal({
+  curso,
+  numero,
   pieza,
   previas,
+  acciones,
 }: {
+  curso: string;
+  numero: number;
   pieza: Pieza | null;
   previas: string[];
+  acciones: EstadoAccion[] | null;
 }) {
   const previasRecientes = [...previas].reverse();
   const [previaActiva, setPreviaActiva] = useState(previasRecientes[0] ?? null);
@@ -115,6 +122,13 @@ export function VistaVideoFinal({
           )}
         </div>
       </section>
+
+      <PanelVideoFinal
+        curso={curso}
+        numero={numero}
+        previas={previas}
+        acciones={acciones}
+      />
 
       <section aria-labelledby="previas-titulo">
         <h2 id="previas-titulo" className="text-xl font-semibold">

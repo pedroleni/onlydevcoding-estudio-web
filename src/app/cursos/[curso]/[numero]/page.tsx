@@ -4,8 +4,10 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
+import { GrabacionesVoz } from "@/components/GrabacionesVoz";
 import { ListaPiezas, VistaVideoFinal } from "@/components/ListaPiezas";
 import { PanelEstado } from "@/components/PanelEstado";
+import { PanelShorts } from "@/components/acciones/PanelShorts";
 import {
   esPestanaLeccion,
   PestanasLeccion,
@@ -103,14 +105,26 @@ function ContenidoPestana({
   redSeleccionada?: string;
 }) {
   if (pestana === "grabaciones") {
+    const escenasVoz = teleprompter?.escenas.filter(({ modo }) => modo === "voz");
     return (
       <div role="tabpanel" className="grid gap-8">
-        <BloqueGrabacion
-          id="grabacion-voz"
-          titulo="Voz en off"
-          escenas={leccion.escenas.filter(({ modo }) => modo === "voz")}
-          avance={leccion.estado.voz}
-        />
+        {escenasVoz ? (
+          <GrabacionesVoz
+            curso={curso}
+            numero={leccion.numero}
+            escenas={escenasVoz}
+            avance={leccion.estado.voz}
+            sinAlinear={leccion.montaje?.sin_alinear ?? []}
+            accion={acciones?.find(({ id }) => id === "alinear-voz") ?? null}
+          />
+        ) : (
+          <BloqueGrabacion
+            id="grabacion-voz"
+            titulo="Voz en off"
+            escenas={leccion.escenas.filter(({ modo }) => modo === "voz")}
+            avance={leccion.estado.voz}
+          />
+        )}
         <BloqueGrabacion
           id="grabacion-camara"
           titulo="Cámara"
@@ -126,10 +140,13 @@ function ContenidoPestana({
       <div role="tabpanel">
         <VistaVideoFinal
           key={leccion.slug}
+          curso={curso}
+          numero={leccion.numero}
           pieza={
             leccion.piezas.find(({ tipo }) => tipo === "leccion") ?? null
           }
           previas={leccion.previas}
+          acciones={acciones}
         />
       </div>
     );
@@ -137,7 +154,8 @@ function ContenidoPestana({
 
   if (pestana === "shorts") {
     return (
-      <div role="tabpanel">
+      <div role="tabpanel" className="grid gap-8">
+        <PanelShorts curso={curso} numero={leccion.numero} acciones={acciones} />
         <ListaPiezas
           piezas={leccion.piezas.filter(
             ({ tipo }) => tipo === "reel" || tipo === "short",
@@ -247,7 +265,7 @@ async function ContenidoLeccion({
       throw error;
     }
   }
-  if (pestana === "guion") {
+  if (pestana === "guion" || pestana === "grabaciones") {
     const [resultadoTeleprompter, resultadoAcciones] = await Promise.allSettled([
       obtenerTeleprompter(curso, numero),
       obtenerAcciones(curso, numero),
@@ -261,6 +279,11 @@ async function ContenidoLeccion({
     }
     teleprompter = resultadoTeleprompter.value;
     // El guion sigue disponible aunque falle el catálogo: el aviso se muestra sin botón.
+    acciones = resultadoAcciones.status === "fulfilled" ? resultadoAcciones.value : null;
+  } else if (pestana === "video" || pestana === "shorts") {
+    const [resultadoAcciones] = await Promise.allSettled([
+      obtenerAcciones(curso, numero),
+    ]);
     acciones = resultadoAcciones.status === "fulfilled" ? resultadoAcciones.value : null;
   }
 
@@ -312,7 +335,7 @@ async function ContenidoLeccion({
           piezaSeleccionada={valorPieza}
           redSeleccionada={valorRed}
         />
-        <PanelEstado estado={leccion.estado} />
+        <PanelEstado estado={leccion.estado} montaje={leccion.montaje} />
       </div>
     </>
   );

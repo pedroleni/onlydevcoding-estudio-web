@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -123,6 +123,128 @@ describe("BotonAccion", () => {
     expect(cancelarTrabajo).toHaveBeenCalledWith(31);
     expect(await screen.findByText("Cancelado")).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("muestra En marcha también con progreso cero", () => {
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({ ultimo: trabajo({ progreso: 0 }) })}
+      />,
+    );
+
+    expect(screen.getByText("En marcha…")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["error", "Falló: Remotion terminó con el código 1"],
+    ["interrumpido", "Interrumpido"],
+  ] as const)("muestra el estado terminal %s", (estado, texto) => {
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({
+          ultimo: trabajo({
+            estado,
+            fin: "2026-11-18T10:01:00Z",
+            error: estado === "error" ? "Remotion terminó con el código 1" : null,
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText(texto)).toBeInTheDocument();
+  });
+
+  it("mantiene Cancelando hasta que el sondeo ve un estado final", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(cancelarTrabajo).mockResolvedValue({ ok: true, trabajo: trabajo() });
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ estado: "cancelado", fin: "2026-11-18T10:01:00Z" }),
+    );
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({ ultimo: trabajo() })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await avanzar(0);
+
+    expect(screen.getByText("Cancelando…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
+
+    await avanzar(2000);
+    expect(screen.getByText("Cancelado")).toBeInTheDocument();
+  });
+
+  it("aísla el trabajo y el lanzamiento de dos objetivos", async () => {
+    vi.mocked(lanzarAccion).mockResolvedValue({
+      ok: true,
+      trabajo: trabajo({ id: 33, objetivo: "s2", progreso: 0 }),
+    });
+    const compartida = accion({
+      ultimo: trabajo({ id: 32, objetivo: "otro", progreso: 0.8 }),
+      ultimos: {
+        s1: trabajo({ id: 30, objetivo: "s1", estado: "hecho", progreso: 1, fin: "2026-11-18T10:01:00Z" }),
+        s2: trabajo({ id: 31, objetivo: "s2", estado: "error", error: "Fallo s2", fin: "2026-11-18T10:02:00Z" }),
+      },
+    });
+    render(
+      <div>
+        <section aria-label="short s1">
+          <BotonAccion curso="react" numero={4} accion={compartida} objetivo="s1" />
+        </section>
+        <section aria-label="short s2">
+          <BotonAccion curso="react" numero={4} accion={compartida} objetivo="s2" />
+        </section>
+      </div>,
+    );
+
+    expect(within(screen.getByLabelText("short s1")).getByText("Hecho")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("short s2")).getByText("Falló: Fallo s2")).toBeInTheDocument();
+    expect(screen.queryByText("En marcha… 80 %")).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(screen.getByLabelText("short s2")).getByRole("button", {
+        name: "Renderizar el short",
+      }),
+    );
+    expect(lanzarAccion).toHaveBeenCalledWith("react", 4, "render-short", { short: "s2" });
+  });
+
+  it("ignora un error de cancelación que llega después del estado final", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let resolver!: (resultado: { ok: false; mensaje: string }) => void;
+    vi.mocked(cancelarTrabajo).mockReturnValue(
+      new Promise((resolve) => {
+        resolver = resolve;
+      }),
+    );
+    vi.mocked(leerTrabajo).mockResolvedValue(
+      trabajo({ estado: "cancelado", fin: "2026-11-18T10:01:00Z" }),
+    );
+    render(
+      <BotonAccion
+        curso="react"
+        numero={4}
+        accion={accion({ ultimo: trabajo() })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await avanzar(2000);
+    expect(screen.getByText("Cancelado")).toBeInTheDocument();
+
+    resolver({ ok: false, mensaje: "Ese trabajo no está en marcha" });
+    await avanzar(0);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Cancelado")).toBeInTheDocument();
   });
 
   it("no lanza si se rechaza la confirmación", async () => {

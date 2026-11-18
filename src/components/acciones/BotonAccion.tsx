@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
 import {
@@ -53,11 +53,16 @@ function EstadoTrabajo({ trabajo }: { trabajo: Trabajo }) {
   );
 }
 
+function haTerminado(trabajo: Trabajo | null): trabajo is Trabajo {
+  return trabajo !== null && trabajo.estado !== "en_marcha";
+}
+
 export function BotonAccion({
   curso,
   numero,
   accion,
   opciones = {},
+  objetivo,
   textoBoton,
   confirmar,
 }: {
@@ -65,30 +70,53 @@ export function BotonAccion({
   numero: number;
   accion: EstadoAccion;
   opciones?: OpcionesAccion;
+  objetivo?: string;
   textoBoton?: string;
   confirmar?: string;
 }) {
   const router = useRouter();
-  const [trabajoBase, setTrabajoBase] = useState(accion.ultimo);
-  const [ultimoRecibido, setUltimoRecibido] = useState(accion.ultimo);
+  const trabajoRecibido = objetivo
+    ? accion.ultimos[objetivo] ?? null
+    : accion.ultimo;
+  const [trabajoBase, setTrabajoBase] = useState(trabajoRecibido);
+  const [ultimoRecibido, setUltimoRecibido] = useState(trabajoRecibido);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [cancelandoId, setCancelandoId] = useState<number | null>(null);
+  const terminado = useRef<Trabajo | null>(
+    haTerminado(trabajoRecibido) ? trabajoRecibido : null,
+  );
   const [pendiente, iniciar] = useTransition();
 
-  if (accion.ultimo !== ultimoRecibido) {
-    setUltimoRecibido(accion.ultimo);
-    setTrabajoBase(accion.ultimo);
+  if (trabajoRecibido !== ultimoRecibido) {
+    setUltimoRecibido(trabajoRecibido);
+    setTrabajoBase(trabajoRecibido);
   }
+
+  useEffect(() => {
+    terminado.current = haTerminado(trabajoRecibido) ? trabajoRecibido : null;
+  }, [trabajoRecibido]);
 
   const trabajo = useSeguimientoTrabajo({
     trabajo: trabajoBase,
-    alTerminar: setTrabajoBase,
+    alTerminar: (trabajoTerminado) => {
+      terminado.current = trabajoTerminado;
+      setTrabajoBase(trabajoTerminado);
+      setCancelandoId(null);
+    },
   });
 
   function lanzar() {
     if (confirmar && !window.confirm(confirmar)) return;
     setMensaje(null);
+    terminado.current = null;
+    setCancelandoId(null);
     iniciar(async () => {
-      const resultado = await lanzarAccion(curso, numero, accion.id, opciones);
+      const resultado = await lanzarAccion(
+        curso,
+        numero,
+        accion.id,
+        objetivo ? { short: objetivo } : opciones,
+      );
       if (resultado.ok) setTrabajoBase(resultado.trabajo);
       else setMensaje(resultado.mensaje);
     });
@@ -97,27 +125,40 @@ export function BotonAccion({
   function cancelar() {
     if (!trabajo) return;
     setMensaje(null);
+    setCancelandoId(trabajo.id);
     iniciar(async () => {
       const resultado = await cancelarTrabajo(trabajo.id);
+      if (terminado.current?.id === trabajo.id) return;
+
       if (resultado.ok) {
         setTrabajoBase(resultado.trabajo);
-        router.refresh();
+        if (haTerminado(resultado.trabajo)) {
+          terminado.current = resultado.trabajo;
+          setCancelandoId(null);
+          router.refresh();
+        }
       } else {
+        setCancelandoId(null);
         setMensaje(resultado.mensaje);
       }
     });
   }
 
   const enMarcha = trabajo?.estado === "en_marcha";
+  const cancelando = enMarcha && cancelandoId === trabajo.id;
 
   return (
     <div className="grid justify-items-start gap-2">
-      {trabajo ? <EstadoTrabajo trabajo={trabajo} /> : null}
+      {cancelando && enMarcha ? (
+        <span role="status" className="text-sm text-tenue">Cancelando…</span>
+      ) : trabajo ? (
+        <EstadoTrabajo trabajo={trabajo} />
+      ) : null}
       {enMarcha ? (
         <button
           type="button"
           className={BOTON_CANCELAR}
-          disabled={pendiente}
+          disabled={pendiente || cancelando}
           onClick={cancelar}
         >
           Cancelar

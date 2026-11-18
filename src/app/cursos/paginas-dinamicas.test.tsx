@@ -206,7 +206,7 @@ describe("shell de las páginas dinámicas", () => {
     );
   });
 
-  it("carga el teleprompter y las acciones solo para la pestaña Guion", async () => {
+  it("carga los datos auxiliares solo en las pestañas que los consumen", async () => {
     const teleprompter = {
       curso: "curso-ficticio",
       numero: 1,
@@ -225,6 +225,21 @@ describe("shell de las páginas dinámicas", () => {
     vi.clearAllMocks();
     vi.mocked(obtenerPublicacion).mockResolvedValue(null);
     render(await renderizarContenidoLeccion({ pestana: "grabaciones" }));
+    expect(obtenerTeleprompter).toHaveBeenCalledWith("curso-ficticio", 1);
+    expect(obtenerAcciones).toHaveBeenCalledWith("curso-ficticio", 1);
+
+    vi.clearAllMocks();
+    render(await renderizarContenidoLeccion({ pestana: "video" }));
+    expect(obtenerTeleprompter).not.toHaveBeenCalled();
+    expect(obtenerAcciones).toHaveBeenCalledWith("curso-ficticio", 1);
+
+    vi.clearAllMocks();
+    render(await renderizarContenidoLeccion({ pestana: "shorts" }));
+    expect(obtenerTeleprompter).not.toHaveBeenCalled();
+    expect(obtenerAcciones).toHaveBeenCalledWith("curso-ficticio", 1);
+
+    vi.clearAllMocks();
+    render(await renderizarContenidoLeccion({ pestana: "publicar" }));
     expect(obtenerTeleprompter).not.toHaveBeenCalled();
     expect(obtenerAcciones).not.toHaveBeenCalled();
   });
@@ -237,6 +252,17 @@ describe("shell de las páginas dinámicas", () => {
     expect(screen.getByRole("tabpanel")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Primera escena" })).toBeInTheDocument();
   });
+
+  it.each(["grabaciones", "video", "shorts"])(
+    "mantiene la pestaña %s si falla la lectura de acciones",
+    async (pestana) => {
+      vi.mocked(obtenerAcciones).mockRejectedValue(new Error("fallo simulado"));
+
+      render(await renderizarContenidoLeccion({ pestana }));
+
+      expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+    },
+  );
 
   it("pasa la pieza y la red de la URL a la pestaña Publicar", async () => {
     const publicacion: VistaPublicacion = {

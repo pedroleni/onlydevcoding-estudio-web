@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTrabajo";
 import { cancelarTrabajo } from "@/lib/acciones-estudio";
@@ -39,11 +39,17 @@ function etiqueta(accion: string): string {
   return ETIQUETAS_ACCION[accion as IdAccion] ?? accion;
 }
 
+function haTerminado(trabajo: Trabajo): boolean {
+  return trabajo.estado !== "en_marcha";
+}
+
 function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
   const router = useRouter();
   const [base, setBase] = useState(inicial);
   const [inicialAnterior, setInicialAnterior] = useState(inicial);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [cancelandoId, setCancelandoId] = useState<number | null>(null);
+  const terminado = useRef<Trabajo | null>(haTerminado(inicial) ? inicial : null);
   const [pendiente, iniciar] = useTransition();
 
   if (inicial !== inicialAnterior) {
@@ -51,20 +57,42 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
     setBase(inicial);
   }
 
-  const trabajo = useSeguimientoTrabajo({ trabajo: base, alTerminar: setBase }) ?? base;
+  useEffect(() => {
+    terminado.current = haTerminado(inicial) ? inicial : null;
+  }, [inicial]);
+
+  const trabajo = useSeguimientoTrabajo({
+    trabajo: base,
+    alTerminar: (trabajoTerminado) => {
+      terminado.current = trabajoTerminado;
+      setBase(trabajoTerminado);
+      setCancelandoId(null);
+    },
+  }) ?? base;
 
   function cancelar() {
     setMensaje(null);
+    setCancelandoId(trabajo.id);
     iniciar(async () => {
       const resultado = await cancelarTrabajo(trabajo.id);
+      if (terminado.current?.id === trabajo.id) return;
+
       if (resultado.ok) {
         setBase(resultado.trabajo);
-        router.refresh();
+        if (haTerminado(resultado.trabajo)) {
+          terminado.current = resultado.trabajo;
+          setCancelandoId(null);
+          router.refresh();
+        }
       } else {
+        setCancelandoId(null);
         setMensaje(resultado.mensaje);
       }
     });
   }
+
+  const cancelando =
+    trabajo.estado === "en_marcha" && cancelandoId === trabajo.id;
 
   return (
     <tr className="border-t border-borde align-top">
@@ -84,7 +112,11 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
         )}
       </td>
       <td className="px-4 py-4 font-mono text-xs">{trabajo.objetivo ?? "—"}</td>
-      <td className="px-4 py-4">{ESTADOS[trabajo.estado]}</td>
+      <td className="px-4 py-4">
+        {cancelando && trabajo.estado === "en_marcha"
+          ? "Cancelando…"
+          : ESTADOS[trabajo.estado]}
+      </td>
       <td className="px-4 py-4 font-mono text-xs">
         {Math.round(trabajo.progreso * 100)} %
       </td>
@@ -94,7 +126,7 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
         {trabajo.estado === "en_marcha" ? (
           <button
             type="button"
-            disabled={pendiente}
+            disabled={pendiente || cancelando}
             onClick={cancelar}
             className="cursor-pointer border border-rojo px-3 py-2 text-sm font-semibold text-rojo hover:enabled:bg-rojo hover:enabled:text-fondo disabled:cursor-default disabled:opacity-40"
           >
