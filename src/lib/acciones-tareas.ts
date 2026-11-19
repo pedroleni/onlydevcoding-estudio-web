@@ -38,6 +38,49 @@ function idPositivo(valor: unknown): valor is number {
   return typeof valor === "number" && Number.isSafeInteger(valor) && valor >= 1;
 }
 
+function errorNumeroEnlace(numero: unknown): ResultadoAccionTareas | null {
+  if (
+    numero !== undefined &&
+    numero !== null &&
+    (typeof numero !== "number" || !Number.isInteger(numero) || numero < 1 || numero > 999)
+  ) {
+    return error("El número de lección no es válido");
+  }
+  return null;
+}
+
+function errorPiezaEnlace(pieza: unknown): ResultadoAccionTareas | null {
+  if (
+    pieza !== undefined &&
+    pieza !== null &&
+    (typeof pieza !== "string" || !PIEZA_VALIDA.test(pieza))
+  ) {
+    return error("La pieza no es válida");
+  }
+  return null;
+}
+
+function errorRedEnlace(red: unknown): ResultadoAccionTareas | null {
+  if (
+    red !== undefined &&
+    red !== null &&
+    (typeof red !== "string" || !REDES_VALIDAS.has(red))
+  ) {
+    return error("La red no es válida");
+  }
+  return null;
+}
+
+function errorJerarquiaEnlace(
+  numero: unknown,
+  pieza: unknown,
+  red: unknown,
+): ResultadoAccionTareas | null {
+  if (pieza != null && numero == null) return error("Una pieza exige un número de lección");
+  if (red != null && pieza == null) return error("Una red exige una pieza");
+  return null;
+}
+
 function normalizarEnlace(valor: unknown): EnlaceTarea | null | ResultadoAccionTareas {
   if (valor === undefined || valor === null) return null;
   if (!esObjeto(valor)) return error("El enlace no es válido");
@@ -46,71 +89,69 @@ function normalizarEnlace(valor: unknown): EnlaceTarea | null | ResultadoAccionT
   if (typeof curso !== "string" || !CURSO_VALIDO.test(curso)) {
     return error("El curso no es válido");
   }
-  if (
-    numero !== undefined &&
-    numero !== null &&
-    (typeof numero !== "number" || !Number.isInteger(numero) || numero < 1 || numero > 999)
-  ) {
-    return error("El número de lección no es válido");
-  }
-  if (
-    pieza !== undefined &&
-    pieza !== null &&
-    (typeof pieza !== "string" || !PIEZA_VALIDA.test(pieza))
-  ) {
-    return error("La pieza no es válida");
-  }
-  if (
-    red !== undefined &&
-    red !== null &&
-    (typeof red !== "string" || !REDES_VALIDAS.has(red))
-  ) {
-    return error("La red no es válida");
-  }
-  if (pieza != null && numero == null) {
-    return error("Una pieza exige un número de lección");
-  }
-  if (red != null && pieza == null) {
-    return error("Una red exige una pieza");
-  }
+  const errorNumero = errorNumeroEnlace(numero);
+  if (errorNumero) return errorNumero;
+  const errorPieza = errorPiezaEnlace(pieza);
+  if (errorPieza) return errorPieza;
+  const errorRed = errorRedEnlace(red);
+  if (errorRed) return errorRed;
+  const errorJerarquia = errorJerarquiaEnlace(numero, pieza, red);
+  if (errorJerarquia) return errorJerarquia;
 
   return {
     curso,
-    ...(numero == null ? {} : { numero }),
+    ...(numero == null ? {} : { numero: numero as number }),
     ...(pieza == null ? {} : { pieza: pieza as string }),
     ...(red == null ? {} : { red: red as EnlaceTarea["red"] }),
   };
+}
+
+function errorFechaTarea(fecha: unknown): ResultadoAccionTareas | null {
+  if (fecha !== null && fecha !== undefined &&
+      (typeof fecha !== "string" || !esFechaValida(fecha))) {
+    return error("La fecha no es válida");
+  }
+  return null;
+}
+
+function errorHoraTarea(hora: unknown): ResultadoAccionTareas | null {
+  if (hora !== undefined && hora !== null &&
+      (typeof hora !== "string" || !HORA_VALIDA.test(hora))) {
+    return error("La hora no es válida");
+  }
+  return null;
+}
+
+function normalizarTextoTarea(texto: unknown): string | ResultadoAccionTareas {
+  if (typeof texto !== "string") return error("El texto no es válido");
+  const textoRecortado = texto.trim();
+  const caracteresTexto = Array.from(textoRecortado);
+  const tieneControl = caracteresTexto.some((caracter) => {
+    const codigo = caracter.codePointAt(0)!;
+    return (
+      codigo < 0x20 ||
+      codigo === 0x7f ||
+      codigo === 0x85 ||
+      codigo === 0x2028 ||
+      codigo === 0x2029
+    );
+  });
+  if (caracteresTexto.length < 1 || caracteresTexto.length > 300 || tieneControl) {
+    return error("El texto debe tener entre 1 y 300 caracteres y una sola línea");
+  }
+  return textoRecortado;
 }
 
 function normalizarTarea(valor: unknown): TareaNueva | ResultadoAccionTareas {
   if (!esObjeto(valor)) return error("La tarea no es válida");
   const { fecha, hora, texto, tipo, enlace } = valor;
   const sinFecha = fecha === null || fecha === undefined;
-  if (!sinFecha && (typeof fecha !== "string" || !esFechaValida(fecha))) {
-    return error("La fecha no es válida");
-  }
-  if (hora !== undefined && hora !== null && (typeof hora !== "string" || !HORA_VALIDA.test(hora))) {
-    return error("La hora no es válida");
-  }
-  if (typeof texto !== "string") return error("El texto no es válido");
-  const textoRecortado = texto.trim();
-  const caracteresTexto = Array.from(textoRecortado);
-  if (
-    caracteresTexto.length < 1 ||
-    caracteresTexto.length > 300 ||
-    caracteresTexto.some((caracter) => {
-      const codigo = caracter.codePointAt(0)!;
-      return (
-        codigo < 0x20 ||
-        codigo === 0x7f ||
-        codigo === 0x85 ||
-        codigo === 0x2028 ||
-        codigo === 0x2029
-      );
-    })
-  ) {
-    return error("El texto debe tener entre 1 y 300 caracteres y una sola línea");
-  }
+  const errorFecha = errorFechaTarea(fecha);
+  if (errorFecha) return errorFecha;
+  const errorHora = errorHoraTarea(hora);
+  if (errorHora) return errorHora;
+  const textoNormalizado = normalizarTextoTarea(texto);
+  if (typeof textoNormalizado !== "string") return textoNormalizado;
   if (typeof tipo !== "string" || !TIPO_VALIDO.test(tipo)) {
     return error("El tipo no es válido");
   }
@@ -120,7 +161,7 @@ function normalizarTarea(valor: unknown): TareaNueva | ResultadoAccionTareas {
   return {
     fecha: sinFecha ? null : (fecha as string),
     ...(hora == null ? {} : { hora: hora as string }),
-    texto: textoRecortado,
+    texto: textoNormalizado,
     tipo,
     ...(enlaceNormalizado === null ? {} : { enlace: enlaceNormalizado }),
   };

@@ -45,6 +45,13 @@ const textosValidos = {
   notas: null,
 };
 
+const DESTINO_YOUTUBE = {
+  curso: "react",
+  numero: 4,
+  pieza: "leccion",
+  red: "youtube",
+};
+
 function archivosDe(carpeta: string): string[] {
   return readdirSync(carpeta, { withFileTypes: true }).flatMap((entrada) => {
     const ruta = join(carpeta, entrada.name);
@@ -116,7 +123,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      cambiarEstado("react", 4, "leccion", "youtube", {
+      cambiarEstado(DESTINO_YOUTUBE, {
         estado: "pendiente",
         fecha: null,
         url: null,
@@ -134,7 +141,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      guardarTextos("react", 4, "../x", "youtube", {
+      guardarTextos({ ...DESTINO_YOUTUBE, pieza: "../x" }, {
         titulos: [],
         descripcion: null,
         etiquetas: [],
@@ -152,7 +159,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      cambiarEstado("react", 4, "leccion", "youtube", {
+      cambiarEstado(DESTINO_YOUTUBE, {
         estado: "publicado",
         fecha: null,
         url: "javascript:alert(1)",
@@ -163,8 +170,8 @@ describe("Server Actions de publicación", () => {
 
   const accionesValidas = [
     ["elegirPortada", () => elegirPortada("react", 4, "leccion", "portadas/miniatura.jpg")],
-    ["cambiarEstado", () => cambiarEstado("react", 4, "leccion", "youtube", estadoValido)],
-    ["guardarTextos", () => guardarTextos("react", 4, "leccion", "youtube", textosValidos)],
+    ["cambiarEstado", () => cambiarEstado(DESTINO_YOUTUBE, estadoValido)],
+    ["guardarTextos", () => guardarTextos(DESTINO_YOUTUBE, textosValidos)],
   ] as const;
 
   it.each(accionesValidas)(
@@ -204,12 +211,12 @@ describe("Server Actions de publicación", () => {
   );
 
   it.each([
-    ["cambiarEstado sin red", () => (cambiarEstado as CallableFunction)("react", 4, "leccion")],
-    ["cambiarEstado con red undefined", () => cambiarEstado("react", 4, "leccion", undefined as unknown as string, estadoValido)],
-    ["cambiarEstado con red desconocida", () => cambiarEstado("react", 4, "leccion", "x", estadoValido)],
-    ["guardarTextos sin red", () => (guardarTextos as CallableFunction)("react", 4, "leccion")],
-    ["guardarTextos con red undefined", () => guardarTextos("react", 4, "leccion", undefined as unknown as string, textosValidos)],
-    ["guardarTextos con red desconocida", () => guardarTextos("react", 4, "leccion", "x", textosValidos)],
+    ["cambiarEstado sin red", () => cambiarEstado({ curso: "react", numero: 4, pieza: "leccion" }, estadoValido)],
+    ["cambiarEstado con red undefined", () => cambiarEstado({ ...DESTINO_YOUTUBE, red: undefined }, estadoValido)],
+    ["cambiarEstado con red desconocida", () => cambiarEstado({ ...DESTINO_YOUTUBE, red: "x" }, estadoValido)],
+    ["guardarTextos sin red", () => guardarTextos({ curso: "react", numero: 4, pieza: "leccion" }, textosValidos)],
+    ["guardarTextos con red undefined", () => guardarTextos({ ...DESTINO_YOUTUBE, red: undefined }, textosValidos)],
+    ["guardarTextos con red desconocida", () => guardarTextos({ ...DESTINO_YOUTUBE, red: "x" }, textosValidos)],
   ])("rechaza %s antes de llamar a fetch", async (_caso, ejecutarAccion) => {
     const fetchSimulado = vi.fn();
     vi.stubGlobal("fetch", fetchSimulado);
@@ -225,11 +232,11 @@ describe("Server Actions de publicación", () => {
     const fetchSimulado = vi.fn().mockResolvedValue(Response.json(vista));
     vi.stubGlobal("fetch", fetchSimulado);
 
-    await cambiarEstado("react", 4, "leccion", "youtube", {
+    await cambiarEstado(DESTINO_YOUTUBE, {
       ...estadoValido,
       extra: BigInt(1),
     } as typeof estadoValido);
-    await guardarTextos("react", 4, "leccion", "youtube", {
+    await guardarTextos(DESTINO_YOUTUBE, {
       ...textosValidos,
       extra: BigInt(1),
     } as typeof textosValidos);
@@ -246,7 +253,7 @@ describe("Server Actions de publicación", () => {
       ...textosValidos,
       video: "videos/no-debe-salir.mp4",
     };
-    await guardarTextos("react", 4, "leccion", "youtube", textosConVideo);
+    await guardarTextos(DESTINO_YOUTUBE, textosConVideo);
 
     expect(JSON.parse(fetchSimulado.mock.calls[0][1].body)).toEqual(textosValidos);
     expect(fetchSimulado.mock.calls[0][1].body).not.toContain("video");
@@ -275,7 +282,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      guardarTextos("react", 4, "leccion", "instagram", {
+      guardarTextos({ ...DESTINO_YOUTUBE, red: "instagram" }, {
         ...textosValidos,
         ...cambio,
       }),
@@ -292,7 +299,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      guardarTextos("react", 4, "leccion", "youtube", {
+      guardarTextos(DESTINO_YOUTUBE, {
         ...textosValidos,
         ...cambio,
       }),
@@ -305,7 +312,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      guardarTextos("react", 4, "leccion", "instagram", {
+      guardarTextos({ ...DESTINO_YOUTUBE, red: "instagram" }, {
         ...textosValidos,
         titulos: ["a".repeat(101)],
         descripcion: "a".repeat(5001),
@@ -320,7 +327,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      guardarTextos("react", 4, "leccion", "linkedin", {
+      guardarTextos({ ...DESTINO_YOUTUBE, red: "linkedin" }, {
         ...textosValidos,
         texto: "a".repeat(3001),
       }),
@@ -336,7 +343,7 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      guardarTextos("react", 4, "leccion", "instagram", {
+      guardarTextos({ ...DESTINO_YOUTUBE, red: "instagram" }, {
         ...textosValidos,
         titulos: Array.from({ length: 140_000 }, () => "á"),
       }),
@@ -362,20 +369,14 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(guardarTextos(
-      "react",
-      4,
-      "leccion",
-      "youtube",
+      DESTINO_YOUTUBE,
       textosValidos,
     )).resolves.toEqual({
       ok: false,
       mensaje: "Arregla publicacion.json antes de editar desde la app",
     });
     await expect(guardarTextos(
-      "react",
-      4,
-      "leccion",
-      "youtube",
+      DESTINO_YOUTUBE,
       textosValidos,
     )).resolves.toEqual({
       ok: false,
@@ -396,10 +397,10 @@ describe("Server Actions de publicación", () => {
     vi.stubGlobal("fetch", fetchSimulado);
 
     await expect(
-      cambiarEstado("react", 4, "leccion", "youtube", estadoValido),
+      cambiarEstado(DESTINO_YOUTUBE, estadoValido),
     ).resolves.toEqual({ ok: false, mensaje: "La fecha no puede estar en el pasado" });
     await expect(
-      cambiarEstado("react", 4, "leccion", "youtube", estadoValido),
+      cambiarEstado(DESTINO_YOUTUBE, estadoValido),
     ).resolves.toEqual({ ok: false, mensaje: "Los datos enviados no son válidos" });
   });
 
@@ -410,7 +411,7 @@ describe("Server Actions de publicación", () => {
     );
 
     await expect(
-      cambiarEstado("react", 4, "leccion", "youtube", estadoValido),
+      cambiarEstado(DESTINO_YOUTUBE, estadoValido),
     ).resolves.toEqual({
       ok: false,
       mensaje: "La API requiere conocer el tamaño de la petición",
@@ -424,7 +425,7 @@ describe("Server Actions de publicación", () => {
     });
 
     await expect(
-      cambiarEstado("react", 4, "leccion", "youtube", estadoValido),
+      cambiarEstado(DESTINO_YOUTUBE, estadoValido),
     ).rejects.toThrow("fallo de refresh");
   });
 
@@ -434,7 +435,7 @@ describe("Server Actions de publicación", () => {
     const errorDeConsola = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(
-      guardarTextos("react", 4, "leccion", "youtube", {
+      guardarTextos(DESTINO_YOUTUBE, {
         ...textosValidos,
         notas: "contenido privado del cuerpo",
       }),

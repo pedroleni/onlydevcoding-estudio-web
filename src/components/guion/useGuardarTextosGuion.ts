@@ -37,9 +37,13 @@ export function useGuardarTextosGuion({
   function guardar(escenas: TextosEscena[], ganchos?: TextoGancho[]) {
     setError(null);
     iniciar(async () => {
-      const resultado = ganchos
-        ? await guardarTextos(curso, numero, versionBase, escenas, ganchos)
-        : await guardarTextos(curso, numero, versionBase, escenas);
+      const resultado = await guardarTextos({
+        curso,
+        numero,
+        version: versionBase,
+        escenas,
+        ...(ganchos ? { ganchos } : {}),
+      });
       if (resultado.ok) {
         alGuardado(resultado.teleprompter);
         if (refrescarAlGuardar) router.refresh();

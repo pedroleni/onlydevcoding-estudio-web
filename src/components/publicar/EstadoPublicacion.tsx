@@ -51,10 +51,7 @@ export function EstadoPublicacion({
     setError(null);
     iniciarTransicion(async () => {
       const resultado = await cambiarEstado(
-        curso,
-        numero,
-        pieza,
-        red,
+        { curso, numero, pieza, red },
         nuevoEstado,
       );
       if (!resultado.ok) {

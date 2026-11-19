@@ -62,11 +62,19 @@ function piezaPrevista(plan: PiezaPrevista): PiezaVista {
 }
 
 function contarPieza(
-  pieza: PiezaVista,
-  redes: RedVista[],
-  prevista: boolean,
-  clave = pieza.id,
-  titulo = pieza.titulo,
+  {
+    pieza,
+    redes,
+    prevista,
+    clave = pieza.id,
+    titulo = pieza.titulo,
+  }: {
+    pieza: PiezaVista;
+    redes: RedVista[];
+    prevista: boolean;
+    clave?: string;
+    titulo?: string;
+  },
 ): PiezaContada {
   return {
     clave,
@@ -100,22 +108,26 @@ export function contarLeccion(
     const pieza = real ?? piezaPrevista(plan);
     const prevista = !real || !cuentaPieza(real);
     const todas = [...redes, ...deSobra];
-    if (pieza.tipo !== "leccion") return [contarPieza(pieza, todas, prevista)];
+    if (pieza.tipo !== "leccion") return [contarPieza({ pieza, redes: todas, prevista })];
     // El vídeo para LinkedIn va en su propia fila.
     return [
-      contarPieza(pieza, todas.filter(({ red }) => red !== "linkedin"), prevista),
-      contarPieza(
+      contarPieza({
         pieza,
-        todas.filter(({ red }) => red === "linkedin"),
+        redes: todas.filter(({ red }) => red !== "linkedin"),
         prevista,
-        `${pieza.id}-linkedin`,
-        TITULO_VIDEO_LINKEDIN,
-      ),
+      }),
+      contarPieza({
+        pieza,
+        redes: todas.filter(({ red }) => red === "linkedin"),
+        prevista,
+        clave: `${pieza.id}-linkedin`,
+        titulo: TITULO_VIDEO_LINKEDIN,
+      }),
     ];
   }).flat();
   for (const real of reales) {
     if (!idsPlan.has(real.id) && cuentaPieza(real)) {
-      piezas.push(contarPieza(real, redesDisponibles(real), false));
+      piezas.push(contarPieza({ pieza: real, redes: redesDisponibles(real), prevista: false }));
     }
   }
   const pendientes = piezas.reduce((suma, p) => suma + p.pendientes.length, 0);

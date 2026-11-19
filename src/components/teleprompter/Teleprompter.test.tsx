@@ -1047,9 +1047,14 @@ describe("Teleprompter: edición del texto", () => {
     await userEvent.type(frase, "Frase cambiada a mano.");
     await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
 
-    expect(guardarTextos).toHaveBeenCalledWith("curso-ficticio", 4, "0".repeat(64), [
-      { id: "E04", cues: ["Frase cambiada a mano.", "Segunda frase inventada."] },
-    ]);
+    expect(guardarTextos).toHaveBeenCalledWith({
+      curso: "curso-ficticio",
+      numero: 4,
+      version: "0".repeat(64),
+      escenas: [
+        { id: "E04", cues: ["Frase cambiada a mano.", "Segunda frase inventada."] },
+      ],
+    });
     expect(await screen.findByText("Texto guardado en el guion.")).toBeInTheDocument();
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     expect(screen.getByText("cambiada")).toHaveClass("p");
@@ -1062,7 +1067,7 @@ describe("Teleprompter: edición del texto", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "Editar texto" }));
     await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
-    expect(vi.mocked(guardarTextos).mock.calls[1][2]).toBe(nuevaVersion);
+    expect(vi.mocked(guardarTextos).mock.calls[1][0]).toMatchObject({ version: nuevaVersion });
   });
 
   it("Cancelar vuelve al texto sin guardar", async () => {

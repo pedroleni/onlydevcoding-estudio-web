@@ -11,6 +11,14 @@ export type ResultadoSubida =
   | { ok: true; archivo: string; bytes: number }
   | { ok: false; cancelada: boolean; mensaje: string };
 
+export interface SolicitudSubidaEntrega {
+  curso: string;
+  numero: number;
+  archivo: File;
+  alAvanzar: (fraccion: number) => void;
+  senal: AbortSignal;
+}
+
 const CANCELADA: ResultadoSubida = { ok: false, cancelada: true, mensaje: "Subida cancelada" };
 
 function fallo(mensaje: string): ResultadoSubida {
@@ -35,11 +43,7 @@ function detalle(datos: unknown): string | null {
 // `fetch`) informa del avance de la subida. Nunca rechaza: los errores de la API, los cortes y las
 // cancelaciones vuelven como `{ ok: false }` para que la cola siga con los demás archivos.
 export function subirEntrega(
-  curso: string,
-  numero: number,
-  archivo: File,
-  alAvanzar: (fraccion: number) => void,
-  senal: AbortSignal,
+  { curso, numero, archivo, alAvanzar, senal }: SolicitudSubidaEntrega,
 ): Promise<ResultadoSubida> {
   // Lo que la API va a rechazar no se sube: serían hasta 4 GiB para nada.
   const tipo = tipoEntrega(archivo.name);

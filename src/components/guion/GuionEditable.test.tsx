@@ -124,12 +124,17 @@ describe("GuionEditable", () => {
     await userEvent.type(frase, "Frase corregida ficticia.");
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
-    expect(guardarTextos).toHaveBeenCalledWith("react", 4, VERSION, [
-      {
-        id: "E03",
-        cues: ["Primera frase ficticia.", "Frase corregida ficticia."],
-      },
-    ]);
+    expect(guardarTextos).toHaveBeenCalledWith({
+      curso: "react",
+      numero: 4,
+      version: VERSION,
+      escenas: [
+        {
+          id: "E03",
+          cues: ["Primera frase ficticia.", "Frase corregida ficticia."],
+        },
+      ],
+    });
     expect(router.refresh).toHaveBeenCalledOnce();
     expect(screen.queryByLabelText("Frase 2")).not.toBeInTheDocument();
   });
@@ -142,13 +147,18 @@ describe("GuionEditable", () => {
     await userEvent.type(screen.getByLabelText("Punto 2"), " corregido");
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
-    expect(guardarTextos).toHaveBeenCalledWith("react", 4, VERSION, [
-      {
-        id: "E04",
-        cues: ["Frase a cámara ficticia."],
-        puntos: ["Primer punto ficticio.", "Segundo punto ficticio. corregido"],
-      },
-    ]);
+    expect(guardarTextos).toHaveBeenCalledWith({
+      curso: "react",
+      numero: 4,
+      version: VERSION,
+      escenas: [
+        {
+          id: "E04",
+          cues: ["Frase a cámara ficticia."],
+          puntos: ["Primer punto ficticio.", "Segundo punto ficticio. corregido"],
+        },
+      ],
+    });
   });
 
   it("desactiva Guardar si queda una frase vacía", async () => {
@@ -268,9 +278,12 @@ describe("GuionEditable", () => {
     await userEvent.type(screen.getByLabelText("Punto 1"), " más");
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
-    expect(guardarTextos).toHaveBeenLastCalledWith("react", 4, NUEVA, [
-      expect.objectContaining({ id: "E04" }),
-    ]);
+    expect(guardarTextos).toHaveBeenLastCalledWith({
+      curso: "react",
+      numero: 4,
+      version: NUEVA,
+      escenas: [expect.objectContaining({ id: "E04" })],
+    });
   });
 
   it("desactiva Guardar si arranca un trabajo con el editor abierto", async () => {
