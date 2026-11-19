@@ -125,11 +125,11 @@ flowchart TB
   rompiera, seguiría diciendo «todo bien» y nadie se daría cuenta. Estos tests trabajan en una
   carpeta temporal (uno copia el repo y otro monta proyectos mínimos), meten fallos a propósito
   (una ruta privada o un email inventados, una frase de prompt injection, una URL que no es
-  local, un workflow con permisos de escritura, una acción sin fijar por SHA…) y comprueban que
-  los escáneres de secretos, prompt injection, patrones de código y configuración saltan cuando
-  deben y callan cuando todo está limpio. También comprueban que revisan todos los archivos del
-  repo y que el hook `pre-commit` mira exactamente lo que va a entrar en el commit. El escáner de
-  dependencias aún no tiene test propio. Se ejecutan junto a los escáneres en GitHub y en Jenkins.
+  local, un workflow con permisos de escritura, una acción sin fijar por SHA, un lockfile que
+  falta, está desincronizado o descarga sin TLS…) y comprueban que los cinco escáneres saltan
+  cuando deben y callan cuando todo está limpio. También comprueban que revisan todos los
+  archivos del repo y que el hook `pre-commit` mira exactamente lo que va a entrar en el commit.
+  Se ejecutan junto a los escáneres en GitHub y en Jenkins.
 - **Agentes de seguridad**: ocho dominios en `.claude/agents/security-*.md`, con los
   precedentes del proyecto en `security/security-review-instructions.md`. Las auditorías
   completas se guardan en `security/reviews/`.
