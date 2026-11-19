@@ -4,7 +4,7 @@ import { ElegirPortada } from "@/components/publicar/ElegirPortada";
 import { PestanasRed } from "@/components/publicar/PestanasRed";
 import { SelectorPieza } from "@/components/publicar/SelectorPieza";
 import { LIMITES_PUBLICACION } from "@/lib/limites";
-import { redesDisponibles } from "@/lib/redes-publicacion";
+import { esVideoLinkedin, redesDisponibles } from "@/lib/redes-publicacion";
 import type { VistaPublicacion } from "@/lib/tipos";
 
 export function PublicarLeccion({
@@ -52,7 +52,7 @@ export function PublicarLeccion({
 
       {vista.piezas.length > 0 && pieza ? (
         <>
-          <SelectorPieza piezas={vista.piezas} activa={pieza.id} />
+          <SelectorPieza piezas={vista.piezas} activa={pieza.id} red={red?.red ?? null} />
 
           <ElegirPortada
             key={`portadas-${pieza.id}`}
@@ -69,11 +69,15 @@ export function PublicarLeccion({
 
           {red ? (
             <PestanasRed
-              key={`${pieza.id}-${red.red}`}
+              key={`${pieza.id}-${esVideoLinkedin(pieza, red.red) ? "linkedin" : "redes"}`}
               curso={vista.curso}
               numero={vista.numero}
               pieza={pieza}
               redInicial={red.red}
+              // En la lección, el vídeo para LinkedIn va en su propia tarjeta.
+              soloVideoLinkedin={
+                pieza.tipo === "leccion" ? esVideoLinkedin(pieza, red.red) : undefined
+              }
             />
           ) : avisoSinTextos ? null : (
             <p className="border border-borde bg-superficie p-5 text-sm text-tenue">

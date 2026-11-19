@@ -495,7 +495,7 @@ describe("pestaña Publicar", () => {
     expect(screen.getByRole("heading", { name: /Portada/ })).toBeInTheDocument();
     expect(
       screen.getAllByRole("tab").map((pestana) => pestana.textContent),
-    ).toEqual(["YouTube", "LinkedIn"]);
+    ).toEqual(["YouTube"]);
     expect(
       screen.queryByText("Esta pieza no tiene redes de publicación."),
     ).not.toBeInTheDocument();
@@ -522,7 +522,10 @@ describe("pestaña Publicar", () => {
 
     expect(
       screen.getAllByRole("tab").map((pestana) => pestana.textContent),
-    ).toEqual(["YouTube", "Instagram", "📅LinkedIn"]);
+    ).toEqual(["YouTube", "Instagram"]);
+    expect(screen.getByRole("link", { name: /Vídeo para LinkedIn/ })).toHaveTextContent(
+      "📅 Programado",
+    );
     expect(screen.queryByRole("tab", { name: /TikTok/ })).not.toBeInTheDocument();
     expect(
       screen.getByText("Esta pieza no se publica en TikTok"),
@@ -581,11 +584,26 @@ describe("pestaña Publicar", () => {
 
     expect(screen.getAllByRole("tab").map((pestana) => pestana.textContent)).toEqual([
       "YouTube",
-      "LinkedIn",
     ]);
     expect(
       screen.getByText("Esta pieza no se publica en Instagram ni TikTok"),
     ).toBeInTheDocument();
+  });
+
+  it("la tarjeta «Vídeo para LinkedIn» abre solo la red LinkedIn de la lección", () => {
+    render(<PublicarLeccion vista={vista} piezaSeleccionada="leccion" redSeleccionada="linkedin" />);
+
+    expect(screen.getByRole("link", { name: /Vídeo para LinkedIn/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: /Lección preparada/ })).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(screen.getAllByRole("tab").map((pestana) => pestana.textContent)).toEqual([
+      "LinkedIn",
+    ]);
+    expect(screen.queryByText(/no se publica en/)).not.toBeInTheDocument();
   });
 
   it("no pinta la línea de redes ausentes si la pieza está en todas", () => {
@@ -600,7 +618,8 @@ describe("pestaña Publicar", () => {
     };
     render(<PublicarLeccion vista={conTodasLasRedes} />);
 
-    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    // LinkedIn de la lección va en su propia tarjeta («Vídeo para LinkedIn»).
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
     expect(screen.queryByText(/no se publica en/)).not.toBeInTheDocument();
   });
 
@@ -632,7 +651,11 @@ describe("pestaña Publicar", () => {
 
     expect(
       screen.getAllByRole("tab").map((pestana) => pestana.textContent),
-    ).toEqual(["YouTube", "LinkedIn"]);
+    ).toEqual(["YouTube"]);
+    expect(screen.getByRole("link", { name: /Vídeo para LinkedIn/ })).toHaveAttribute(
+      "href",
+      "?pestana=publicar&pieza=leccion&red=linkedin",
+    );
     expect(screen.getByRole("tabpanel", { name: "YouTube" })).toBeVisible();
     expect(screen.getByRole("heading", { name: /Estado/ })).toBeInTheDocument();
     expect(screen.queryByText(/Esta pieza no se publica en/)).not.toBeInTheDocument();

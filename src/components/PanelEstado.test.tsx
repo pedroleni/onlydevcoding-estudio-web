@@ -82,9 +82,15 @@ describe("PanelEstado con las piezas de publicación", () => {
 
     const leccion = screen.getByRole("listitem", { name: "Lección completa" });
     expect(within(leccion).getByText("YouTube").closest("a")).toHaveTextContent("✅");
-    expect(within(leccion).getByText("LinkedIn").closest("a")).toHaveTextContent("⬜");
-    // La lección no se publica en Instagram: no aparece.
+    // La lección no se publica en Instagram, y su LinkedIn va en su propia fila.
     expect(within(leccion).queryByText("Instagram")).toBeNull();
+    expect(within(leccion).queryByText("LinkedIn")).toBeNull();
+    const videoLinkedin = screen.getByRole("listitem", { name: "Vídeo para LinkedIn" });
+    expect(within(videoLinkedin).getByText("LinkedIn").closest("a")).toHaveTextContent("⬜");
+    expect(within(videoLinkedin).getByText("LinkedIn").closest("a")).toHaveAttribute(
+      "href",
+      "/cursos/react/2?pestana=publicar&pieza=leccion&red=linkedin",
+    );
 
     const corto = screen.getByRole("listitem", { name: "Short 1 · Tu navegador no entiende React" });
     expect(within(corto).getByText("Instagram").closest("a")).toHaveTextContent("📅");

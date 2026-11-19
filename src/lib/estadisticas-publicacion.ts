@@ -1,6 +1,10 @@
 import { REDES } from "@/lib/curso";
 import { PLAN_LECCION, type PiezaPrevista } from "@/lib/plan-publicacion";
-import { redesDisponibles, tieneContenido } from "@/lib/redes-publicacion";
+import {
+  redesDisponibles,
+  tieneContenido,
+  TITULO_VIDEO_LINKEDIN,
+} from "@/lib/redes-publicacion";
 import type {
   Avance,
   EstadoLeccion,
@@ -10,6 +14,9 @@ import type {
 } from "@/lib/tipos";
 
 export interface PiezaContada {
+  // Identifica la fila: el id de la pieza o «leccion-linkedin» para el vídeo de LinkedIn.
+  clave: string;
+  titulo: string;
   pieza: PiezaVista;
   // Redes en que se publica la pieza: las del plan y las que ya tienen contenido.
   redes: RedVista[];
@@ -54,8 +61,16 @@ function piezaPrevista(plan: PiezaPrevista): PiezaVista {
   };
 }
 
-function contarPieza(pieza: PiezaVista, redes: RedVista[], prevista: boolean): PiezaContada {
+function contarPieza(
+  pieza: PiezaVista,
+  redes: RedVista[],
+  prevista: boolean,
+  clave = pieza.id,
+  titulo = pieza.titulo,
+): PiezaContada {
   return {
+    clave,
+    titulo,
     pieza,
     redes,
     prevista,
@@ -74,7 +89,7 @@ export function contarLeccion(
 ): LeccionContada {
   const reales = vista?.piezas ?? [];
   const idsPlan = new Set(PLAN_LECCION.map(({ id }) => id));
-  const piezas: PiezaContada[] = PLAN_LECCION.map((plan) => {
+  const piezas: PiezaContada[] = PLAN_LECCION.map((plan): PiezaContada[] => {
     const real = reales.find(({ id }) => id === plan.id);
     const redes = plan.redes.map(
       (id) => real?.redes.find(({ red }) => red === id) ?? redPendiente(id),
@@ -82,12 +97,22 @@ export function contarLeccion(
     const deSobra = (real?.redes ?? []).filter(
       (red) => tieneContenido(red) && !plan.redes.includes(red.red),
     );
-    return contarPieza(
-      real ?? piezaPrevista(plan),
-      [...redes, ...deSobra],
-      !real || !cuentaPieza(real),
-    );
-  });
+    const pieza = real ?? piezaPrevista(plan);
+    const prevista = !real || !cuentaPieza(real);
+    const todas = [...redes, ...deSobra];
+    if (pieza.tipo !== "leccion") return [contarPieza(pieza, todas, prevista)];
+    // El vídeo para LinkedIn va en su propia fila.
+    return [
+      contarPieza(pieza, todas.filter(({ red }) => red !== "linkedin"), prevista),
+      contarPieza(
+        pieza,
+        todas.filter(({ red }) => red === "linkedin"),
+        prevista,
+        `${pieza.id}-linkedin`,
+        TITULO_VIDEO_LINKEDIN,
+      ),
+    ];
+  }).flat();
   for (const real of reales) {
     if (!idsPlan.has(real.id) && cuentaPieza(real)) {
       piezas.push(contarPieza(real, redesDisponibles(real), false));

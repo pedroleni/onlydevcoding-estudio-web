@@ -207,7 +207,7 @@ describe("página de publicación", () => {
       "/cursos/react/1?pestana=publicar&pieza=short-2&red=youtube",
     );
     expect(within(short).getByRole("link", { name: "✅ Instagram, subido" })).toBeInTheDocument();
-    const leccion1 = within(bloques[0]).getByRole("listitem", { name: "Lección completa" });
+    const leccion1 = within(bloques[0]).getByRole("listitem", { name: "Vídeo para LinkedIn" });
     const linkedin = within(leccion1).getByRole("link", { name: "⬜ LinkedIn, pendiente, sin vídeo" });
     expect(linkedin).toHaveTextContent("LinkedIn · sin vídeo");
     expect(linkedin).toHaveAttribute(
@@ -235,7 +235,7 @@ describe("página de publicación", () => {
     render(await ContenidoPublicacion());
 
     const queda = screen.getByRole("region", { name: "Queda por subir" });
-    const [leccion] = within(queda).getAllByRole("listitem", { name: "Lección completa" });
+    const [leccion] = within(queda).getAllByRole("listitem", { name: "Vídeo para LinkedIn" });
     expect(within(leccion).getByRole("link", { name: "⬜ LinkedIn, pendiente" })).toBeInTheDocument();
   });
 

@@ -1,7 +1,12 @@
 import Link from "next/link";
 
 import { marcaPublicacion, REDES } from "@/lib/curso";
-import { nombreRed, redesDisponibles } from "@/lib/redes-publicacion";
+import {
+  nombreRed,
+  redesSinVideoLinkedin,
+  redVideoLinkedin,
+  TITULO_VIDEO_LINKEDIN,
+} from "@/lib/redes-publicacion";
 import type {
   EstadoLeccion,
   EstadoMontaje,
@@ -101,15 +106,32 @@ export function PanelEstado({
             className="mt-3 grid gap-4 text-sm"
             aria-label="Publicación por pieza"
           >
-            {piezas.map((pieza) => (
+            {piezas
+              .flatMap((pieza) => {
+                const linkedin = redVideoLinkedin(pieza);
+                const fila = { clave: pieza.id, pieza, titulo: pieza.titulo, redes: redesSinVideoLinkedin(pieza) };
+                return linkedin
+                  ? [
+                      fila,
+                      {
+                        clave: `${pieza.id}-linkedin`,
+                        pieza,
+                        titulo: TITULO_VIDEO_LINKEDIN,
+                        redes: [linkedin],
+                      },
+                    ]
+                  : [fila];
+              })
+              .filter(({ redes }) => redes.length > 0)
+              .map(({ clave, pieza, titulo, redes }) => (
               <li
-                key={pieza.id}
-                aria-label={pieza.titulo}
+                key={clave}
+                aria-label={titulo}
                 className="grid gap-1.5"
               >
-                <span className="line-clamp-2 text-texto">{pieza.titulo}</span>
+                <span className="line-clamp-2 text-texto">{titulo}</span>
                 <span className="flex flex-wrap gap-1.5">
-                  {redesDisponibles(pieza).map(({ red, estado: estadoRed }) => (
+                  {redes.map(({ red, estado: estadoRed }) => (
                     <Link
                       key={red}
                       href={`/cursos/${encodeURIComponent(curso)}/${numero}?pestana=publicar&pieza=${encodeURIComponent(pieza.id)}&red=${red}`}

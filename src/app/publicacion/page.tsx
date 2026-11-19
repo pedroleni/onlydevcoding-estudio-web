@@ -336,14 +336,14 @@ function QuedaPorSubir({ datos }: { datos: DatosCurso }) {
             <ul>
               {leccion.piezas
                 .filter((p) => p.pendientes.length > 0)
-                .map(({ pieza, redes, prevista }) => (
+                .map(({ clave, titulo, pieza, redes, prevista }) => (
                   <li
-                    key={pieza.id}
-                    aria-label={pieza.titulo}
+                    key={clave}
+                    aria-label={titulo}
                     className="grid gap-1.5 border-t border-borde px-3 py-2"
                   >
                     <span className="text-sm">
-                      {pieza.titulo}
+                      {titulo}
                       {prevista ? (
                         <span className="ml-2 text-xs text-tenue">· sin preparar</span>
                       ) : null}
@@ -423,9 +423,9 @@ function YaSubido({ datos }: { datos: DatosCurso }) {
             <ul>
               {leccion.piezas
                 .filter((p) => p.subidas.length > 0)
-                .map(({ pieza, subidas }) => (
-                  <li key={pieza.id} className="border-t border-borde px-3 py-2">
-                    <span className="text-sm">{pieza.titulo}</span>
+                .map(({ clave, titulo, subidas }) => (
+                  <li key={clave} className="border-t border-borde px-3 py-2">
+                    <span className="text-sm">{titulo}</span>
                     <ul className="mt-1 grid gap-0.5 text-[13px] text-tenue">
                       {subidas.map(({ red, estado }) => {
                         const url = urlSegura(estado.url);

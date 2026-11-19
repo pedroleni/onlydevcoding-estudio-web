@@ -115,18 +115,20 @@ describe("contarLeccion", () => {
     expect(leccion.subidas).toBe(3);
     expect(leccion.total).toBe(22);
     expect(leccion.empezada).toBe(true);
-    expect(leccion.piezas.map((p) => [p.pieza.id, p.pieza.titulo, p.prevista])).toEqual([
+    expect(leccion.piezas.map((p) => [p.clave, p.titulo, p.prevista])).toEqual([
       ["leccion", "Lección completa", false],
+      ["leccion-linkedin", "Vídeo para LinkedIn", false],
       ["reel-salida", "Reel de lanzamiento", true],
       ["short-1", "Short 1", true],
       ["short-2", "Short 2 · Con un taxi", false],
       ["short-3", "Short 3", true],
       ["short-4", "Short 4", true],
     ]);
-    expect(leccion.piezas[0].pendientes.map(({ red: r }) => r)).toEqual(["linkedin"]);
-    expect(leccion.piezas[3].pendientes.map(({ red: r }) => r)).toEqual(["youtube", "linkedin"]);
-    expect(leccion.piezas[3].subidas.map(({ red: r }) => r)).toEqual(["instagram", "tiktok"]);
-    expect(leccion.piezas[1].redes.map(({ red: r }) => r)).toEqual([
+    expect(leccion.piezas[0].subidas.map(({ red: r }) => r)).toEqual(["youtube"]);
+    expect(leccion.piezas[1].pendientes.map(({ red: r }) => r)).toEqual(["linkedin"]);
+    expect(leccion.piezas[4].pendientes.map(({ red: r }) => r)).toEqual(["youtube", "linkedin"]);
+    expect(leccion.piezas[4].subidas.map(({ red: r }) => r)).toEqual(["instagram", "tiktok"]);
+    expect(leccion.piezas[2].redes.map(({ red: r }) => r)).toEqual([
       "youtube",
       "instagram",
       "tiktok",
