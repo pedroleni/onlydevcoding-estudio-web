@@ -79,7 +79,8 @@ export interface EnlaceVista {
 }
 
 export interface TareaNueva {
-  fecha: string;
+  // null: la tarea está en la lista total, sin día asignado.
+  fecha: string | null;
   hora?: string | null;
   texto: string;
   tipo: string;

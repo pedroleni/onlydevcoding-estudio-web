@@ -204,7 +204,7 @@ describe("FormularioTarea", () => {
     await userEvent.click(screen.getByRole("button", { name: "Editar «Publicar lección»" }));
     expect(screen.getByRole("dialog", { name: "Editar tarea" })).toBeInTheDocument();
     expect(screen.getByLabelText("Texto")).toHaveValue("Publicar lección");
-    expect(screen.getByLabelText("Fecha")).toHaveValue("2026-11-18");
+    expect(screen.getByLabelText(/^Fecha/)).toHaveValue("2026-11-18");
     await waitFor(() => expect(screen.getByLabelText("Pieza")).toHaveValue("leccion"));
     expect(screen.getByLabelText("Lección")).toHaveValue("4");
     expect(screen.getByLabelText("Red")).toHaveValue("youtube");

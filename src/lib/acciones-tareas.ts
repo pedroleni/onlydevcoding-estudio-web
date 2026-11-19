@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 
-import { obtenerLeccion, obtenerLecciones } from "@/lib/api";
+import { obtenerLeccion, obtenerLecciones, obtenerTemario } from "@/lib/api";
 import { escribir } from "@/lib/api-escritura";
 import { COLORES_TAREA } from "@/lib/colores-tareas";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
@@ -85,7 +85,8 @@ function normalizarEnlace(valor: unknown): EnlaceTarea | null | ResultadoAccionT
 function normalizarTarea(valor: unknown): TareaNueva | ResultadoAccionTareas {
   if (!esObjeto(valor)) return error("La tarea no es válida");
   const { fecha, hora, texto, tipo, enlace } = valor;
-  if (typeof fecha !== "string" || !esFechaValida(fecha)) {
+  const sinFecha = fecha === null || fecha === undefined;
+  if (!sinFecha && (typeof fecha !== "string" || !esFechaValida(fecha))) {
     return error("La fecha no es válida");
   }
   if (hora !== undefined && hora !== null && (typeof hora !== "string" || !HORA_VALIDA.test(hora))) {
@@ -117,7 +118,7 @@ function normalizarTarea(valor: unknown): TareaNueva | ResultadoAccionTareas {
   const enlaceNormalizado = normalizarEnlace(enlace);
   if (enlaceNormalizado && "ok" in enlaceNormalizado) return enlaceNormalizado;
   return {
-    fecha,
+    fecha: sinFecha ? null : (fecha as string),
     ...(hora == null ? {} : { hora: hora as string }),
     texto: textoRecortado,
     tipo,
@@ -267,8 +268,17 @@ export async function opcionesLecciones(
   if (typeof curso !== "string" || !CURSO_VALIDO.test(curso)) return [];
   if (!(await origenPermitido())) return [];
   try {
-    const lecciones = await obtenerLecciones(curso);
-    return (lecciones ?? []).map(({ numero, titulo }) => ({ numero, titulo }));
+    // Las lecciones del temario sin carpeta también se pueden planificar.
+    const [lecciones, temario] = await Promise.all([
+      obtenerLecciones(curso),
+      obtenerTemario(curso).catch(() => null),
+    ]);
+    const porNumero = new Map<number, string>();
+    for (const { numero, titulo } of temario?.lecciones ?? []) porNumero.set(numero, titulo);
+    for (const { numero, titulo } of lecciones ?? []) porNumero.set(numero, titulo);
+    return [...porNumero.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([numero, titulo]) => ({ numero, titulo }));
   } catch (causa) {
     console.error("Error inesperado al leer lecciones de la API", {
       tipo: causa instanceof Error ? causa.name : typeof causa,

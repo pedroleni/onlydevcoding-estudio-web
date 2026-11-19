@@ -16,7 +16,8 @@ export function colorSeguro(color: string): TipoTarea["color"] {
 const TIPO_VALIDO = /^[a-z0-9-]{1,30}$/;
 const FECHA = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 
-export type VistaTareas = "dia" | "semana";
+// «todas»: la lista total de tareas sin día, agrupada por lección.
+export type VistaTareas = "dia" | "semana" | "todas";
 
 export interface ParametrosTareas {
   vista: VistaTareas;
@@ -48,7 +49,8 @@ export function leerParametrosTareas(consulta: Consulta, hoy: string): Parametro
   const curso = primero(consulta.curso);
   const tipo = primero(consulta.tipo);
 
-  const vistaFinal: VistaTareas = vista === "semana" ? "semana" : "dia";
+  const vistaFinal: VistaTareas =
+    vista === "semana" || vista === "todas" ? vista : "dia";
   const diaValido = dia !== undefined && FECHA.test(dia) && esFechaValida(dia);
   // Una semana que acaba después del 9999-12-31 no se puede pedir a la API.
   const semanaValida =
@@ -146,6 +148,41 @@ export function agruparDia(
 
     return { curso, nombre, tipos: grupos };
   });
+}
+
+export interface GrupoLeccion {
+  clave: string;
+  curso: string | null;
+  numero: number | null;
+  titulo: string;
+  tareas: TareaVista[];
+  hechas: number;
+}
+
+// Agrupa la lista total por curso y lección, en el orden en que llega de la API.
+export function agruparPorLeccion(tareas: TareaVista[]): GrupoLeccion[] {
+  const grupos = new Map<string, GrupoLeccion>();
+  for (const tarea of tareas) {
+    const curso = tarea.enlace?.curso ?? null;
+    const numero = tarea.enlace?.numero ?? null;
+    const clave = `${curso ?? ""}|${numero ?? ""}`;
+    let grupo = grupos.get(clave);
+    if (!grupo) {
+      const vista = tarea.enlace_vista;
+      const nombreCurso = vista?.curso_nombre ?? curso;
+      const titulo =
+        curso === null
+          ? "Sin curso"
+          : numero === null
+            ? (nombreCurso ?? curso)
+            : `${numero} · ${vista?.leccion_titulo ?? `Lección ${numero}`}`;
+      grupo = { clave, curso, numero, titulo, tareas: [], hechas: 0 };
+      grupos.set(clave, grupo);
+    }
+    grupo.tareas.push(tarea);
+    if (tarea.hecha) grupo.hechas += 1;
+  }
+  return [...grupos.values()];
 }
 
 export function hrefEnlace(tarea: TareaVista): string | null {
