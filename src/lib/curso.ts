@@ -4,7 +4,7 @@ export const CURSO_VALIDO = /^[a-z0-9-]{1,40}$/;
 
 // Curso y número de lección que se pueden mandar a la API (las Server Actions reciben
 // los argumentos del cliente sin tipos garantizados).
-export function leccionValida(curso: unknown, numero: unknown): boolean {
+export function leccionValida(curso: unknown, numero: unknown): curso is string {
   return (
     typeof curso === "string" &&
     CURSO_VALIDO.test(curso) &&

@@ -28,7 +28,7 @@ jobs:
             echo "::error::Falta la sección «## Revisión clean code». Ejecuta el agente clean-code sobre la rama y pega su veredicto en la descripción."
             exit 1
           fi
-          if ! printf '%s\n' "$seccion" | grep -q '^Veredicto: APROBADO'; then
+          if ! printf '%s\n' "$seccion" | grep -qE '^Veredicto: APROBADO[[:space:]]*$'; then
             echo "::error::El agente clean-code no ha aprobado la PR (falta «Veredicto: APROBADO»)."
             exit 1
           fi

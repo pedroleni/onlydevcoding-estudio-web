@@ -45,19 +45,26 @@ function deudaCongelada() {
 function duplicados() {
   const carpeta = mkdtempSync(path.join(tmpdir(), "jscpd-"));
   const configuracion = path.join(carpeta, "jscpd.json");
+  // Los mismos umbrales que la puerta (.jscpd.json), pero contando también los tests.
+  const base = JSON.parse(readFileSync(path.join(raiz, ".jscpd.json"), "utf8"));
   writeFileSync(
     configuracion,
     JSON.stringify({
-      path: [path.join(raiz, "src")],
-      format: ["typescript", "tsx"],
-      minTokens: 70,
-      minLines: 8,
+      ...base,
+      path: base.path.map((ruta) => path.join(raiz, ruta)),
+      ignore: [],
+      // Aquí solo se informa: sin umbral que corte la ejecución.
+      threshold: 100,
       reporters: ["json"],
       output: carpeta,
       silent: true,
     }),
   );
-  ejecutar("npx", ["jscpd", "--config", configuracion]);
+  const resultado = ejecutar("npx", ["jscpd", "--config", configuracion]);
+  if (resultado.error || resultado.status === null) {
+    rmSync(carpeta, { recursive: true, force: true });
+    return `## Duplicados\n\nNo se ha podido ejecutar jscpd: ${resultado.error?.message ?? resultado.stderr}`;
+  }
   try {
     const informe = JSON.parse(readFileSync(path.join(carpeta, "jscpd-report.json"), "utf8"));
     const { total } = informe.statistics;

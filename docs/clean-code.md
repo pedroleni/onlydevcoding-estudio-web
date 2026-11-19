@@ -143,14 +143,14 @@ Leídas en `AGENTS.md`, configuración y código. El revisor **no** debe pedir q
 - **Qué**: no copiar bloques de lógica; extraer función o tabla de datos. La duplicación en tests (datos de prueba explícitos) se tolera más.
 - **Por qué**: DRY y "Duplicated Code" (<https://refactoring.guru/smells/duplicate-code>); Google eng-practices pide código que no sea más complejo de lo necesario.
 - **Malo**: dos componentes con el mismo bloque de 15 líneas para el foco del diálogo. **Bueno**: un hook `useDialogoModal`.
-- **Comprobación**: DET: `jscpd` (<https://github.com/kucherenko/jscpd>) en TS y Python; `sonarjs/no-identical-functions`, `sonarjs/no-all-duplicated-branches`, `sonarjs/no-duplicated-branches`.
+- **Comprobación**: DET: `jscpd` con `.jscpd.json` (70 tokens, 8 líneas, sin tests); `sonarjs/no-identical-functions`, `sonarjs/no-all-duplicated-branches`. Duplicar lógica de otro módulo con otra forma es LLM.
 - **Severidad**: BLOQUEANTE si el PR *añade* un clon por encima del umbral («Puerta automática»); SUGERENCIA para clones previos.
 
 ### GEN-07 · Sin código muerto ni comentado
 - **Qué**: no dejar exports, funciones, archivos o dependencias sin uso, ni código comentado.
 - **Por qué**: "Dead Code" (<https://refactoring.guru/smells/dead-code>); el control de versiones ya guarda la historia.
 - **Malo**: `// const viejo = calcular(x);`. **Bueno**: borrarlo.
-- **Comprobación**: DET: web `knip` (<https://knip.dev>), `@typescript-eslint/no-unused-vars` (ya activa); API `vulture` (<https://github.com/jendrikseipp/vulture>) con `--min-confidence 80` e `--ignore-decorators "@router.*,@field_validator,@model_validator"`, ruff `F401`/`F841` (ya activas), `ERA001` (código comentado).
+- **Comprobación**: DET: `knip` (`knip.json`), `@typescript-eslint/no-unused-vars` (ya activa). Código comentado: LLM.
 - **Severidad**: BLOQUEANTE para variables/imports sin uso (ya lo es); SUGERENCIA para exports muertos (knip/vulture dan falsos positivos con convenciones de framework).
 
 ### GEN-08 · Comentarios: porqué, en español, actualizados
@@ -456,25 +456,23 @@ Fuentes: <https://testing-library.com/docs/guiding-principles>, <https://testing
 ## Checklist del agente revisor
 
 Formato de cada comentario: `[BLOQUEANTE]` o `[SUGERENCIA]` (o `Nit:`), norma (`RE-03`), archivo:línea, motivo en una
-frase y propuesta concreta. No repetir lo que ya marca el lint de CI. No pedir cambios que contradigan las convenciones del repo.
+frase y propuesta concreta. No repetir lo que ya marca la puerta automática. No pedir cambios que contradigan las
+convenciones del repo.
 
 **Bloqueantes**
 1. Server Action nueva o cambiada sin validar cada argumento `unknown` o sin devolver `ResultadoAccion` (NX-01).
 2. Secretos o llamadas de escritura alcanzables desde un componente cliente; módulo con secreto sin `"server-only"` (NX-02, NX-03).
 3. Escritura sin refresco/revalidación de la vista afectada; `"use cache"` con APIs de petición dentro (NX-04, NX-06).
-4. `params`/`searchParams` o parámetros de ruta FastAPI sin validar contra los patrones del proyecto (NX-05, FA-06).
+4. `params`/`searchParams` sin validar contra los patrones del proyecto (NX-05).
 5. Efecto que deriva estado o sincroniza estado interno (RE-03); supresión de `exhaustive-deps` sin motivo válido (RE-02, GEN-09).
 6. Estado duplicado que puede desincronizarse (RE-06).
-7. Modelo Pydantic de entrada sin `extra="forbid"` o con tipos laxos (PD-01); API v1 de Pydantic (PD-03).
-8. `async def` con E/S bloqueante (FA-01); SQL nuevo en un handler (FA-02).
-9. SQL sin parámetros, transacción compuesta sin `BEGIN IMMEDIATE`, conexión sin `closing`, cambio de esquema sin migración versionada ni test (SQ-01 a SQ-04).
-10. Ruta de disco sin contención en la raíz permitida; proceso con `shell=True` o argumentos externos (PY-04, PY-05).
-11. Excepciones tragadas o sin causa (GEN-10, PY-06).
-12. Límite o patrón compartido cambiado en un solo repo (GEN-05).
-13. Comportamiento nuevo o bug corregido sin test que lo cubra (GEN-11); test que toca `datos/` o usa datos reales (PT-01, VT-05).
-14. Tests asíncronos sin `await`/`findBy` o mocks que filtran estado (VT-02, VT-04).
-15. Clases Tailwind interpoladas o colores fuera de los tokens propios en código nuevo (TW-01, TW-03).
-16. Comentario que queda falso tras el cambio (GEN-08); nombre engañoso (GEN-02).
+7. Excepciones tragadas o sin causa (GEN-10).
+8. Límite o patrón compartido cambiado en un solo repo (GEN-05).
+9. Comportamiento nuevo o bug corregido sin test que lo cubra (GEN-11); test con datos reales (VT-05).
+10. Tests asíncronos sin `await`/`findBy` o mocks que filtran estado (VT-02, VT-04).
+11. Clases Tailwind interpoladas o colores fuera de los tokens propios en código nuevo (TW-01, TW-03).
+12. Comentario que queda falso tras el cambio (GEN-08); nombre o tipo engañoso (GEN-02).
+13. Lógica nueva que repite algo que ya existe en el repo aunque la puerta no lo detecte (GEN-06); excepción nueva en `eslint-suppressions.json` o `eslint-disable` sin motivo (GEN-09).
 
 **Sugerencias**
 1. Función que hace varias cosas o mezcla niveles de abstracción, aunque pase el umbral (GEN-03, GEN-04).
@@ -482,13 +480,8 @@ frase y propuesta concreta. No repetir lo que ya marca el lint de CI. No pedir c
 3. Supresiones `exhaustive-deps` existentes → `useEffectEvent` (RE-02).
 4. `useMemo`/`useCallback` sin motivo, o falta de ellos donde una identidad estable sí importa (RE-08).
 5. Valores arbitrarios repetidos en Tailwind → token; listas de clases repetidas → constante o componente (TW-02, TW-04).
-6. Restricción que podría ser `Field(...)` en vez de validador (PD-02); modelos de entrada/vista mezclados (PD-04).
-7. Filas por posición en código nuevo → `sqlite3.Row` (SQ-05); restricciones `CHECK`/`STRICT` en tablas nuevas (SQ-06).
-8. Tests copiados → `parametrize` o fábricas (PT-02, VT-05); `time.sleep` en tests (PT-04); consultas por rol (VT-01).
-9. Docstring que falta en una función pública con contrato no obvio (PY-03).
-10. `assert` usado para estrechar → `if … raise` (PY-10).
-11. PR que mezcla cambios no relacionados (GEN-01).
-12. Exports o archivos sin uso (GEN-07).
+6. Tests copiados → `it.each` o fábricas (VT-05); consultas por rol (VT-01).
+7. PR que mezcla cambios no relacionados (GEN-01).
 
 ## Fuentes principales
 
@@ -513,8 +506,3 @@ frase y propuesta concreta. No repetir lo que ya marca el lint de CI. No pedir c
   comentarios no se adoptan literalmente.
 - Herramientas: jscpd <https://github.com/kucherenko/jscpd>, knip <https://knip.dev>, vulture
   <https://github.com/jendrikseipp/vulture>, radon <https://radon.readthedocs.io/>, xenon <https://github.com/rubik/xenon>
-
-Verificado en esta sesión: versiones instaladas (Next 16.4.6, React 19.3.0, ESLint 9.39.5, TS 5.9.3,
-eslint-plugin-react-hooks 7.1.1 con las reglas del compilador en `recommended`), configuración de `eslint-config-next`
-y las guías locales de Next en `node_modules/next/dist/docs/`. Las URL de documentación son las canónicas conocidas;
-no se han abierto una a una por el cambio de alcance (conviene validar enlaces antes de publicar el documento).
