@@ -529,7 +529,7 @@ describe("pestaña Publicar", () => {
     ).toBeInTheDocument();
   });
 
-  it("nombra todas las redes que faltan en una sola línea", () => {
+  it("enseña las redes del tipo de pieza y nombra en una línea las que no le tocan", () => {
     const soloLinkedin: VistaPublicacion = {
       ...vista,
       piezas: [
@@ -545,14 +545,11 @@ describe("pestaña Publicar", () => {
     render(<PublicarLeccion vista={soloLinkedin} />);
 
     expect(screen.getAllByRole("tab").map((pestana) => pestana.textContent)).toEqual([
+      "YouTube",
       "LinkedIn",
     ]);
-    expect(screen.getByRole("tab", { name: "LinkedIn" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
     expect(
-      screen.getByText("Esta pieza no se publica en YouTube, Instagram ni TikTok"),
+      screen.getByText("Esta pieza no se publica en Instagram ni TikTok"),
     ).toBeInTheDocument();
   });
 
@@ -606,12 +603,12 @@ describe("pestaña Publicar", () => {
     expect(screen.queryByText(/Esta pieza no se publica en/)).not.toBeInTheDocument();
   });
 
-  it("un short sin textos ni estado muestra YouTube, Instagram y TikTok", () => {
+  it("un short sin textos ni estado muestra YouTube, Instagram, TikTok y LinkedIn", () => {
     render(<PublicarLeccion vista={vista} piezaSeleccionada="short-1" />);
 
     expect(
       screen.getAllByRole("tab").map((pestana) => pestana.textContent),
-    ).toEqual(["YouTube", "Instagram", "TikTok"]);
+    ).toEqual(["YouTube", "Instagram", "TikTok", "LinkedIn"]);
     expect(screen.getByRole("heading", { name: /Estado/ })).toBeInTheDocument();
     expect(screen.queryByText(/Esta pieza no se publica en/)).not.toBeInTheDocument();
   });

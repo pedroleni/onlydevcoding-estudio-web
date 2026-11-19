@@ -158,7 +158,7 @@ describe("página de publicación", () => {
     render(await ContenidoPublicacion());
 
     const global = screen.getByRole("region", { name: "Visión global de React" });
-    // Publicación sobre las 17 previstas: L1 (3 + 3/17)/4 = 79 %, L2 (3 + 1/17)/4 = 76 %,
+    // Publicación sobre las 22 previstas: L1 (3 + 3/22)/4 = 78 %, L2 (3 + 1/22)/4 = 76 %,
     // L3 0 % → media 51 %
     expect(within(global).getByText("51 %")).toBeInTheDocument();
     expect(within(global).getByText(/queda el 49 %/)).toBeInTheDocument();
@@ -169,7 +169,7 @@ describe("página de publicación", () => {
     );
     const porLeccion = within(global).getByRole("list", { name: "Avance por lección" });
     expect(within(porLeccion).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
-      "0179 %",
+      "0178 %",
       "0276 %",
       "030 %",
     ]);
@@ -179,11 +179,11 @@ describe("página de publicación", () => {
     render(await ContenidoPublicacion());
 
     const cifras = screen.getByRole("list", { name: "Cifras de publicación" });
-    // 17 publicaciones previstas por lección: 51 en total, 4 subidas.
-    expect(within(cifras).getByText("quedan").previousSibling).toHaveTextContent("47");
+    // 22 publicaciones previstas por lección: 66 en total, 4 subidas.
+    expect(within(cifras).getByText("quedan").previousSibling).toHaveTextContent("62");
     expect(within(cifras).getByText("subidas").previousSibling).toHaveTextContent("4");
     expect(within(cifras).getByText("YouTube").previousSibling).toHaveTextContent("16");
-    expect(within(cifras).getByText("LinkedIn").previousSibling).toHaveTextContent("3");
+    expect(within(cifras).getByText("LinkedIn").previousSibling).toHaveTextContent("18");
     expect(within(cifras).getByText("Instagram").previousSibling).toHaveTextContent("14");
   });
 
@@ -193,7 +193,7 @@ describe("página de publicación", () => {
     const queda = screen.getByRole("region", { name: "Queda por subir" });
     const bloques = within(queda).getAllByRole("article");
     expect(bloques).toHaveLength(2);
-    expect(within(bloques[0]).getByText("14 por subir")).toBeInTheDocument();
+    expect(within(bloques[0]).getByText("19 por subir")).toBeInTheDocument();
     expect(within(bloques[0]).getByRole("listitem", { name: "Short 1" })).toHaveTextContent(
       "Short 1· sin preparar",
     );
@@ -215,7 +215,7 @@ describe("página de publicación", () => {
       "/cursos/react/1?pestana=publicar&pieza=leccion&red=linkedin",
     );
     expect(within(queda).getByText("Lección 3: sin empezar")).toBeInTheDocument();
-    expect(within(queda).getByText("17 por subir", { selector: "summary span" })).toBeInTheDocument();
+    expect(within(queda).getByText("22 por subir", { selector: "summary span" })).toBeInTheDocument();
   });
 
   it("no avisa de vídeo en un LinkedIn que ya tiene su clip", async () => {
@@ -235,7 +235,8 @@ describe("página de publicación", () => {
     render(await ContenidoPublicacion());
 
     const queda = screen.getByRole("region", { name: "Queda por subir" });
-    expect(within(queda).getByRole("link", { name: "⬜ LinkedIn, pendiente" })).toBeInTheDocument();
+    const [leccion] = within(queda).getAllByRole("listitem", { name: "Lección completa" });
+    expect(within(leccion).getByRole("link", { name: "⬜ LinkedIn, pendiente" })).toBeInTheDocument();
   });
 
   it("cuenta también las lecciones del temario y los ganchos grabados", async () => {
@@ -264,8 +265,8 @@ describe("página de publicación", () => {
     const global = screen.getByRole("region", { name: "Visión global de React" });
     expect(within(global).getByText("0 de 5 lecciones terminadas del todo")).toBeInTheDocument();
     const cifras = screen.getByRole("list", { name: "Cifras de publicación" });
-    // 47 de las tres lecciones en disco y 17 por cada una de las 2 previstas.
-    expect(within(cifras).getByText("quedan").previousSibling).toHaveTextContent("81");
+    // 62 de las tres lecciones en disco y 22 por cada una de las 2 previstas.
+    expect(within(cifras).getByText("quedan").previousSibling).toHaveTextContent("106");
     // L1 y L3 tienen guion sin ganchos, L2 trae 2 y L4–L5 llevan los 4 previstos.
     expect(within(cifras).getByText("ganchos grabados").previousSibling).toHaveTextContent("1/10");
     const queda = screen.getByRole("region", { name: "Queda por subir" });

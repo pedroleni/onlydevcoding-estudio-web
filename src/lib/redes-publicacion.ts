@@ -10,25 +10,28 @@ export function tieneContenido(red: RedVista): boolean {
   return red.textos !== null || red.estado.estado !== "pendiente";
 }
 
-const REDES_POR_DEFECTO: Record<PiezaVista["tipo"], RedVista["red"][]> = {
+// Redes en que se publica cada tipo de pieza: la lección en YouTube y LinkedIn;
+// el reel de lanzamiento y los shorts en YouTube, Instagram, TikTok y LinkedIn.
+export const REDES_POR_TIPO: Record<PiezaVista["tipo"], RedVista["red"][]> = {
   leccion: ["youtube", "linkedin"],
-  short: ["youtube", "instagram", "tiktok"],
-  reel: ["youtube", "instagram", "tiktok"],
+  short: ["youtube", "instagram", "tiktok", "linkedin"],
+  reel: ["youtube", "instagram", "tiktok", "linkedin"],
 };
 
-// Si la pieza no tiene contenido en ninguna red, se ofrecen las redes por
-// defecto de su tipo (sin textos) para poder programarla o marcarla.
+function redPendiente(red: RedVista["red"]): RedVista {
+  return { red, textos: null, estado: { estado: "pendiente", fecha: null, url: null } };
+}
+
+// Las redes del tipo de la pieza (aunque aún no tengan textos, para poder
+// programarlas o marcarlas) y cualquier otra que ya tenga contenido, en el orden fijo.
 export function redesDisponibles(pieza: PiezaVista): RedVista[] {
-  const conContenido = pieza.redes.filter(tieneContenido);
-  if (conContenido.length > 0) return conContenido;
-  return REDES_POR_DEFECTO[pieza.tipo].map(
-    (id) =>
-      pieza.redes.find(({ red }) => red === id) ?? {
-        red: id,
-        textos: null,
-        estado: { estado: "pendiente", fecha: null, url: null },
-      },
-  );
+  const previstas = new Set<string>(REDES_POR_TIPO[pieza.tipo]);
+  return REDES.flatMap(([id]) => {
+    const real = pieza.redes.find(({ red }) => red === id);
+    if (real && tieneContenido(real)) return [real];
+    if (previstas.has(id)) return [real ?? redPendiente(id)];
+    return [];
+  });
 }
 
 // LinkedIn no publica la lección entera, sino un clip horizontal hecho para esa red
@@ -40,11 +43,10 @@ export function faltaVideoPropio(pieza: Pick<PiezaVista, "tipo">, red: RedVista)
 export const AVISO_SIN_VIDEO_LINKEDIN =
   "Aún no hay vídeo para LinkedIn. Prepáralo en 4-linkedin/ antes de marcarlo como subido.";
 
-export function avisoRedesAusentes(redes: RedVista[]): string | null {
-  if (!redes.some(tieneContenido)) return null;
-  const nombres = redes
-    .filter((red) => !tieneContenido(red))
-    .map(({ red }) => nombreRed(red));
+export function avisoRedesAusentes(pieza: PiezaVista): string | null {
+  if (!pieza.redes.some(tieneContenido)) return null;
+  const disponibles = new Set(redesDisponibles(pieza).map(({ red }) => red));
+  const nombres = REDES.filter(([id]) => !disponibles.has(id)).map(([, nombre]) => nombre);
   if (nombres.length === 0) return null;
   const lista =
     nombres.length === 1

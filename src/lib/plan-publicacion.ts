@@ -1,8 +1,9 @@
+import { REDES_POR_TIPO } from "@/lib/redes-publicacion";
 import type { PiezaVista, RedVista } from "@/lib/tipos";
 
 // Lo que se publica de cada lección, haya o no textos todavía: la lección completa
 // en YouTube y LinkedIn, 4 shorts y el reel de lanzamiento (resumen con motion
-// graphics) en YouTube, Instagram y TikTok. 2 + 4 × 3 + 3 = 17 publicaciones.
+// graphics) en YouTube, Instagram, TikTok y LinkedIn. 2 + 5 × 4 = 22 publicaciones.
 export interface PiezaPrevista {
   id: string;
   tipo: PiezaVista["tipo"];
@@ -10,16 +11,14 @@ export interface PiezaPrevista {
   redes: RedVista["red"][];
 }
 
-const VERTICALES: RedVista["red"][] = ["youtube", "instagram", "tiktok"];
-
 export const PLAN_LECCION: PiezaPrevista[] = [
-  { id: "leccion", tipo: "leccion", titulo: "Lección completa", redes: ["youtube", "linkedin"] },
-  { id: "reel-salida", tipo: "reel", titulo: "Reel de lanzamiento", redes: VERTICALES },
+  { id: "leccion", tipo: "leccion", titulo: "Lección completa", redes: REDES_POR_TIPO.leccion },
+  { id: "reel-salida", tipo: "reel", titulo: "Reel de lanzamiento", redes: REDES_POR_TIPO.reel },
   ...[1, 2, 3, 4].map((n) => ({
     id: `short-${n}`,
     tipo: "short" as const,
     titulo: `Short ${n}`,
-    redes: VERTICALES,
+    redes: REDES_POR_TIPO.short,
   })),
 ];
 
