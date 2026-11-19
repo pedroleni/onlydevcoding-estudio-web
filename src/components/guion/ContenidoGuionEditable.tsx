@@ -7,7 +7,7 @@ export type EdicionGuion = { tipo: "escena"; id: string } | { tipo: "ganchos" } 
 
 const BOTON_EDITAR =
   "min-h-10 border border-borde px-4 text-sm font-semibold text-texto transition-colors hover:border-marca hover:bg-carbon disabled:cursor-not-allowed disabled:opacity-60";
-const CLAVE_GANCHOS = "ganchos";
+export const CLAVE_GANCHOS = "ganchos";
 
 type PropiedadesEdicion = {
   curso: string;

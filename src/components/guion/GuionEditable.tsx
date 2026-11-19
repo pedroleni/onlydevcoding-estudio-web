@@ -6,6 +6,7 @@ import { useSeguimientoTrabajo } from "@/components/acciones/useSeguimientoTraba
 import { AvisoMontaje, elegirAviso } from "@/components/guion/AvisoMontaje";
 import {
   EscenasEditables,
+  CLAVE_GANCHOS,
   SeccionGanchos,
   type EdicionGuion,
 } from "@/components/guion/ContenidoGuionEditable";
@@ -100,7 +101,7 @@ export function GuionEditable({
   }
 
   function cerrar() {
-    volverA.current = edicion?.tipo === "escena" ? edicion.id : "ganchos";
+    volverA.current = edicion?.tipo === "escena" ? edicion.id : CLAVE_GANCHOS;
     setEdicion(null);
   }
 

@@ -144,38 +144,24 @@ function FechaPropuesta({ fecha }: { fecha: string | null }) {
   );
 }
 
-function VistaSinTextos({
-  controles,
-  video,
-  fechaPropuesta,
-}: {
-  controles: React.ReactNode;
-  video: React.ReactNode;
-  fechaPropuesta: string | null;
-}) {
+function ContenidoSinTextos({ fechaPropuesta }: { fechaPropuesta: string | null }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
-      {controles}
-      {video}
+    <>
       <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
         Esta red todavía no tiene textos preparados.
       </p>
       {fechaPropuesta ? (
         <p className="text-sm text-tenue">Fecha propuesta: {fechaPublicacionLegible(fechaPropuesta)}</p>
       ) : null}
-    </div>
+    </>
   );
 }
 
-function VistaConTextos({
-  controles,
-  video,
+function ContenidoConTextos({
   textos,
   red,
   fechaPropuesta,
 }: {
-  controles: React.ReactNode;
-  video: React.ReactNode;
   textos: TextosRedDatos;
   red: RedVista["red"];
   fechaPropuesta: string | null;
@@ -184,9 +170,7 @@ function VistaConTextos({
   const limiteTexto = limiteTextoRed(red);
   const titulos = textos.titulos.filter((titulo) => titulo !== "");
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      {controles}
-      {video}
+    <>
       <TitulosRed titulos={titulos} red={red} />
       {textos.descripcion ? (
         <CampoTexto
@@ -220,7 +204,7 @@ function VistaConTextos({
         <CampoTexto titulo="Notas" texto={textos.notas} limite={LIMITES_PUBLICACION.notas} contexto="las notas" />
       ) : null}
       <FechaPropuesta fecha={fechaPropuesta} />
-    </div>
+    </>
   );
 }
 
@@ -278,16 +262,20 @@ export function PanelTextosRed({
   const videoRed = video === undefined ? (textos?.video ?? null) : video;
   const bloqueVideo = <VideoRed red={red} video={videoRed} vertical={vertical} />;
 
-  if (textos === null) {
-    return <VistaSinTextos controles={controles} video={bloqueVideo} fechaPropuesta={fechaPropuesta} />;
-  }
+  // Una sola raíz con los controles y el vídeo siempre en los mismos huecos: si llegan
+  // textos nuevos (por ejemplo, generados fuera de esta página), React conserva el vídeo
+  // en reproducción y el foco del botón Editar.
+  const contenido =
+    textos === null ? (
+      <ContenidoSinTextos fechaPropuesta={fechaPropuesta} />
+    ) : (
+      <ContenidoConTextos textos={textos} red={red} fechaPropuesta={fechaPropuesta} />
+    );
   return (
-    <VistaConTextos
-      controles={controles}
-      video={bloqueVideo}
-      textos={textos}
-      red={red}
-      fechaPropuesta={fechaPropuesta}
-    />
+    <div className={`grid grid-cols-[minmax(0,1fr)] ${textos === null ? "gap-5" : "gap-4"}`}>
+      {controles}
+      {bloqueVideo}
+      {contenido}
+    </div>
   );
 }
