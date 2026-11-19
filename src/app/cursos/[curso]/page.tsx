@@ -27,6 +27,86 @@ function CargandoCurso() {
   );
 }
 
+function resumenCurso(
+  datos: {
+    conTemario: boolean;
+    preparadas: number;
+    totalFichas: number;
+    terminadas: number;
+    totalLecciones: number;
+  },
+): string {
+  if (datos.conTemario) {
+    const final = datos.terminadas === 1 ? "terminada" : "terminadas";
+    return `${datos.preparadas} de ${datos.totalFichas} lecciones preparadas · ${datos.terminadas} ${final}`;
+  }
+  const nombre = datos.totalLecciones === 1 ? "lección" : "lecciones";
+  return `${datos.totalLecciones} ${nombre}`;
+}
+
+function CabeceraCurso({
+  color,
+  curso,
+  mostrarBorrar,
+  nombre,
+  resumen,
+}: {
+  color: string;
+  curso: string;
+  mostrarBorrar: boolean;
+  nombre: string;
+  resumen: string;
+}) {
+  return (
+    <header>
+      <Link
+        href="/cursos"
+        className="text-sm font-medium text-marca hover:text-texto"
+      >
+        Volver a cursos
+      </Link>
+      <div
+        className="mt-5 flex items-center gap-4 rounded-3xl border border-borde p-4 md:gap-6 md:p-6"
+        style={{
+          background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${color} 16%, transparent), transparent 60%)`,
+        }}
+      >
+        <LogoTecnologia id={curso} nombre={nombre} tamano="lg" />
+        <div className="min-w-0">
+          <h1 className="text-3xl font-semibold capitalize tracking-[-0.035em] md:text-5xl">
+            {nombre}
+          </h1>
+          <p className="mt-2 text-tenue">{resumen}</p>
+        </div>
+      </div>
+      {mostrarBorrar ? (
+        <div className="mt-5">
+          <BotonBorrarCurso curso={curso} nombre={nombre} />
+        </div>
+      ) : null}
+    </header>
+  );
+}
+
+function ContenidoLecciones({
+  curso,
+  fichas,
+}: {
+  curso: string;
+  fichas: ReturnType<typeof fichasCurso>;
+}) {
+  if (fichas.length > 0) return <ListaLecciones curso={curso} fichas={fichas} />;
+  return (
+    <p className="mt-8 border border-borde bg-superficie p-6 text-tenue">
+      Este curso aún no tiene lecciones en disco
+    </p>
+  );
+}
+
+function esErrorEsperado(error: unknown): error is ApiNoDisponible | ErrorApi {
+  return error instanceof ApiNoDisponible || error instanceof ErrorApi;
+}
+
 async function ContenidoCurso({
   params,
 }: Pick<PageProps<"/cursos/[curso]">, "params">) {
@@ -48,7 +128,7 @@ async function ContenidoCurso({
       lecturaApiOpcional(obtenerTemario(curso)),
     ]);
   } catch (error) {
-    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+    if (esErrorEsperado(error)) {
       return <AvisoApi error={error} />;
     }
 
@@ -66,48 +146,24 @@ async function ContenidoCurso({
   const preparadas = fichas.filter((f) => f.leccion !== null).length;
   const terminadas = fichas.filter((f) => estadoFicha(f) === "terminada").length;
   const color = tecnologiaDe(curso, nombreCurso)?.color ?? "var(--marca)";
+  const resumen = resumenCurso({
+    conTemario: Boolean(temario && temario.lecciones.length > 0),
+    preparadas,
+    totalFichas: fichas.length,
+    terminadas,
+    totalLecciones: lecciones.length,
+  });
 
   return (
     <>
-      <header>
-        <Link
-          href="/cursos"
-          className="text-sm font-medium text-marca hover:text-texto"
-        >
-          Volver a cursos
-        </Link>
-        <div
-          className="mt-5 flex items-center gap-4 rounded-3xl border border-borde p-4 md:gap-6 md:p-6"
-          style={{
-            background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${color} 16%, transparent), transparent 60%)`,
-          }}
-        >
-          <LogoTecnologia id={curso} nombre={nombreCurso} tamano="lg" />
-          <div className="min-w-0">
-            <h1 className="text-3xl font-semibold capitalize tracking-[-0.035em] md:text-5xl">
-              {nombreCurso}
-            </h1>
-            <p className="mt-2 text-tenue">
-              {temario && temario.lecciones.length > 0
-                ? `${preparadas} de ${fichas.length} lecciones preparadas · ${terminadas} ${terminadas === 1 ? "terminada" : "terminadas"}`
-                : `${lecciones.length} ${lecciones.length === 1 ? "lección" : "lecciones"}`}
-            </p>
-          </div>
-        </div>
-        {datosCurso && !datosCurso.en_disco ? (
-          <div className="mt-5">
-            <BotonBorrarCurso curso={curso} nombre={nombreCurso} />
-          </div>
-        ) : null}
-      </header>
-
-      {fichas.length > 0 ? (
-        <ListaLecciones curso={curso} fichas={fichas} />
-      ) : (
-        <p className="mt-8 border border-borde bg-superficie p-6 text-tenue">
-          Este curso aún no tiene lecciones en disco
-        </p>
-      )}
+      <CabeceraCurso
+        color={color}
+        curso={curso}
+        mostrarBorrar={Boolean(datosCurso && !datosCurso.en_disco)}
+        nombre={nombreCurso}
+        resumen={resumen}
+      />
+      <ContenidoLecciones curso={curso} fichas={fichas} />
     </>
   );
 }

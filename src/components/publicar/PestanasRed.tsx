@@ -15,6 +15,16 @@ import {
 } from "@/lib/redes-publicacion";
 import type { PiezaVista, RedVista } from "@/lib/tipos";
 
+function IconoPublicacion({ estado }: { estado: RedVista["estado"]["estado"] }) {
+  if (estado === "publicado") {
+    return <span aria-label="subido" title="Subido">✅</span>;
+  }
+  if (estado === "programado") {
+    return <span aria-label="programado" title="Programado">📅</span>;
+  }
+  return null;
+}
+
 export function PestanasRed({
   curso,
   numero,
@@ -79,11 +89,7 @@ export function PestanasRed({
                 }}
                 className="inline-flex min-h-12 items-center gap-2 border-b-2 border-transparent px-4 text-sm font-medium text-tenue transition-colors hover:text-texto aria-[selected=true]:border-marca aria-[selected=true]:text-texto"
               >
-                {redVista.estado.estado === "publicado" ? (
-                  <span aria-label="subido" title="Subido">✅</span>
-                ) : redVista.estado.estado === "programado" ? (
-                  <span aria-label="programado" title="Programado">📅</span>
-                ) : null}
+                <IconoPublicacion estado={redVista.estado.estado} />
                 {nombreRed(redVista.red)}
                 {redVista.textos ? (
                   <span

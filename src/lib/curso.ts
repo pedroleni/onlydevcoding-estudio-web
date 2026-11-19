@@ -30,6 +30,12 @@ function estaPublicado(
   return estado.publicado[clave] ?? estado.publicado[nombre] ?? false;
 }
 
+function iconoPublicacion(completo: boolean, hechas: number): string {
+  if (completo) return "✅";
+  if (hechas > 0) return "🟡";
+  return "⬜";
+}
+
 // Marca de una red en las tarjetas: ✅ si está todo publicado, 🟡 si falta algo de lo
 // previsto, ⬜ si no hay nada. Con varias piezas previstas, añade el recuento.
 export function marcaPublicacion(
@@ -42,7 +48,7 @@ export function marcaPublicacion(
   if (!avance || avance.total === 0) {
     return { icono: completo ? "✅" : "⬜", texto: nombre };
   }
-  const icono = completo ? "✅" : avance.hechas > 0 ? "🟡" : "⬜";
+  const icono = iconoPublicacion(completo, avance.hechas);
   const texto = avance.total > 1 ? `${nombre} ${avance.hechas}/${avance.total}` : nombre;
   return { icono, texto };
 }
@@ -74,8 +80,7 @@ export function gruposPublicacion(estado: EstadoLeccion): GrupoPublicacion[] {
     const marcas = REDES.flatMap(([red, nombre]) => {
       const avance = avances[red];
       if (!avance || avance.total === 0) return [];
-      const icono =
-        avance.hechas >= avance.total ? "✅" : avance.hechas > 0 ? "🟡" : "⬜";
+      const icono = iconoPublicacion(avance.hechas >= avance.total, avance.hechas);
       const texto = avance.total > 1 ? `${nombre} ${avance.hechas}/${avance.total}` : nombre;
       return [{ icono, texto }];
     });

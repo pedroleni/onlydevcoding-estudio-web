@@ -2,6 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
+type EstadoCopia = "normal" | "copiado" | "error";
+
+const ETIQUETA_ESTADO: Record<EstadoCopia, string> = {
+  normal: "Copiar",
+  copiado: "Copiado",
+  error: "No se pudo copiar",
+};
+
 export function BotonCopiar({
   texto,
   contexto,
@@ -9,9 +17,7 @@ export function BotonCopiar({
   texto: string;
   contexto?: string;
 }) {
-  const [estado, setEstado] = useState<"normal" | "copiado" | "error">(
-    "normal",
-  );
+  const [estado, setEstado] = useState<EstadoCopia>("normal");
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -32,12 +38,7 @@ export function BotonCopiar({
     temporizador.current = setTimeout(() => setEstado("normal"), 2000);
   }
 
-  const etiqueta =
-    estado === "copiado"
-      ? "Copiado"
-      : estado === "error"
-        ? "No se pudo copiar"
-        : "Copiar";
+  const etiqueta = ETIQUETA_ESTADO[estado];
   const etiquetaAccesible = contexto ? `${etiqueta} ${contexto}` : etiqueta;
 
   return (

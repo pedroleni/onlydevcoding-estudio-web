@@ -7,46 +7,10 @@
       "count": 1
     }
   },
-  "src/app/cursos/[curso]/page.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/app/publicacion/page.tsx": {
     "max-lines": {
       "count": 1
     },
-    "no-nested-ternary": {
-      "count": 1
-    }
-  },
-  "src/components/ListaPiezas.tsx": {
-    "no-nested-ternary": {
-      "count": 1
-    }
-  },
-  "src/components/acciones/BotonAccion.tsx": {
-    "complexity": {
-      "count": 1
-    },
-    "no-nested-ternary": {
-      "count": 2
-    },
-    "sonarjs/cognitive-complexity": {
-      "count": 1
-    }
-  },
-  "src/components/acciones/PanelShorts.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/acciones/PanelVideoFinal.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/acciones/TablaTrabajos.tsx": {
     "no-nested-ternary": {
       "count": 1
     }
@@ -83,14 +47,6 @@
       "count": 1
     }
   },
-  "src/components/guion/AvisoMontaje.tsx": {
-    "complexity": {
-      "count": 1
-    },
-    "no-nested-ternary": {
-      "count": 3
-    }
-  },
   "src/components/guion/GuionEditable.tsx": {
     "complexity": {
       "count": 1
@@ -99,11 +55,6 @@
       "count": 1
     },
     "sonarjs/cognitive-complexity": {
-      "count": 1
-    }
-  },
-  "src/components/publicar/BotonCopiar.tsx": {
-    "no-nested-ternary": {
       "count": 1
     }
   },
@@ -126,11 +77,6 @@
       "count": 3
     },
     "sonarjs/cognitive-complexity": {
-      "count": 1
-    }
-  },
-  "src/components/publicar/PestanasRed.tsx": {
-    "no-nested-ternary": {
       "count": 1
     }
   },
@@ -200,11 +146,6 @@
       "count": 1
     }
   },
-  "src/components/teleprompter/useAvisoAlSalir.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/teleprompter/useSeguimientoPrevia.ts": {
     "max-lines-per-function": {
       "count": 1
@@ -212,19 +153,6 @@
   },
   "src/components/teleprompter/useSesionGrabacion.ts": {
     "max-lines-per-function": {
-      "count": 1
-    }
-  },
-  "src/lib/acciones-estudio.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/lib/acciones-reels.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "no-nested-ternary": {
       "count": 1
     }
   },
@@ -249,18 +177,8 @@
       "count": 2
     }
   },
-  "src/lib/curso.ts": {
-    "no-nested-ternary": {
-      "count": 2
-    }
-  },
   "src/lib/estadisticas-publicacion.ts": {
     "max-params": {
-      "count": 1
-    }
-  },
-  "src/lib/teleprompter/ritmo.ts": {
-    "no-nested-ternary": {
       "count": 1
     }
   },

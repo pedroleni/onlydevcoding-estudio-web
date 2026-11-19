@@ -29,6 +29,10 @@ function error(mensaje: string): { ok: false; mensaje: string } {
   return { ok: false, mensaje };
 }
 
+function esOpcionValida(valor: unknown, patron: RegExp): valor is string | undefined {
+  return valor === undefined || (typeof valor === "string" && patron.test(valor));
+}
+
 function normalizarOpciones(valor: unknown): OpcionesAccion | null {
   if (typeof valor !== "object" || valor === null || Array.isArray(valor)) {
     return null;
@@ -39,18 +43,10 @@ function normalizarOpciones(valor: unknown): OpcionesAccion | null {
   const short = candidata.short;
   const escena = candidata.escena;
   const gancho = candidata.gancho;
-  if (previa !== undefined && (typeof previa !== "string" || !PREVIA_VALIDA.test(previa))) {
-    return null;
-  }
-  if (short !== undefined && (typeof short !== "string" || !SHORT_VALIDO.test(short))) {
-    return null;
-  }
-  if (escena !== undefined && (typeof escena !== "string" || !ESCENA_VALIDA.test(escena))) {
-    return null;
-  }
-  if (gancho !== undefined && (typeof gancho !== "string" || !GANCHO_VALIDO.test(gancho))) {
-    return null;
-  }
+  if (!esOpcionValida(previa, PREVIA_VALIDA)) return null;
+  if (!esOpcionValida(short, SHORT_VALIDO)) return null;
+  if (!esOpcionValida(escena, ESCENA_VALIDA)) return null;
+  if (!esOpcionValida(gancho, GANCHO_VALIDO)) return null;
 
   return {
     ...(previa === undefined ? {} : { previa }),

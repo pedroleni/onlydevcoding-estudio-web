@@ -52,6 +52,12 @@ function enlacePublicar(id: string): string {
 const ENLACE =
   "font-medium text-marca underline-offset-4 hover:text-texto hover:underline";
 
+function etiquetaEstadoLinkedin(estado: string): string {
+  if (estado === "publicado") return "✅ Subido";
+  if (estado === "programado") return "📅 Programado";
+  return "⬜ Pendiente";
+}
+
 function EstadoPortada({
   pieza,
   detalle,
@@ -217,11 +223,7 @@ export function ListaPiezas({
               : "border-borde bg-carbon text-tenue"
           }`}
         >
-          {linkedin.estado.estado === "publicado"
-            ? "✅ Subido"
-            : linkedin.estado.estado === "programado"
-              ? "📅 Programado"
-              : "⬜ Pendiente"}
+          {etiquetaEstadoLinkedin(linkedin.estado.estado)}
         </span>
       </div>
       <p className="mt-1 text-sm text-tenue">
