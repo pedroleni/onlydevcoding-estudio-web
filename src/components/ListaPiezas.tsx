@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 
 import { PanelVideoFinal } from "@/components/acciones/PanelVideoFinal";
 import { urlMedio } from "@/lib/medios";
+import { redVideoLinkedin, TITULO_VIDEO_LINKEDIN } from "@/lib/redes-publicacion";
 import { etiquetaPrevia, previaPorDefecto } from "@/lib/numero-previa";
 import type { EstadoAccion, Pieza, PiezaVista } from "@/lib/tipos";
 
@@ -198,16 +199,64 @@ export function ListaPiezas({
   // Vista de publicación de la lección: da la duración y la portada elegida de cada pieza.
   detalles?: PiezaVista[] | null;
 }) {
+  const leccion = detalles?.find(({ tipo }) => tipo === "leccion") ?? null;
+  const linkedin = leccion ? redVideoLinkedin(leccion) : null;
+  const videoLinkedin = linkedin?.textos?.video ? (
+    <section
+      aria-labelledby="video-linkedin-titulo"
+      className="border border-borde bg-superficie p-4 md:p-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="video-linkedin-titulo" className="text-lg font-semibold">
+          {TITULO_VIDEO_LINKEDIN}
+        </h2>
+        <span
+          className={`border px-2 py-1 text-xs font-semibold ${
+            linkedin.estado.estado === "publicado"
+              ? "border-verde/50 bg-verde/15 text-verde"
+              : "border-borde bg-carbon text-tenue"
+          }`}
+        >
+          {linkedin.estado.estado === "publicado"
+            ? "✅ Subido"
+            : linkedin.estado.estado === "programado"
+              ? "📅 Programado"
+              : "⬜ Pendiente"}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-tenue">
+        El vídeo recortado para LinkedIn a partir de la lección.
+      </p>
+      <video
+        src={urlMedio(linkedin.textos.video)}
+        controls
+        preload="metadata"
+        playsInline
+        className="mt-3 aspect-video w-full max-w-2xl border border-borde bg-carbon object-contain"
+      />
+      <Link
+        href={`?pestana=publicar&pieza=${encodeURIComponent(leccion?.id ?? "leccion")}&red=linkedin`}
+        className="mt-3 inline-block text-sm font-medium text-marca hover:text-texto"
+      >
+        Textos y estado en Publicar →
+      </Link>
+    </section>
+  ) : null;
+
   if (piezas.length === 0) {
     return (
-      <p className="border border-borde bg-superficie p-6 text-sm text-tenue">
-        Todavía no hay shorts ni reels para esta lección.
-      </p>
+      <div className="grid gap-5">
+        {videoLinkedin}
+        <p className="border border-borde bg-superficie p-6 text-sm text-tenue">
+          Todavía no hay shorts ni reels para esta lección.
+        </p>
+      </div>
     );
   }
 
   return (
     <section aria-labelledby="piezas-titulo" className="grid gap-5">
+      {videoLinkedin}
       <div>
         <h2 id="piezas-titulo" className="text-xl font-semibold">
           Piezas para publicar

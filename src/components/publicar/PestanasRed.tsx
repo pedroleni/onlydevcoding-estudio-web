@@ -8,6 +8,7 @@ import { PanelTextosRed } from "@/components/publicar/TextosRed";
 import {
   AVISO_SIN_VIDEO_LINKEDIN,
   avisoRedesAusentes,
+  esVideoLinkedin,
   faltaVideoPropio,
   nombreRed,
   redesDisponibles,
@@ -19,16 +20,23 @@ export function PestanasRed({
   numero,
   pieza,
   redInicial,
+  soloVideoLinkedin,
 }: {
   curso: string;
   numero: number;
   pieza: PiezaVista;
   redInicial: RedVista["red"];
+  soloVideoLinkedin?: boolean;
 }) {
   const prefijo = useId();
   const [redActivaId, setRedActivaId] = useState(redInicial);
-  const redes = redesDisponibles(pieza);
-  const ausentes = avisoRedesAusentes(pieza);
+  const todas = redesDisponibles(pieza);
+  // true: solo la red LinkedIn de la lección; false: la lección sin LinkedIn; sin valor: todas.
+  const redes =
+    soloVideoLinkedin === undefined
+      ? todas
+      : todas.filter(({ red }) => esVideoLinkedin(pieza, red) === soloVideoLinkedin);
+  const ausentes = soloVideoLinkedin ? null : avisoRedesAusentes(pieza);
   const redActiva = redes.find(({ red }) => red === redActivaId) ?? redes[0];
 
   if (!redActiva) return null;

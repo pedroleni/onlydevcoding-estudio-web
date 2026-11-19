@@ -54,3 +54,21 @@ export function avisoRedesAusentes(pieza: PiezaVista): string | null {
       : `${nombres.slice(0, -1).join(", ")} ni ${nombres.at(-1)}`;
   return `Esta pieza no se publica en ${lista}`;
 }
+
+// El vídeo para LinkedIn es la red LinkedIn de la lección completa: un vídeo propio,
+// recortado para esa red. En la app se enseña como una pieza más, con su check.
+export const TITULO_VIDEO_LINKEDIN = "Vídeo para LinkedIn";
+
+export function esVideoLinkedin(pieza: Pick<PiezaVista, "tipo">, red: string): boolean {
+  return pieza.tipo === "leccion" && red === "linkedin";
+}
+
+// Redes de la pieza tal como se enseñan: la lección sin LinkedIn (va aparte) y el resto igual.
+export function redesSinVideoLinkedin(pieza: PiezaVista): RedVista[] {
+  return redesDisponibles(pieza).filter(({ red }) => !esVideoLinkedin(pieza, red));
+}
+
+export function redVideoLinkedin(pieza: PiezaVista): RedVista | null {
+  if (pieza.tipo !== "leccion") return null;
+  return redesDisponibles(pieza).find(({ red }) => red === "linkedin") ?? null;
+}
