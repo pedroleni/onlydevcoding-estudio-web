@@ -15,6 +15,8 @@ describe("URL de publicación", () => {
       "www.instagram.com",
       "tiktok.com",
       "www.tiktok.com",
+      "vm.tiktok.com",
+      "vt.tiktok.com",
       "linkedin.com",
       "www.linkedin.com",
     ]);
@@ -29,6 +31,8 @@ describe("URL de publicación", () => {
     "https://www.instagram.com/p/abc",
     "https://tiktok.com/video/1",
     "https://www.tiktok.com/video/1",
+    "https://vm.tiktok.com/ZN8aEmGQm/",
+    "https://vt.tiktok.com/ZSabc123/",
     "https://linkedin.com/posts/abc",
     "https://www.linkedin.com/posts/abc",
   ])("acepta el host de publicación permitido %s", (url) => {
@@ -44,6 +48,9 @@ describe("URL de publicación", () => {
     "https:///youtube.com/video",
     "https://youtube.com\\ruta",
     " https://youtu.be/video",
+    "https://vm.tiktok.com.evil.example/x",
+    "https://xvm.tiktok.com/x",
+    "http://vm.tiktok.com/x",
   ])("rechaza la variante de URL no permitida %s", (url) => {
     expect(errorUrlPublicacion(url)).not.toBeNull();
   });
