@@ -83,6 +83,35 @@ describe("PanelVideoFinal", () => {
     );
   });
 
+  it("muestra etiquetas legibles y prioriza la previa sin apellido del número mayor", () => {
+    render(
+      <PanelVideoFinal
+        curso="curso-ficticio"
+        numero={4}
+        previas={[]}
+        acciones={[
+          accion("video-final", {
+            opciones: [
+              "previa-v5-estudio.mp4",
+              "previa-v13.mp4",
+              "previa-v13-camaras-reales.mp4",
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    const selector = screen.getByRole("combobox", { name: "Previa para el vídeo final" });
+    expect(selector).toHaveValue("previa-v13.mp4");
+    expect(
+      within(selector).getAllByRole("option").map((opcion) => opcion.textContent),
+    ).toEqual([
+      "Previa 5 · estudio",
+      "Previa 13",
+      "Previa 13 · camaras reales",
+    ]);
+  });
+
   it("envía la previa elegida a mano", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(lanzarAccion).mockResolvedValue({ ok: true, trabajo });

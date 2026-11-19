@@ -3,7 +3,9 @@ import type {
   EstadoAccion,
   Leccion,
   LeccionResumen,
+  ReelsCurso,
   TareasDelRango,
+  Temario,
   Teleprompter,
   TipoTarea,
   Trabajo,
@@ -133,6 +135,18 @@ export async function obtenerPublicacion(
     `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/publicacion`,
     { nullEn404: true },
   );
+}
+
+export function obtenerReels(curso: string): Promise<ReelsCurso | null> {
+  return pedir<ReelsCurso>(`/api/cursos/${encodeURIComponent(curso)}/reels`, {
+    nullEn404: true,
+  });
+}
+
+export function obtenerTemario(curso: string): Promise<Temario | null> {
+  return pedir<Temario>(`/api/cursos/${encodeURIComponent(curso)}/temario`, {
+    nullEn404: true,
+  });
 }
 
 export async function obtenerTeleprompter(

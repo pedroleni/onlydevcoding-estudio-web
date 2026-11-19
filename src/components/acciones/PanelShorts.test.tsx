@@ -99,6 +99,50 @@ describe("PanelShorts", () => {
     );
   });
 
+  it("explica que los montajes son los vídeos que monta el estudio", () => {
+    render(
+      <PanelShorts
+        curso="curso-ficticio"
+        numero={4}
+        acciones={[preparar, renderizar]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Montajes de los shorts" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Acciones de shorts" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/vídeos que monta el estudio/)).toBeInTheDocument();
+  });
+
+  it("antepone «Short N» a los ids con el patrón de la lección", () => {
+    render(
+      <PanelShorts
+        curso="curso-ficticio"
+        numero={4}
+        acciones={[
+          preparar,
+          {
+            ...renderizar,
+            opciones: ["s4-2-pagina-en-blanco", "s3-1-otra-leccion", "suelto"],
+            ultimos: {},
+          },
+        ]}
+      />,
+    );
+
+    const filas = screen.getAllByRole("listitem");
+    expect(within(filas[0]).getByText("Short 2")).toBeInTheDocument();
+    expect(within(filas[0]).getByText("s4-2-pagina-en-blanco")).toBeInTheDocument();
+    expect(within(filas[1]).queryByText(/^Short /)).not.toBeInTheDocument();
+    expect(within(filas[2]).queryByText(/^Short /)).not.toBeInTheDocument();
+    expect(
+      within(filas[0]).getByRole("button", { name: "Renderizar s4-2-pagina-en-blanco" }),
+    ).toBeInTheDocument();
+  });
+
   it("muestra una sola vez el motivo compartido por preparar y renderizar", () => {
     const motivo = "Falta preparar los shorts";
     render(

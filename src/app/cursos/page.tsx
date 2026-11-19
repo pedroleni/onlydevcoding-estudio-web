@@ -1,9 +1,12 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { connection } from "next/server";
 
 import { AvisoApi } from "@/components/AvisoApi";
 import { FormularioCurso } from "@/components/FormularioCurso";
+import { LogoTecnologia } from "@/components/LogoTecnologia";
 import { ApiNoDisponible, ErrorApi, obtenerCursos } from "@/lib/api";
+import { tecnologiaDe } from "@/lib/tecnologias";
 
 export default async function PaginaCursos() {
   await connection();
@@ -39,16 +42,23 @@ export default async function PaginaCursos() {
             <Link
               key={curso.id}
               href={`/cursos/${encodeURIComponent(curso.id)}`}
-              className="group border border-borde bg-superficie p-6 transition-colors hover:border-marca active:translate-y-px"
+              className="tarjeta-leccion group flex items-center gap-5 rounded-3xl border border-borde bg-superficie p-6 transition duration-200 hover:-translate-y-0.5 active:translate-y-px"
+              style={
+                {
+                  "--mod": tecnologiaDe(curso.id, curso.nombre)?.color,
+                  background: `radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, ${tecnologiaDe(curso.id, curso.nombre)?.color ?? "var(--marca)"} 14%, transparent), transparent 60%), var(--superficie)`,
+                } as CSSProperties
+              }
             >
-              <h2 className="text-xl font-semibold tracking-[-0.025em] group-hover:text-marca">
-                {curso.nombre}
-              </h2>
-              <p className="mt-8 font-mono text-sm text-tenue">
-                {curso.en_disco
-                  ? `${curso.lecciones} ${curso.lecciones === 1 ? "lección" : "lecciones"}`
-                  : "Sin carpeta todavía"}
-              </p>
+              <LogoTecnologia id={curso.id} nombre={curso.nombre} />
+              <div className="min-w-0">
+                <h2 className="text-xl font-semibold tracking-[-0.025em]">{curso.nombre}</h2>
+                <p className="mt-1.5 font-mono text-sm text-tenue">
+                  {curso.en_disco
+                    ? `${curso.lecciones} ${curso.lecciones === 1 ? "lección" : "lecciones"}`
+                    : "Sin carpeta todavía"}
+                </p>
+              </div>
             </Link>
           ))}
         </div>

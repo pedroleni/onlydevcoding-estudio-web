@@ -168,6 +168,7 @@ function ContenidoPestana({
           piezas={leccion.piezas.filter(
             ({ tipo }) => tipo === "reel" || tipo === "short",
           )}
+          detalles={publicacion?.piezas ?? null}
         />
       </div>
     );
@@ -285,9 +286,19 @@ async function ContenidoLeccion({
       lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
       lecturaApiOpcional(obtenerAcciones(curso, numero)),
     ]);
-  } else if (pestana === "video" || pestana === "shorts") {
+  } else if (pestana === "shorts") {
+    // La publicación solo completa las tarjetas (duración y portada elegida): si falla, se pintan sin ella.
+    [acciones, publicacion] = await Promise.all([
+      lecturaApiOpcional(obtenerAcciones(curso, numero)),
+      lecturaApiOpcional(obtenerPublicacion(curso, numero)),
+    ]);
+  } else if (pestana === "video") {
     acciones = await lecturaApiOpcional(obtenerAcciones(curso, numero));
   }
+
+  // El panel separa la publicación por pieza; si la vista no llega, enseña el resumen por red.
+  const vistaPanel =
+    publicacion ?? (await lecturaApiOpcional(obtenerPublicacion(curso, numero)));
 
   return (
     <>
@@ -338,7 +349,13 @@ async function ContenidoLeccion({
           piezaSeleccionada={valorPieza}
           redSeleccionada={valorRed}
         />
-        <PanelEstado estado={leccion.estado} montaje={leccion.montaje} />
+        <PanelEstado
+          estado={leccion.estado}
+          montaje={leccion.montaje}
+          curso={curso}
+          numero={numero}
+          piezas={vistaPanel?.piezas ?? null}
+        />
       </div>
     </>
   );

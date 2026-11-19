@@ -1,6 +1,13 @@
 import { BotonAccion } from "@/components/acciones/BotonAccion";
 import type { EstadoAccion } from "@/lib/tipos";
 
+// Los montajes de shorts.json se llaman s<lección>-<N>-<slug>; de ahí sale «Short N».
+function numeroShort(id: string, numero: number): number | null {
+  const encaje = id.match(/^s(\d+)-(\d+)-/);
+  if (!encaje || Number(encaje[1]) !== numero) return null;
+  return Number(encaje[2]);
+}
+
 export function PanelShorts({
   curso,
   numero,
@@ -32,9 +39,15 @@ export function PanelShorts({
       className="grid gap-5 border border-borde bg-superficie p-5"
       aria-labelledby="acciones-shorts"
     >
-      <h2 id="acciones-shorts" className="text-xl font-semibold">
-        Acciones de shorts
-      </h2>
+      <div>
+        <h2 id="acciones-shorts" className="text-xl font-semibold">
+          Montajes de los shorts
+        </h2>
+        <p className="mt-1 text-sm text-tenue">
+          Son los vídeos que monta el estudio a partir de shorts.json: prepáralos
+          y renderiza cada uno.
+        </p>
+      </div>
 
       {preparar ? (
         <BotonAccion curso={curso} numero={numero} accion={preparar} />
@@ -42,24 +55,38 @@ export function PanelShorts({
 
       {accionRenderizar && accionRenderizar.opciones.length > 0 ? (
         <ul className="grid gap-3 border-t border-borde pt-5">
-          {accionRenderizar.opciones.map((short) => (
-            <li
-              key={short}
-              className="flex flex-wrap items-center justify-between gap-4 border border-borde bg-carbon p-4"
-            >
-              <span className="font-mono text-sm font-semibold text-texto">
-                {short}
-              </span>
-              <BotonAccion
-                curso={curso}
-                numero={numero}
-                accion={accionRenderizar}
-                objetivo={short}
-                textoBoton="Renderizar"
-                nombreAccesible={`Renderizar ${short}`}
-              />
-            </li>
-          ))}
+          {accionRenderizar.opciones.map((short) => {
+            const numeroDelShort = numeroShort(short, numero);
+            return (
+              <li
+                key={short}
+                className="flex flex-wrap items-center justify-between gap-4 border border-borde bg-carbon p-4"
+              >
+                <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                  {numeroDelShort !== null ? (
+                    <span className="text-sm font-semibold text-texto">
+                      Short {numeroDelShort}
+                    </span>
+                  ) : null}
+                  <span
+                    className={`break-all font-mono text-sm ${
+                      numeroDelShort !== null ? "text-tenue" : "font-semibold text-texto"
+                    }`}
+                  >
+                    {short}
+                  </span>
+                </span>
+                <BotonAccion
+                  curso={curso}
+                  numero={numero}
+                  accion={accionRenderizar}
+                  objetivo={short}
+                  textoBoton="Renderizar"
+                  nombreAccesible={`Renderizar ${short}`}
+                />
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 

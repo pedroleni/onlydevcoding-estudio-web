@@ -48,7 +48,7 @@ export function SelectorLeccion({
         value={conocida ? leccion : ""}
         disabled={desactivado}
         onChange={(evento) => alCambiarLeccion(evento.target.value)}
-        className={`${SELECTOR} flex-1 disabled:opacity-40 sm:max-w-[24rem]`}
+        className={`${SELECTOR} flex-1 disabled:opacity-40 sm:max-w-[18rem]`}
       >
         {conocida ? null : (
           <option value="" disabled>
@@ -100,7 +100,7 @@ export function BarraAjustes({
   const microConocido = micro === "" || micros.some(({ id: valor }) => valor === micro);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-[18px] gap-y-3 border-b border-borde px-4 py-3.5 md:px-6">
+    <div className="flex flex-wrap items-center gap-x-[14px] gap-y-2 border-b border-borde px-4 py-2 md:px-6">
       <SelectorLeccion
         lecciones={lecciones}
         leccion={leccion}
@@ -118,7 +118,7 @@ export function BarraAjustes({
           step={RITMO.paso}
           value={ritmo}
           onChange={(evento) => alCambiarRitmo(Number(evento.target.value))}
-          className="w-28 accent-marca"
+          className="w-24 accent-marca"
         />
         <span className="min-w-[3.5ch] font-mono text-texto">{ritmo}</span>
         <span>ppm</span>
@@ -134,7 +134,7 @@ export function BarraAjustes({
           step={LETRA.paso}
           value={letra}
           onChange={(evento) => alCambiarLetra(Number(evento.target.value))}
-          className="w-28 accent-marca"
+          className="w-24 accent-marca"
         />
       </div>
 
@@ -144,7 +144,7 @@ export function BarraAjustes({
           id={`${id}-micro`}
           value={microConocido ? micro : ""}
           onChange={(evento) => alCambiarMicro(evento.target.value)}
-          className={`${SELECTOR} max-w-[14rem]`}
+          className={`${SELECTOR} max-w-[12rem]`}
         >
           <option value="">Predeterminado</option>
           {micros.map((opcion) => (
@@ -159,7 +159,7 @@ export function BarraAjustes({
         <span>Nivel</span>
         <span
           ref={nivelRef}
-          className="group block h-2.5 w-[140px] overflow-hidden rounded-[5px] bg-borde"
+          className="group block h-2.5 w-[100px] overflow-hidden rounded-[5px] bg-borde"
         >
           <i className="block h-full w-0 bg-verde transition-[width] duration-[60ms] ease-linear group-[.alto]:bg-rojo" />
         </span>

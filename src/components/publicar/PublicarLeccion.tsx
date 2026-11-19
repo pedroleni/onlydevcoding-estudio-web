@@ -1,18 +1,11 @@
-import Link from "next/link";
-
 import { BotonCopiar } from "@/components/publicar/BotonCopiar";
 import { Contador } from "@/components/publicar/Contador";
 import { ElegirPortada } from "@/components/publicar/ElegirPortada";
-import { EstadoPublicacion } from "@/components/publicar/EstadoPublicacion";
+import { PestanasRed } from "@/components/publicar/PestanasRed";
 import { SelectorPieza } from "@/components/publicar/SelectorPieza";
-import { PanelTextosRed } from "@/components/publicar/TextosRed";
-import { REDES } from "@/lib/curso";
 import { LIMITES_PUBLICACION } from "@/lib/limites";
+import { redesDisponibles } from "@/lib/redes-publicacion";
 import type { VistaPublicacion } from "@/lib/tipos";
-
-function nombreRed(id: string): string {
-  return REDES.find(([red]) => red === id)?.[1] ?? id;
-}
 
 export function PublicarLeccion({
   vista,
@@ -27,17 +20,19 @@ export function PublicarLeccion({
     vista.piezas.find(({ id }) => id === piezaSeleccionada) ??
     vista.piezas[0] ??
     null;
+  const disponibles = pieza ? redesDisponibles(pieza) : [];
+  // Un ?red= que apunta a una red sin textos ni estado cae en la primera disponible.
   const red =
-    pieza?.redes.find(({ red: id }) => id === redSeleccionada) ??
-    pieza?.redes.find(({ textos }) => textos !== null) ??
-    pieza?.redes[0] ??
+    disponibles.find(({ red: id }) => id === redSeleccionada) ??
+    disponibles[0] ??
     null;
   const sinTextos = vista.piezas.every((elemento) =>
     elemento.redes.every(({ textos }) => textos === null),
   );
+  const avisoSinTextos = sinTextos && !vista.error;
 
   return (
-    <div role="tabpanel" className="grid gap-8">
+    <div role="tabpanel" className="grid min-w-0 gap-8">
       {vista.error ? (
         <div
           role="alert"
@@ -66,70 +61,21 @@ export function PublicarLeccion({
             pieza={pieza}
           />
 
-          {sinTextos && !vista.error ? (
+          {avisoSinTextos ? (
             <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
               Esta lección todavía no tiene textos de publicación
             </p>
           ) : null}
 
           {red ? (
-            <section aria-labelledby="red-publicacion-titulo">
-              <h2 id="red-publicacion-titulo" className="text-xl font-semibold">
-                Publicación por red
-              </h2>
-              <nav aria-label="Redes de publicación" className="mt-4 overflow-x-auto">
-                <div
-                  role="tablist"
-                  className="flex min-w-max border-b border-borde"
-                >
-                  {pieza.redes.map((redVista) => {
-                    const seleccionada = redVista.red === red.red;
-                    return (
-                      <Link
-                        key={redVista.red}
-                        href={`?pestana=publicar&pieza=${encodeURIComponent(pieza.id)}&red=${encodeURIComponent(redVista.red)}`}
-                        role="tab"
-                        aria-selected={seleccionada}
-                        aria-current={seleccionada ? "page" : undefined}
-                        className="inline-flex min-h-12 items-center gap-2 border-b-2 border-transparent px-4 text-sm font-medium text-tenue transition-colors hover:text-texto aria-[selected=true]:border-marca aria-[selected=true]:text-texto"
-                      >
-                        {nombreRed(redVista.red)}
-                        {redVista.textos ? (
-                          <span
-                            aria-hidden="true"
-                            title="Con textos"
-                            className="h-1.5 w-1.5 rounded-full bg-marca"
-                          />
-                        ) : null}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </nav>
-
-              <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
-                <PanelTextosRed
-                  key={`${pieza.id}-${red.red}`}
-                  curso={vista.curso}
-                  numero={vista.numero}
-                  pieza={pieza.id}
-                  red={red.red}
-                  textos={red.textos}
-                  fechaPropuesta={pieza.fecha_propuesta}
-                />
-                <EstadoPublicacion
-                  key={`${pieza.id}-${red.red}`}
-                  curso={vista.curso}
-                  numero={vista.numero}
-                  pieza={pieza.id}
-                  red={red.red}
-                  nombreRed={nombreRed(red.red)}
-                  estado={red.estado}
-                  fechaPropuesta={pieza.fecha_propuesta}
-                />
-              </div>
-            </section>
-          ) : (
+            <PestanasRed
+              key={`${pieza.id}-${red.red}`}
+              curso={vista.curso}
+              numero={vista.numero}
+              pieza={pieza}
+              redInicial={red.red}
+            />
+          ) : avisoSinTextos ? null : (
             <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
               Esta pieza no tiene redes de publicación.
             </p>

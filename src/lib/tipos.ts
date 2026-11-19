@@ -15,6 +15,10 @@ export interface EstadoLeccion {
   miniatura: string | null;
   previa: string | null;
   publicado: Record<string, boolean>;
+  // Piezas publicadas de las previstas en cada red (las APIs anteriores no lo envían).
+  publicado_avance?: Record<string, Avance>;
+  // «leccion» y «cortos» (reels y shorts): avance por red de cada grupo.
+  publicado_por_grupo?: Record<string, Record<string, Avance>>;
 }
 
 export interface Escena {
@@ -326,4 +330,35 @@ export interface GanchoCamara {
 export interface TomasCamara {
   escenas: EscenaCamara[];
   ganchos: GanchoCamara[];
+}
+
+// Ganchos verticales por grabar (`GET /api/cursos/{curso}/reels`).
+export interface GanchoReel {
+  id: string;
+  titulo: string;
+  texto: string;
+  // Marcado a mano en el teleprompter o con la toma ya entregada.
+  grabado: boolean;
+  entregado: boolean;
+}
+
+export interface LeccionReels {
+  numero: number;
+  titulo: string;
+  ganchos: GanchoReel[];
+}
+
+export interface ReelsCurso {
+  lecciones: LeccionReels[];
+}
+
+// Lecciones previstas del curso (`GET /api/cursos/{curso}/temario`).
+export interface LeccionTemario {
+  numero: number;
+  titulo: string;
+  modulo: string | null;
+}
+
+export interface Temario {
+  lecciones: LeccionTemario[];
 }

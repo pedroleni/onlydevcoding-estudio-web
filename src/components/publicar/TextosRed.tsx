@@ -8,6 +8,7 @@ import { EditorTextosRed } from "@/components/publicar/EditorTextosRed";
 import { fechaPublicacionLegible } from "@/lib/fecha-publicacion";
 import { LIMITES_PUBLICACION, limiteTextoRed } from "@/lib/limites";
 import { urlMedio } from "@/lib/medios";
+import { nombreRed } from "@/lib/redes-publicacion";
 import type { RedVista, TextosRed as TextosRedDatos } from "@/lib/tipos";
 
 function CampoTexto({
@@ -98,7 +99,7 @@ export function PanelTextosRed({
 
   if (textos === null) {
     return (
-      <div className="grid gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         {controles}
         <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
           Esta red todavía no tiene textos preparados.
@@ -117,8 +118,22 @@ export function PanelTextosRed({
   const titulos = textos.titulos.filter((titulo) => titulo !== "");
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       {controles}
+      {textos.video ? (
+        <section aria-labelledby="video-red-titulo">
+          <h3 id="video-red-titulo" className="text-sm font-semibold">
+            Vídeo para {nombreRed(red)}
+          </h3>
+          <video
+            src={urlMedio(textos.video)}
+            controls
+            preload="metadata"
+            playsInline
+            className="mt-3 aspect-video w-full border border-borde bg-carbon object-contain"
+          />
+        </section>
+      ) : null}
       {titulos.length > 0 ? (
         <section aria-labelledby="titulos-red" className="grid gap-3">
           <h3 id="titulos-red" className="text-sm font-semibold uppercase tracking-[0.14em] text-tenue">
@@ -234,20 +249,6 @@ export function PanelTextosRed({
         />
       ) : null}
 
-      {textos.video ? (
-        <section aria-labelledby="video-red-titulo">
-          <h3 id="video-red-titulo" className="text-sm font-semibold">
-            Vídeo de esta red
-          </h3>
-          <video
-            src={urlMedio(textos.video)}
-            controls
-            preload="metadata"
-            playsInline
-            className="mt-3 aspect-video w-full border border-borde bg-carbon object-contain"
-          />
-        </section>
-      ) : null}
 
       {fechaPropuesta ? (
         <p className="border-l-2 border-marca pl-3 text-sm text-tenue">

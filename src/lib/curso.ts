@@ -16,3 +16,56 @@ export function estaPublicado(
 ): boolean {
   return estado.publicado[clave] ?? estado.publicado[nombre] ?? false;
 }
+
+// Marca de una red en las tarjetas: ✅ si está todo publicado, 🟡 si falta algo de lo
+// previsto, ⬜ si no hay nada. Con varias piezas previstas, añade el recuento.
+export function marcaPublicacion(
+  estado: EstadoLeccion,
+  clave: string,
+  nombre: string,
+): { icono: string; texto: string } {
+  const avance = estado.publicado_avance?.[clave];
+  const completo = estaPublicado(estado, clave, nombre);
+  if (!avance || avance.total === 0) {
+    return { icono: completo ? "✅" : "⬜", texto: nombre };
+  }
+  const icono = completo ? "✅" : avance.hechas > 0 ? "🟡" : "⬜";
+  const texto = avance.total > 1 ? `${nombre} ${avance.hechas}/${avance.total}` : nombre;
+  return { icono, texto };
+}
+
+const GRUPOS = [
+  ["leccion", "Lección"],
+  ["cortos", "Reels y shorts"],
+] as const;
+
+export interface GrupoPublicacion {
+  titulo: string | null;
+  marcas: { icono: string; texto: string }[];
+}
+
+// Marcas de publicación separando la lección de los reels y shorts (en Instagram y
+// TikTok solo van los cortos). Cada grupo enseña solo las redes en que se publica.
+export function gruposPublicacion(estado: EstadoLeccion): GrupoPublicacion[] {
+  const porGrupo = estado.publicado_por_grupo;
+  if (!porGrupo) {
+    return [
+      {
+        titulo: null,
+        marcas: REDES.map(([clave, nombre]) => marcaPublicacion(estado, clave, nombre)),
+      },
+    ];
+  }
+  return GRUPOS.flatMap(([clave, titulo]) => {
+    const avances = porGrupo[clave] ?? {};
+    const marcas = REDES.flatMap(([red, nombre]) => {
+      const avance = avances[red];
+      if (!avance || avance.total === 0) return [];
+      const icono =
+        avance.hechas >= avance.total ? "✅" : avance.hechas > 0 ? "🟡" : "⬜";
+      const texto = avance.total > 1 ? `${nombre} ${avance.hechas}/${avance.total}` : nombre;
+      return [{ icono, texto }];
+    });
+    return marcas.length > 0 ? [{ titulo, marcas }] : [];
+  });
+}

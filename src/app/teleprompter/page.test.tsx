@@ -85,11 +85,13 @@ async function cargarContenido(consulta: Record<string, string | string[]>) {
     params: Promise.resolve({}),
     searchParams: Promise.resolve(consulta),
   } as PageProps<"/teleprompter">);
-  const suspense = (
+  // La sección lleva el selector de modo y, después, el límite de Suspense con el contenido.
+  const hijos = (
     pagina as ReactElement<{
-      children: ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
+      children: ReactElement<{ children: ReactElement<Record<string, unknown>> }>[];
     }>
   ).props.children;
+  const suspense = hijos[hijos.length - 1];
   const contenido = suspense.props.children;
   const cargar = contenido.type as (props: Record<string, unknown>) => Promise<ReactNode>;
   return cargar(contenido.props);

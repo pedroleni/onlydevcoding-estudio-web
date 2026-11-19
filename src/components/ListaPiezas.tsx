@@ -1,26 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useId, useState } from "react";
 
 import { PanelVideoFinal } from "@/components/acciones/PanelVideoFinal";
 import { urlMedio } from "@/lib/medios";
-import { numeroPrevia } from "@/lib/numero-previa";
-import type { EstadoAccion, Pieza } from "@/lib/tipos";
+import { etiquetaPrevia, previaPorDefecto } from "@/lib/numero-previa";
+import type { EstadoAccion, Pieza, PiezaVista } from "@/lib/tipos";
 
 function Reproductor({
   ruta,
   etiqueta,
   poster,
   fotogramaInicial = false,
+  vertical = false,
 }: {
   ruta: string;
   etiqueta: string;
   poster?: string;
   fotogramaInicial?: boolean;
+  vertical?: boolean;
 }) {
   return (
     <video
-      className="aspect-video w-full bg-carbon object-contain"
+      className={`${vertical ? "aspect-[9/16]" : "aspect-video"} w-full bg-carbon object-contain`}
       src={`${urlMedio(ruta)}${fotogramaInicial ? "#t=1" : ""}`}
       poster={poster ? urlMedio(poster) : undefined}
       controls
@@ -31,7 +34,170 @@ function Reproductor({
   );
 }
 
-export function ListaPiezas({ piezas }: { piezas: Pieza[] }) {
+const TIPO_PIEZA: Record<Pieza["tipo"], string> = {
+  short: "Short",
+  reel: "Reel de salida",
+  leccion: "Lección",
+};
+
+function nombreArchivo(ruta: string): string {
+  return ruta.split("/").at(-1) ?? ruta;
+}
+
+function enlacePublicar(id: string): string {
+  return `?pestana=publicar&pieza=${encodeURIComponent(id)}`;
+}
+
+const ENLACE =
+  "font-medium text-marca underline-offset-4 hover:text-texto hover:underline";
+
+function EstadoPortada({
+  pieza,
+  detalle,
+  portadas,
+}: {
+  pieza: Pieza;
+  detalle: PiezaVista | null;
+  portadas: string[];
+}) {
+  if (portadas.length === 0) return null;
+
+  const enlace = (texto: string) => (
+    <Link href={enlacePublicar(pieza.id)} className={ENLACE}>
+      {texto}
+    </Link>
+  );
+
+  // Sin la vista de publicación no se sabe cuál está elegida: solo se ofrece ir a elegirla.
+  if (detalle === null) {
+    return <p className="text-xs">{enlace("Elegir en Publicar")}</p>;
+  }
+  if (detalle.portada_elegida && portadas.includes(detalle.portada_elegida)) {
+    return <p className="text-xs">{enlace("Cambiar en Publicar")}</p>;
+  }
+  return (
+    <p className="text-xs text-tenue">
+      Sin elegir · {enlace("Elegir en Publicar")}
+    </p>
+  );
+}
+
+function TarjetaPieza({
+  pieza,
+  detalle,
+}: {
+  pieza: Pieza;
+  detalle: PiezaVista | null;
+}) {
+  const prefijo = useId();
+  const elegida = detalle?.portada_elegida ?? null;
+  // La vista de publicación suma a las portadas del disco las candidatas de publicacion.json.
+  const portadas = detalle?.portadas ?? pieza.portadas;
+
+  return (
+    <article
+      aria-labelledby={`${prefijo}-titulo`}
+      className="min-w-0 border border-borde bg-superficie"
+    >
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-borde px-5 py-4">
+        <span className="shrink-0 border border-marca bg-carbon px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-marca">
+          {TIPO_PIEZA[pieza.tipo]}
+        </span>
+        <h3
+          id={`${prefijo}-titulo`}
+          className="min-w-0 flex-1 text-lg font-semibold tracking-[-0.02em] break-words"
+        >
+          {pieza.titulo}
+        </h3>
+        <span className="shrink-0 font-mono text-xs text-tenue">
+          {detalle?.duracion ?? "Duración pendiente"}
+        </span>
+      </header>
+
+      <div className="grid gap-6 p-5 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+        <section aria-labelledby={`${prefijo}-video`} className="min-w-0">
+          <h4
+            id={`${prefijo}-video`}
+            className="text-xs font-semibold uppercase tracking-[0.12em] text-tenue"
+          >
+            Vídeo
+          </h4>
+          {pieza.video ? (
+            <>
+              <div className="mt-3 max-w-48 overflow-hidden border border-borde">
+                <Reproductor
+                  ruta={pieza.video}
+                  poster={elegida ?? portadas[0]}
+                  etiqueta={`Vídeo de ${pieza.titulo}`}
+                  vertical
+                />
+              </div>
+              <p className="mt-2 break-all font-mono text-xs text-tenue">
+                {nombreArchivo(pieza.video)}
+              </p>
+            </>
+          ) : (
+            <div className="mt-3 flex aspect-[9/16] max-w-48 items-center justify-center border border-borde bg-carbon p-4 text-center text-sm text-tenue">
+              Vídeo pendiente
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby={`${prefijo}-portadas`} className="min-w-0">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h4
+              id={`${prefijo}-portadas`}
+              className="text-xs font-semibold uppercase tracking-[0.12em] text-tenue"
+            >
+              Portadas propuestas ({portadas.length})
+            </h4>
+            <EstadoPortada pieza={pieza} detalle={detalle} portadas={portadas} />
+          </div>
+          {portadas.length > 0 ? (
+            <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-4 xl:grid-cols-5">
+              {portadas.map((portada, indice) => {
+                const esElegida = portada === elegida;
+                return (
+                  <figure
+                    key={`${pieza.id}-${portada}`}
+                    className={`relative border bg-carbon ${
+                      esElegida ? "border-marca" : "border-borde"
+                    }`}
+                  >
+                    {/* Las imágenes proceden de la API local y no tienen dimensiones fijas. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="aspect-[9/16] w-full bg-carbon object-contain"
+                      src={urlMedio(portada)}
+                      alt={`Portada ${indice + 1} de ${pieza.titulo}`}
+                      loading="lazy"
+                    />
+                    {esElegida ? (
+                      <figcaption className="absolute bottom-1.5 left-1.5 bg-marca px-1.5 py-0.5 text-[0.7rem] font-bold text-fondo">
+                        ✓ Elegida
+                      </figcaption>
+                    ) : null}
+                  </figure>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-tenue">Sin portadas todavía.</p>
+          )}
+        </section>
+      </div>
+    </article>
+  );
+}
+
+export function ListaPiezas({
+  piezas,
+  detalles = null,
+}: {
+  piezas: Pieza[];
+  // Vista de publicación de la lección: da la duración y la portada elegida de cada pieza.
+  detalles?: PiezaVista[] | null;
+}) {
   if (piezas.length === 0) {
     return (
       <p className="border border-borde bg-superficie p-6 text-sm text-tenue">
@@ -41,49 +207,23 @@ export function ListaPiezas({ piezas }: { piezas: Pieza[] }) {
   }
 
   return (
-    <div className="grid gap-5 md:grid-cols-2">
+    <section aria-labelledby="piezas-titulo" className="grid gap-5">
+      <div>
+        <h2 id="piezas-titulo" className="text-xl font-semibold">
+          Piezas para publicar
+        </h2>
+        <p className="mt-1 text-sm text-tenue">
+          Cada short y reel con su vídeo y las portadas propuestas.
+        </p>
+      </div>
       {piezas.map((pieza) => (
-        <article
+        <TarjetaPieza
           key={pieza.id}
-          className="overflow-hidden border border-borde bg-superficie"
-        >
-          {pieza.video ? (
-            <Reproductor
-              ruta={pieza.video}
-              poster={pieza.portadas[0]}
-              etiqueta={`Vídeo de ${pieza.titulo}`}
-            />
-          ) : (
-            <div className="flex aspect-video items-center justify-center bg-carbon p-6 text-sm text-tenue">
-              Vídeo pendiente
-            </div>
-          )}
-
-          <div className="p-5">
-            <h3 className="text-lg font-semibold tracking-[-0.02em]">
-              {pieza.titulo}
-            </h3>
-            {pieza.portadas.length > 0 ? (
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {pieza.portadas.map((portada, indice) => (
-                  // Las imágenes proceden de la API local y no tienen dimensiones fijas.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={`${pieza.id}-${portada}`}
-                    className="aspect-[9/16] w-full border border-borde bg-carbon object-contain"
-                    src={urlMedio(portada)}
-                    alt={`Portada ${indice + 1} de ${pieza.titulo}`}
-                    loading="lazy"
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-tenue">Sin portadas todavía.</p>
-            )}
-          </div>
-        </article>
+          pieza={pieza}
+          detalle={detalles?.find(({ id }) => id === pieza.id) ?? null}
+        />
       ))}
-    </div>
+    </section>
   );
 }
 
@@ -101,7 +241,7 @@ export function VistaVideoFinal({
   acciones: EstadoAccion[] | null;
 }) {
   const previasRecientes = [...previas].reverse();
-  const ultima = previasRecientes[0] ?? null;
+  const ultima = previaPorDefecto(previas);
   const [previaElegida, setPreviaElegida] = useState<string | null>(null);
   const [ultimaVista, setUltimaVista] = useState(ultima);
   // Tras un render nuevo se pasa a la última; un refresco sin previas nuevas respeta la elección.
@@ -153,16 +293,19 @@ export function VistaVideoFinal({
                 fotogramaInicial
               />
             </div>
-            <div className="flex flex-wrap gap-2" aria-label="Elegir una previa">
+            <div
+              className="flex max-w-full min-w-0 flex-wrap gap-2"
+              aria-label="Elegir una previa"
+            >
               {previasRecientes.map((previa, indice) => (
                 <button
-                  key={previa}
+                  key={`${previa}-${indice}`}
                   type="button"
                   aria-pressed={previa === previaActiva}
                   onClick={() => setPreviaElegida(previa)}
                   className="min-h-11 border border-borde bg-superficie px-4 text-sm font-medium text-tenue transition-colors hover:border-marca hover:text-texto active:translate-y-px aria-pressed:border-marca aria-pressed:text-texto"
                 >
-                  Previa {numeroPrevia(previa) ?? previasRecientes.length - indice}
+                  {etiquetaPrevia(previa) ?? `Previa ${previasRecientes.length - indice}`}
                 </button>
               ))}
             </div>
