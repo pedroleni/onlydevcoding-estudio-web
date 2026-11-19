@@ -5,13 +5,19 @@ import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
 import { BotonBorrarCurso } from "@/components/FormularioCurso";
+import { ListaLecciones } from "@/components/ListaLecciones";
+import { LogoTecnologia } from "@/components/LogoTecnologia";
 import {
   ApiNoDisponible,
   ErrorApi,
   obtenerCursos,
   obtenerLecciones,
+  obtenerTemario,
 } from "@/lib/api";
-import { CURSO_VALIDO, gruposPublicacion } from "@/lib/curso";
+import { CURSO_VALIDO } from "@/lib/curso";
+import { estadoFicha, fichasCurso } from "@/lib/lecciones-curso";
+import { lecturaApiOpcional } from "@/lib/lectura-opcional";
+import { tecnologiaDe } from "@/lib/tecnologias";
 
 function CargandoCurso() {
   return (
@@ -33,9 +39,14 @@ async function ContenidoCurso({
 
   let lecciones;
   let cursos;
+  let temario;
 
   try {
-    [lecciones, cursos] = await Promise.all([obtenerLecciones(curso), obtenerCursos()]);
+    [lecciones, cursos, temario] = await Promise.all([
+      obtenerLecciones(curso),
+      obtenerCursos(),
+      lecturaApiOpcional(obtenerTemario(curso)),
+    ]);
   } catch (error) {
     if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
       return <AvisoApi error={error} />;
@@ -51,6 +62,11 @@ async function ContenidoCurso({
   const datosCurso = cursos.find(({ id }) => id === curso);
   const nombreCurso = datosCurso?.nombre ?? lecciones[0]?.curso ?? curso.replaceAll("-", " ");
 
+  const fichas = fichasCurso(lecciones, temario?.lecciones ?? []);
+  const preparadas = fichas.filter((f) => f.leccion !== null).length;
+  const terminadas = fichas.filter((f) => estadoFicha(f) === "terminada").length;
+  const color = tecnologiaDe(curso, nombreCurso)?.color ?? "var(--marca)";
+
   return (
     <>
       <header>
@@ -60,12 +76,24 @@ async function ContenidoCurso({
         >
           Volver a cursos
         </Link>
-        <h1 className="mt-5 text-3xl font-semibold capitalize tracking-[-0.035em] md:text-5xl">
-          {nombreCurso}
-        </h1>
-        <p className="mt-3 text-tenue">
-          {lecciones.length} {lecciones.length === 1 ? "lección" : "lecciones"}
-        </p>
+        <div
+          className="mt-5 flex items-center gap-4 rounded-3xl border border-borde p-4 md:gap-6 md:p-6"
+          style={{
+            background: `radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${color} 16%, transparent), transparent 60%)`,
+          }}
+        >
+          <LogoTecnologia id={curso} nombre={nombreCurso} tamano="lg" />
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold capitalize tracking-[-0.035em] md:text-5xl">
+              {nombreCurso}
+            </h1>
+            <p className="mt-2 text-tenue">
+              {temario && temario.lecciones.length > 0
+                ? `${preparadas} de ${fichas.length} lecciones preparadas · ${terminadas} ${terminadas === 1 ? "terminada" : "terminadas"}`
+                : `${lecciones.length} ${lecciones.length === 1 ? "lección" : "lecciones"}`}
+            </p>
+          </div>
+        </div>
         {datosCurso && !datosCurso.en_disco ? (
           <div className="mt-5">
             <BotonBorrarCurso curso={curso} nombre={nombreCurso} />
@@ -73,52 +101,8 @@ async function ContenidoCurso({
         ) : null}
       </header>
 
-      {lecciones.length > 0 ? (
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {lecciones.map((leccion) => (
-            <Link
-              key={leccion.numero}
-              href={`/cursos/${encodeURIComponent(curso)}/${leccion.numero}`}
-              className="group border border-borde bg-superficie p-5 transition-colors hover:border-marca active:translate-y-px"
-            >
-              <div className="flex items-start gap-4">
-                <span className="font-mono text-sm text-marca">
-                  {String(leccion.numero).padStart(2, "0")}
-                </span>
-                <h2 className="text-lg font-semibold tracking-[-0.02em] group-hover:text-marca">
-                  {leccion.titulo}
-                </h2>
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-2 text-xs text-tenue">
-                <span className="border border-borde bg-carbon px-2 py-1">
-                  Voz {leccion.estado.voz.hechas}/{leccion.estado.voz.total}
-                </span>
-                <span className="border border-borde bg-carbon px-2 py-1">
-                  Cámara {leccion.estado.camara.hechas}/{leccion.estado.camara.total}
-                </span>
-                <span className="border border-borde bg-carbon px-2 py-1">
-                  {leccion.estado.video_final ? "✅" : "⬜"} Vídeo final
-                </span>
-              </div>
-              {gruposPublicacion(leccion.estado).map((grupo) => (
-                <div
-                  key={grupo.titulo ?? "redes"}
-                  className="mt-2 flex flex-wrap items-center gap-2 text-xs text-tenue"
-                >
-                  {grupo.titulo ? (
-                    <span className="min-w-[7.5rem] font-medium text-texto">{grupo.titulo}</span>
-                  ) : null}
-                  {grupo.marcas.map((marca) => (
-                    <span key={marca.texto} className="border border-borde bg-carbon px-2 py-1">
-                      {marca.icono} {marca.texto}
-                    </span>
-                  ))}
-                </div>
-              ))}
-            </Link>
-          ))}
-        </div>
+      {fichas.length > 0 ? (
+        <ListaLecciones curso={curso} fichas={fichas} />
       ) : (
         <p className="mt-8 border border-borde bg-superficie p-6 text-tenue">
           Este curso aún no tiene lecciones en disco

@@ -84,7 +84,7 @@ function estado(parcial: Partial<EstadoLeccion>): EstadoLeccion {
 }
 
 describe("contarLeccion", () => {
-  it("separa lo pendiente de lo subido en las redes en que se publica cada pieza", () => {
+  it("cuenta las 17 publicaciones del plan y separa lo pendiente de lo subido", () => {
     const leccion = contarLeccion(
       1,
       "¿Qué problema resuelve React?",
@@ -100,7 +100,7 @@ describe("contarLeccion", () => {
         pieza({
           id: "short-2",
           tipo: "short",
-          titulo: "Short 2",
+          titulo: "Short 2 · Con un taxi",
           redes: [
             red("youtube", "programado"),
             red("instagram", "publicado"),
@@ -111,53 +111,60 @@ describe("contarLeccion", () => {
       ]),
     );
 
-    expect(leccion.pendientes).toBe(2);
+    expect(leccion.pendientes).toBe(14);
     expect(leccion.subidas).toBe(3);
-    expect(leccion.total).toBe(5);
-    expect(leccion.piezas.map((p) => p.pendientes.map(({ red: r }) => r))).toEqual([
-      ["linkedin"],
-      ["youtube"],
+    expect(leccion.total).toBe(17);
+    expect(leccion.empezada).toBe(true);
+    expect(leccion.piezas.map((p) => [p.pieza.id, p.pieza.titulo, p.prevista])).toEqual([
+      ["leccion", "Lección completa", false],
+      ["reel-salida", "Reel de lanzamiento", true],
+      ["short-1", "Short 1", true],
+      ["short-2", "Short 2 · Con un taxi", false],
+      ["short-3", "Short 3", true],
+      ["short-4", "Short 4", true],
     ]);
-    expect(leccion.piezas[1].subidas.map(({ red: r }) => r)).toEqual([
+    expect(leccion.piezas[0].pendientes.map(({ red: r }) => r)).toEqual(["linkedin"]);
+    expect(leccion.piezas[3].pendientes.map(({ red: r }) => r)).toEqual(["youtube"]);
+    expect(leccion.piezas[3].subidas.map(({ red: r }) => r)).toEqual(["instagram", "tiktok"]);
+    expect(leccion.piezas[1].redes.map(({ red: r }) => r)).toEqual([
+      "youtube",
       "instagram",
       "tiktok",
     ]);
   });
 
-  it("cuenta por defecto las redes de una pieza con vídeo pero sin textos", () => {
+  it("suma las piezas y redes de sobra que ya tienen contenido", () => {
     const leccion = contarLeccion(
-      6,
-      "Las llaves",
-      vista(6, [
-        pieza({ redes: [red("youtube", "pendiente", false)] }),
-        pieza({ id: "reel-salida", tipo: "reel", titulo: "Reel", redes: [] }),
+      2,
+      "Vite",
+      vista(2, [
+        pieza({
+          id: "short-1",
+          tipo: "short",
+          titulo: "Short 1",
+          redes: [red("youtube"), red("linkedin", "publicado")],
+        }),
+        pieza({ id: "short-5", tipo: "short", titulo: "Short 5", redes: [red("tiktok")] }),
       ]),
     );
 
-    expect(leccion.pendientes).toBe(5);
-    expect(leccion.subidas).toBe(0);
+    expect(leccion.total).toBe(19);
+    expect(leccion.subidas).toBe(1);
+    expect(leccion.piezas.at(-1)?.pieza.id).toBe("short-5");
   });
 
-  it("no cuenta una pieza sin vídeo ni textos (lección aún sin preparar)", () => {
-    const leccion = contarLeccion(
+  it("deja todo pendiente y sin empezar si la lección no tiene nada preparado", () => {
+    const sinPreparar = contarLeccion(
       7,
       "Sin preparar",
       vista(7, [pieza({ video: null, redes: [red("youtube", "pendiente", false)] })]),
     );
+    const sinVista = contarLeccion(3, "Sin datos", null);
 
-    expect(leccion.piezas).toEqual([]);
-    expect(leccion.total).toBe(0);
-  });
-
-  it("trata una vista que no llegó como lección sin nada que contar", () => {
-    expect(contarLeccion(3, "Sin datos", null)).toMatchObject({
-      numero: 3,
-      titulo: "Sin datos",
-      piezas: [],
-      pendientes: 0,
-      subidas: 0,
-      total: 0,
-    });
+    for (const leccion of [sinPreparar, sinVista]) {
+      expect(leccion).toMatchObject({ pendientes: 17, subidas: 0, total: 17, empezada: false });
+      expect(leccion.piezas.every((p) => p.prevista)).toBe(true);
+    }
   });
 });
 
@@ -182,13 +189,13 @@ describe("totalesPublicacion", () => {
     );
 
     expect(totalesPublicacion([a, b])).toEqual({
-      quedan: 3,
+      quedan: 32,
       subidas: 2,
       quedanPorRed: [
-        { red: "youtube", nombre: "YouTube", quedan: 1 },
-        { red: "instagram", nombre: "Instagram", quedan: 1 },
-        { red: "tiktok", nombre: "TikTok", quedan: 0 },
-        { red: "linkedin", nombre: "LinkedIn", quedan: 1 },
+        { red: "youtube", nombre: "YouTube", quedan: 11 },
+        { red: "instagram", nombre: "Instagram", quedan: 10 },
+        { red: "tiktok", nombre: "TikTok", quedan: 9 },
+        { red: "linkedin", nombre: "LinkedIn", quedan: 2 },
       ],
     });
   });

@@ -66,6 +66,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     ...original,
     obtenerCursos: vi.fn(),
     obtenerLecciones: vi.fn(),
+    obtenerTemario: vi.fn().mockResolvedValue(null),
     obtenerLeccion: vi.fn(),
     obtenerPublicacion: vi.fn(),
     obtenerTeleprompter: vi.fn(),

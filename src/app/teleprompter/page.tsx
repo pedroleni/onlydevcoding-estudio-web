@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
+import { ModoTeleprompter } from "@/components/teleprompter/ModoTeleprompter";
 import { Teleprompter, type OpcionLeccion } from "@/components/teleprompter/Teleprompter";
 import {
   ApiNoDisponible,
@@ -80,6 +81,7 @@ async function ContenidoTeleprompter({
 export default function PaginaTeleprompter({ searchParams }: PageProps<"/teleprompter">) {
   return (
     <section>
+      <ModoTeleprompter activo="leccion" />
       <Suspense fallback={<p className="py-8 text-sm text-tenue">Cargando teleprompter…</p>}>
         <ContenidoTeleprompter searchParams={searchParams} />
       </Suspense>

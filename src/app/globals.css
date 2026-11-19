@@ -74,3 +74,43 @@ a {
     width: min(100% - 4rem, 80rem);
   }
 }
+
+/* Entrada escalonada de las tarjetas y relleno de sus barras de avance. */
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+@keyframes crecer {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.entrar {
+  animation: entrar 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.barra-crece {
+  transform-origin: left;
+  animation: crecer 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+}
+
+.tarjeta-leccion:hover,
+.tarjeta-leccion:focus-visible {
+  border-color: var(--mod, var(--marca));
+  box-shadow: 0 14px 34px -18px var(--mod, var(--marca));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entrar,
+  .barra-crece {
+    animation: none;
+  }
+
+  .tarjeta-leccion {
+    transition: none;
+  }
+}

@@ -1,4 +1,5 @@
 import { REDES } from "@/lib/curso";
+import { PLAN_LECCION, type PiezaPrevista } from "@/lib/plan-publicacion";
 import { redesDisponibles, tieneContenido } from "@/lib/redes-publicacion";
 import type {
   Avance,
@@ -10,10 +11,12 @@ import type {
 
 export interface PiezaContada {
   pieza: PiezaVista;
-  // Redes en que se publica la pieza (las mismas que enseña el panel de la lección).
+  // Redes en que se publica la pieza: las del plan y las que ya tienen contenido.
   redes: RedVista[];
   pendientes: RedVista[];
   subidas: RedVista[];
+  // La pieza está en el plan pero aún no tiene vídeo ni textos.
+  prevista: boolean;
 }
 
 export interface LeccionContada {
@@ -23,6 +26,8 @@ export interface LeccionContada {
   pendientes: number;
   subidas: number;
   total: number;
+  // Alguna pieza ya tiene vídeo o textos de publicación.
+  empezada: boolean;
 }
 
 // Una pieza entra en la cuenta si ya tiene vídeo o algo que publicar en alguna red.
@@ -31,24 +36,74 @@ function cuentaPieza(pieza: PiezaVista): boolean {
   return pieza.video !== null || pieza.redes.some(tieneContenido);
 }
 
-// Lo subido es lo publicado; lo programado sigue en «queda por subir» (con su 📅).
+function redPendiente(red: RedVista["red"]): RedVista {
+  return { red, textos: null, estado: { estado: "pendiente", fecha: null, url: null } };
+}
+
+function piezaPrevista(plan: PiezaPrevista): PiezaVista {
+  return {
+    id: plan.id,
+    tipo: plan.tipo,
+    titulo: plan.titulo,
+    video: null,
+    duracion: null,
+    fecha_propuesta: null,
+    portadas: [],
+    portada_elegida: null,
+    redes: [],
+  };
+}
+
+function contarPieza(pieza: PiezaVista, redes: RedVista[], prevista: boolean): PiezaContada {
+  return {
+    pieza,
+    redes,
+    prevista,
+    pendientes: redes.filter(({ estado }) => estado.estado !== "publicado"),
+    subidas: redes.filter(({ estado }) => estado.estado === "publicado"),
+  };
+}
+
+// Cada lección cuenta las 17 publicaciones del plan (lección, reel de lanzamiento y
+// 4 shorts), estén preparadas o no, más las piezas y redes de sobra que ya tengan
+// contenido. Lo subido es lo publicado; lo programado sigue en «queda por subir».
 export function contarLeccion(
   numero: number,
   titulo: string,
   vista: VistaPublicacion | null,
 ): LeccionContada {
-  const piezas = (vista?.piezas ?? []).filter(cuentaPieza).map((pieza) => {
-    const redes = redesDisponibles(pieza);
-    return {
-      pieza,
-      redes,
-      pendientes: redes.filter(({ estado }) => estado.estado !== "publicado"),
-      subidas: redes.filter(({ estado }) => estado.estado === "publicado"),
-    };
+  const reales = vista?.piezas ?? [];
+  const idsPlan = new Set(PLAN_LECCION.map(({ id }) => id));
+  const piezas: PiezaContada[] = PLAN_LECCION.map((plan) => {
+    const real = reales.find(({ id }) => id === plan.id);
+    const redes = plan.redes.map(
+      (id) => real?.redes.find(({ red }) => red === id) ?? redPendiente(id),
+    );
+    const deSobra = (real?.redes ?? []).filter(
+      (red) => tieneContenido(red) && !plan.redes.includes(red.red),
+    );
+    return contarPieza(
+      real ?? piezaPrevista(plan),
+      [...redes, ...deSobra],
+      !real || !cuentaPieza(real),
+    );
   });
+  for (const real of reales) {
+    if (!idsPlan.has(real.id) && cuentaPieza(real)) {
+      piezas.push(contarPieza(real, redesDisponibles(real), false));
+    }
+  }
   const pendientes = piezas.reduce((suma, p) => suma + p.pendientes.length, 0);
   const subidas = piezas.reduce((suma, p) => suma + p.subidas.length, 0);
-  return { numero, titulo, piezas, pendientes, subidas, total: pendientes + subidas };
+  return {
+    numero,
+    titulo,
+    piezas,
+    pendientes,
+    subidas,
+    total: pendientes + subidas,
+    empezada: reales.some(cuentaPieza),
+  };
 }
 
 export function totalesPublicacion(lecciones: LeccionContada[]) {

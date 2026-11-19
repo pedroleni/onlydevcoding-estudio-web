@@ -24,7 +24,12 @@ vi.mock("@/lib/acciones-tareas", () => ({
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/api")>();
-  return { ...original, obtenerCursos: vi.fn(), obtenerLecciones: vi.fn() };
+  return {
+    ...original,
+    obtenerCursos: vi.fn(),
+    obtenerLecciones: vi.fn(),
+    obtenerTemario: vi.fn().mockResolvedValue(null),
+  };
 });
 
 async function contenidoCurso(curso: string) {

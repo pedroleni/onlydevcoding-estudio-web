@@ -9,6 +9,8 @@ import {
   obtenerCursos,
   obtenerLecciones,
   obtenerPublicacion,
+  obtenerReels,
+  obtenerTemario,
 } from "@/lib/api";
 import {
   avanceCurso,
@@ -19,9 +21,18 @@ import {
   totalesPublicacion,
 } from "@/lib/estadisticas-publicacion";
 import { fechaPublicacionLegible } from "@/lib/fecha-publicacion";
+import { type FichaLeccion, fichasCurso } from "@/lib/lecciones-curso";
 import { lecturaApiOpcional } from "@/lib/lectura-opcional";
+import { GANCHOS_POR_LECCION, PUBLICACIONES_POR_LECCION } from "@/lib/plan-publicacion";
 import { faltaVideoPropio, nombreRed } from "@/lib/redes-publicacion";
-import type { Curso, EstadoRed, LeccionResumen, PiezaVista, RedVista } from "@/lib/tipos";
+import type {
+  Curso,
+  EstadoLeccion,
+  EstadoRed,
+  PiezaVista,
+  RedVista,
+  ReelsCurso,
+} from "@/lib/tipos";
 import { errorUrlPublicacion } from "@/lib/url-publicacion";
 
 const ICONO: Record<EstadoRed["estado"], string> = {
@@ -56,21 +67,60 @@ function urlSegura(url: string | null): string | null {
 
 interface DatosCurso {
   curso: Curso;
-  lecciones: LeccionResumen[];
+  // Todas las lecciones del curso: las de disco y las que solo están en el temario.
+  fichas: FichaLeccion[];
   contadas: LeccionContada[];
   sinLeer: number[];
+  ganchos: { grabados: number; total: number };
+}
+
+// Estado de una lección que aún no existe en disco: no cuenta nada hecho.
+const ESTADO_SIN_EMPEZAR: EstadoLeccion = {
+  guion: false,
+  voz: { hechas: 0, total: 0 },
+  camara: { hechas: 0, total: 0 },
+  video_final: false,
+  miniatura: null,
+  previa: null,
+  publicado: {},
+};
+
+// Ganchos verticales: los del guion de cada lección; sin guion, los 4 previstos.
+function contarGanchos(fichas: FichaLeccion[], reels: ReelsCurso | null) {
+  let grabados = 0;
+  let total = 0;
+  for (const ficha of fichas) {
+    const deReels = reels?.lecciones.find(({ numero }) => numero === ficha.numero);
+    if (deReels) {
+      total += deReels.ganchos.length;
+      grabados += deReels.ganchos.filter(({ grabado }) => grabado).length;
+    } else if (!ficha.leccion?.estado.guion) {
+      total += GANCHOS_POR_LECCION;
+    }
+  }
+  return { grabados, total };
 }
 
 async function leerCurso(curso: Curso): Promise<DatosCurso> {
-  const lecciones = (await obtenerLecciones(curso.id)) ?? [];
+  const [lecciones, temario, reels] = await Promise.all([
+    obtenerLecciones(curso.id).then((l) => l ?? []),
+    lecturaApiOpcional(obtenerTemario(curso.id)),
+    lecturaApiOpcional(obtenerReels(curso.id)),
+  ]);
+  const fichas = fichasCurso(lecciones, temario?.lecciones ?? []);
   const vistas = await Promise.all(
-    lecciones.map(({ numero }) => lecturaApiOpcional(obtenerPublicacion(curso.id, numero))),
+    fichas.map(({ numero, leccion }) =>
+      leccion ? lecturaApiOpcional(obtenerPublicacion(curso.id, numero)) : null,
+    ),
   );
   return {
     curso,
-    lecciones,
-    contadas: lecciones.map(({ numero, titulo }, i) => contarLeccion(numero, titulo, vistas[i])),
-    sinLeer: lecciones.filter((_, i) => vistas[i] === null).map(({ numero }) => numero),
+    fichas,
+    contadas: fichas.map(({ numero, titulo }, i) => contarLeccion(numero, titulo, vistas[i])),
+    sinLeer: fichas
+      .filter(({ leccion }, i) => leccion !== null && vistas[i] === null)
+      .map(({ numero }) => numero),
+    ganchos: contarGanchos(fichas, reels),
   };
 }
 
@@ -90,14 +140,15 @@ function BarraAvance({ porcentaje, etiqueta }: { porcentaje: number; etiqueta: s
 }
 
 function VisionGlobal({ datos }: { datos: DatosCurso }) {
-  const { curso, lecciones, contadas } = datos;
+  const { curso, fichas, contadas } = datos;
   const avance = avanceCurso(
-    lecciones.map(({ numero, estado }, i) => ({
+    fichas.map(({ numero, leccion }, i) => ({
       numero,
-      estado,
+      estado: leccion?.estado ?? ESTADO_SIN_EMPEZAR,
       publicacion: { subidas: contadas[i].subidas, total: contadas[i].total },
     })),
   );
+  const enDisco = new Set(fichas.filter((f) => f.leccion).map((f) => f.numero));
 
   return (
     <section aria-label={`Visión global de ${curso.nombre}`} className="mt-8">
@@ -140,12 +191,9 @@ function VisionGlobal({ datos }: { datos: DatosCurso }) {
           aria-label="Avance por lección"
           className="mt-4 grid grid-cols-6 gap-1.5 md:grid-cols-12"
         >
-          {avance.porLeccion.map(({ numero, porcentaje }) => (
-            <li key={numero}>
-              <Link
-                href={`/cursos/${encodeURIComponent(curso.id)}/${numero}`}
-                className="block border border-borde px-1 py-1.5 text-center text-[11px] text-tenue hover:border-marca"
-              >
+          {avance.porLeccion.map(({ numero, porcentaje }) => {
+            const contenido = (
+              <>
                 <span className="block font-mono text-xs text-marca">{dosCifras(numero)}</span>
                 {porcentaje} %
                 <span className="relative mt-1 block h-1 bg-carbon" aria-hidden="true">
@@ -154,24 +202,47 @@ function VisionGlobal({ datos }: { datos: DatosCurso }) {
                     style={{ width: `${porcentaje}%` }}
                   />
                 </span>
-              </Link>
-            </li>
-          ))}
+              </>
+            );
+            return (
+              <li key={numero}>
+                {enDisco.has(numero) ? (
+                  <Link
+                    href={`/cursos/${encodeURIComponent(curso.id)}/${numero}`}
+                    className="block border border-borde px-1 py-1.5 text-center text-[11px] text-tenue hover:border-marca"
+                  >
+                    {contenido}
+                  </Link>
+                ) : (
+                  <span className="block border border-dashed border-borde px-1 py-1.5 text-center text-[11px] text-tenue opacity-60">
+                    {contenido}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
         <p className="mt-3 text-xs leading-5 text-tenue">
-          Cada lección cuenta igual y tiene 4 pasos con el mismo peso: voz, cámara, vídeo final y
-          publicación. Una lección sin textos de publicación cuenta ese paso como 0.
+          Sobre las {plural(fichas.length, "lección", "lecciones")} del curso, también las que aún
+          no están preparadas. Cada una cuenta igual y tiene 4 pasos con el mismo peso: voz,
+          cámara, vídeo final y publicación (sus {PUBLICACIONES_POR_LECCION} publicaciones).
         </p>
       </div>
     </section>
   );
 }
 
-function Cifras({ contadas }: { contadas: LeccionContada[] }) {
+function Cifras({ datos }: { datos: DatosCurso }) {
+  const { contadas, ganchos } = datos;
   const totales = totalesPublicacion(contadas);
   const cifras = [
     { valor: totales.quedan, texto: "quedan", color: "text-ambar" },
     { valor: totales.subidas, texto: "subidas", color: "text-verde" },
+    {
+      valor: `${ganchos.grabados}/${ganchos.total}`,
+      texto: "ganchos grabados",
+      color: "text-azul-claro",
+    },
     ...totales.quedanPorRed.map(({ nombre, quedan }) => ({
       valor: quedan,
       texto: nombre,
@@ -180,7 +251,7 @@ function Cifras({ contadas }: { contadas: LeccionContada[] }) {
   ];
 
   return (
-    <ul aria-label="Cifras de publicación" className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-6">
+    <ul aria-label="Cifras de publicación" className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-7">
       {cifras.map(({ valor, texto, color }) => (
         <li key={texto} className="border border-borde bg-superficie p-3 text-sm text-tenue">
           <span className={`block text-2xl font-semibold ${color}`}>{valor}</span>
@@ -236,10 +307,9 @@ function CabeceraLeccion({
 
 function QuedaPorSubir({ datos }: { datos: DatosCurso }) {
   const { curso, contadas, sinLeer } = datos;
-  const conPendientes = contadas.filter((l) => l.pendientes > 0);
-  const sinTextos = contadas
-    .filter((l) => l.total === 0 && !sinLeer.includes(l.numero))
-    .map((l) => l.numero);
+  const conPendientes = contadas.filter((l) => l.empezada && l.pendientes > 0);
+  const sinEmpezar = contadas.filter((l) => !l.empezada && l.pendientes > 0);
+  const quedanSinEmpezar = sinEmpezar.reduce((suma, l) => suma + l.pendientes, 0);
 
   return (
     <section aria-labelledby={`queda-${curso.id}`} className="mt-8">
@@ -266,13 +336,18 @@ function QuedaPorSubir({ datos }: { datos: DatosCurso }) {
             <ul>
               {leccion.piezas
                 .filter((p) => p.pendientes.length > 0)
-                .map(({ pieza, redes }) => (
+                .map(({ pieza, redes, prevista }) => (
                   <li
                     key={pieza.id}
                     aria-label={pieza.titulo}
                     className="grid gap-1.5 border-t border-borde px-3 py-2"
                   >
-                    <span className="text-sm">{pieza.titulo}</span>
+                    <span className="text-sm">
+                      {pieza.titulo}
+                      {prevista ? (
+                        <span className="ml-2 text-xs text-tenue">· sin preparar</span>
+                      ) : null}
+                    </span>
                     <span className="flex flex-wrap gap-1.5">
                       {redes.map((red) => (
                         <ChipRed
@@ -290,11 +365,30 @@ function QuedaPorSubir({ datos }: { datos: DatosCurso }) {
           </article>
         ))}
       </div>
-      {sinTextos.length > 0 ? (
-        <p className="mt-3 text-sm text-tenue">
-          {sinTextos.length === 1 ? "Lección" : "Lecciones"} {rangoNumeros(sinTextos)}: aún sin
-          textos de publicación.
-        </p>
+      {sinEmpezar.length > 0 ? (
+        <details className="mt-2.5 border border-dashed border-borde bg-superficie">
+          <summary className="flex cursor-pointer list-none items-baseline gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0 flex-1 font-semibold">
+              {sinEmpezar.length === 1 ? "Lección" : "Lecciones"}{" "}
+              {rangoNumeros(sinEmpezar.map((l) => l.numero))}: sin empezar
+            </span>
+            <span className="shrink-0 text-xs text-ambar">{quedanSinEmpezar} por subir</span>
+          </summary>
+          <ul className="text-sm">
+            {sinEmpezar.map((leccion) => (
+              <li
+                key={leccion.numero}
+                className="flex items-baseline gap-2 border-t border-borde px-3 py-2"
+              >
+                <CabeceraLeccion
+                  leccion={leccion}
+                  cuenta={`${leccion.pendientes} por subir`}
+                  color="text-tenue"
+                />
+              </li>
+            ))}
+          </ul>
+        </details>
       ) : null}
       {sinLeer.length > 0 ? (
         <p className="mt-2 text-sm text-ambar">
@@ -406,7 +500,7 @@ export async function ContenidoPublicacion() {
             >
               Publicación
             </h2>
-            <Cifras contadas={datos.contadas} />
+            <Cifras datos={datos} />
           </section>
           <QuedaPorSubir datos={datos} />
           <YaSubido datos={datos} />
