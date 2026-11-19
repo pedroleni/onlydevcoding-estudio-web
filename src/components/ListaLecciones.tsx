@@ -51,14 +51,14 @@ function Pasos({ ficha }: { ficha: FichaLeccion }) {
   };
 
   return (
-    <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-4">
+    <ul className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-xs">
       {PASOS.map(({ clave, icono, nombre, color }) => (
         <li key={clave} aria-label={`${nombre} ${detalle[clave]}`}>
-          <span className="flex items-baseline justify-between gap-2 text-tenue">
-            <span>
+          <span className="flex min-w-0 items-baseline justify-between gap-2 text-tenue">
+            <span className="min-w-0 truncate">
               <span aria-hidden="true">{icono}</span> {nombre}
             </span>
-            <span className="font-mono text-texto">{detalle[clave]}</span>
+            <span className="shrink-0 font-mono text-texto">{detalle[clave]}</span>
           </span>
           <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-carbon" aria-hidden="true">
             <span
