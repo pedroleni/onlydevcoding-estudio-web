@@ -475,13 +475,13 @@ export function EntregaTomas({
       const control = new AbortController();
       controles.current.set(subida.clave, control);
       actualizarSubida(subida.clave, { estado: "subiendo" });
-      const resultado = await subirEntrega(
+      const resultado = await subirEntrega({
         curso,
         numero,
-        subida.archivo,
-        (fraccion) => actualizarSubida(subida.clave, { fraccion }),
-        control.signal,
-      );
+        archivo: subida.archivo,
+        alAvanzar: (fraccion) => actualizarSubida(subida.clave, { fraccion }),
+        senal: control.signal,
+      });
       controles.current.delete(subida.clave);
       if (!montado.current) break;
       if (resultado.ok) {

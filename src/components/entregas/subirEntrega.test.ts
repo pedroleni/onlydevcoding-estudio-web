@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { subirEntrega } from "@/components/entregas/subirEntrega";
+import {
+  subirEntrega,
+  type SolicitudSubidaEntrega,
+} from "@/components/entregas/subirEntrega";
 
 class XhrFalso {
   static instancias: XhrFalso[] = [];
@@ -54,6 +57,14 @@ function archivo(nombre: string, tipo = "video/quicktime", contenido = "ftypqt")
   return new File([contenido], nombre, { type: tipo });
 }
 
+function solicitudSubida(
+  toma: File,
+  alAvanzar = vi.fn(),
+  senal = new AbortController().signal,
+): SolicitudSubidaEntrega {
+  return { curso: "react", numero: 4, archivo: toma, alAvanzar, senal };
+}
+
 describe("subirEntrega", () => {
   beforeEach(() => {
     XhrFalso.instancias = [];
@@ -68,7 +79,7 @@ describe("subirEntrega", () => {
     const alAvanzar = vi.fn();
     const toma = archivo("Toma ficticia (2).MOV");
 
-    const promesa = subirEntrega("react", 4, toma, alAvanzar, new AbortController().signal);
+    const promesa = subirEntrega(solicitudSubida(toma, alAvanzar));
     const xhr = XhrFalso.instancias[0];
     xhr.progreso(3, 6);
     xhr.progreso(6, 6);
@@ -88,13 +99,7 @@ describe("subirEntrega", () => {
   });
 
   it("deduce el tipo por la extensión si el navegador no lo da", async () => {
-    const promesa = subirEntrega(
-      "react",
-      4,
-      archivo("toma.mp4", ""),
-      vi.fn(),
-      new AbortController().signal,
-    );
+    const promesa = subirEntrega(solicitudSubida(archivo("toma.mp4", "")));
     const xhr = XhrFalso.instancias[0];
     xhr.responder(201, { archivo: "toma.mp4", bytes: 6 });
 
@@ -103,13 +108,7 @@ describe("subirEntrega", () => {
   });
 
   it("resuelve con el error de la API en un 409", async () => {
-    const promesa = subirEntrega(
-      "react",
-      4,
-      archivo("toma.mov"),
-      vi.fn(),
-      new AbortController().signal,
-    );
+    const promesa = subirEntrega(solicitudSubida(archivo("toma.mov")));
     XhrFalso.instancias[0].responder(409, { detail: "Ya hay una toma con ese nombre" });
 
     await expect(promesa).resolves.toEqual({
@@ -120,13 +119,7 @@ describe("subirEntrega", () => {
   });
 
   it("da un mensaje fijo si el error no trae detail", async () => {
-    const promesa = subirEntrega(
-      "react",
-      4,
-      archivo("toma.mov"),
-      vi.fn(),
-      new AbortController().signal,
-    );
+    const promesa = subirEntrega(solicitudSubida(archivo("toma.mov")));
     XhrFalso.instancias[0].responder(500, "<html>fallo</html>");
 
     await expect(promesa).resolves.toEqual({
@@ -137,13 +130,7 @@ describe("subirEntrega", () => {
   });
 
   it("da un mensaje fijo si se corta la conexión", async () => {
-    const promesa = subirEntrega(
-      "react",
-      4,
-      archivo("toma.mov"),
-      vi.fn(),
-      new AbortController().signal,
-    );
+    const promesa = subirEntrega(solicitudSubida(archivo("toma.mov")));
     XhrFalso.instancias[0].onerror?.();
 
     await expect(promesa).resolves.toEqual({
@@ -155,7 +142,7 @@ describe("subirEntrega", () => {
 
   it("cancela la subida con la señal", async () => {
     const control = new AbortController();
-    const promesa = subirEntrega("react", 4, archivo("toma.mov"), vi.fn(), control.signal);
+    const promesa = subirEntrega(solicitudSubida(archivo("toma.mov"), vi.fn(), control.signal));
     const xhr = XhrFalso.instancias[0];
 
     control.abort();
@@ -173,7 +160,7 @@ describe("subirEntrega", () => {
     control.abort();
 
     await expect(
-      subirEntrega("react", 4, archivo("toma.mov"), vi.fn(), control.signal),
+      subirEntrega(solicitudSubida(archivo("toma.mov"), vi.fn(), control.signal)),
     ).resolves.toMatchObject({ ok: false, cancelada: true });
     expect(XhrFalso.instancias).toHaveLength(0);
   });
@@ -182,7 +169,7 @@ describe("subirEntrega", () => {
     "no sube un nombre que la API no admite: %s",
     async (nombre) => {
       await expect(
-        subirEntrega("react", 4, archivo(nombre), vi.fn(), new AbortController().signal),
+        subirEntrega(solicitudSubida(archivo(nombre))),
       ).resolves.toEqual({
         ok: false,
         cancelada: false,
@@ -199,10 +186,10 @@ describe("subirEntrega", () => {
     Object.defineProperty(enorme, "size", { value: 4_294_967_297 });
 
     await expect(
-      subirEntrega("react", 4, vacio, vi.fn(), new AbortController().signal),
+      subirEntrega(solicitudSubida(vacio)),
     ).resolves.toMatchObject({ ok: false, mensaje: "El archivo no es un vídeo MOV o MP4" });
     await expect(
-      subirEntrega("react", 4, enorme, vi.fn(), new AbortController().signal),
+      subirEntrega(solicitudSubida(enorme)),
     ).resolves.toMatchObject({ ok: false, mensaje: "La toma supera el límite de 4 GiB" });
     expect(XhrFalso.instancias).toHaveLength(0);
   });

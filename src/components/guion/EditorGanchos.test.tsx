@@ -50,10 +50,16 @@ describe("EditorGanchos", () => {
     await userEvent.type(screen.getByLabelText("Texto de Primer gancho"), "Gancho corregido ficticio.");
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
-    expect(guardarTextos).toHaveBeenCalledWith("react", 4, VERSION, [], [
-      { id: "gancho-1", texto: "Gancho corregido ficticio." },
-      { id: "gancho_2", texto: "Segundo texto ficticio." },
-    ]);
+    expect(guardarTextos).toHaveBeenCalledWith({
+      curso: "react",
+      numero: 4,
+      version: VERSION,
+      escenas: [],
+      ganchos: [
+        { id: "gancho-1", texto: "Gancho corregido ficticio." },
+        { id: "gancho_2", texto: "Segundo texto ficticio." },
+      ],
+    });
     expect(alGuardado).toHaveBeenCalled();
   });
 

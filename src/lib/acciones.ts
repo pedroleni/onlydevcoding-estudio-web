@@ -20,6 +20,13 @@ const REDES_VALIDAS = new Set<string>(REDES.map(([id]) => id));
 const ESTADOS_VALIDOS = new Set(["pendiente", "programado", "publicado"]);
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/;
 
+interface DestinoPublicacion {
+  curso: string;
+  numero: number;
+  pieza: string;
+  red: string;
+}
+
 export type ResultadoAccion =
   | { ok: true; vista: VistaPublicacion; aviso?: string }
   | { ok: false; mensaje: string };
@@ -47,17 +54,23 @@ function validarPieza(
 }
 
 function validarDestino(
-  curso: unknown,
-  numero: unknown,
-  pieza: unknown,
-  red: unknown,
-): ResultadoAccion | null {
+  valor: unknown,
+): DestinoPublicacion | ResultadoAccion {
+  const destino = typeof valor === "object" && valor !== null
+    ? valor as Record<string, unknown>
+    : {};
+  const { curso, numero, pieza, red } = destino;
   const errorPieza = validarPieza(curso, numero, pieza);
   if (errorPieza) return errorPieza;
   if (typeof red !== "string" || !REDES_VALIDAS.has(red)) {
     return { ok: false, mensaje: "La red no es válida" };
   }
-  return null;
+  return {
+    curso: curso as string,
+    numero: numero as number,
+    pieza: pieza as string,
+    red,
+  };
 }
 
 function esCadenaONull(valor: unknown): valor is string | null {
@@ -181,37 +194,31 @@ export async function elegirPortada(
 }
 
 export async function cambiarEstado(
-  curso: string,
-  numero: number,
-  pieza: string,
-  red: string,
-  estado: EstadoRed,
+  valorDestino: unknown,
+  estado: unknown,
 ): Promise<ResultadoAccion> {
-  const error = validarDestino(curso, numero, pieza, red);
-  if (error) return error;
+  const destino = validarDestino(valorDestino);
+  if ("ok" in destino) return destino;
   if (!esEstadoRed(estado)) {
     return { ok: false, mensaje: "El estado no es válido" };
   }
 
   return ejecutar(
-    `${rutaPieza(curso, numero, pieza)}/redes/${encodeURIComponent(red)}/estado`,
+    `${rutaPieza(destino.curso, destino.numero, destino.pieza)}/redes/${encodeURIComponent(destino.red)}/estado`,
     { estado: estado.estado, fecha: estado.fecha, url: estado.url },
   );
 }
 
 export async function guardarTextos(
-  curso: string,
-  numero: number,
-  pieza: string,
-  red: string,
-  textos: TextosEditables,
+  valorDestino: unknown,
+  textos: unknown,
 ): Promise<ResultadoAccion> {
-  const error = validarDestino(curso, numero, pieza, red);
-  if (error) return error;
+  const destino = validarDestino(valorDestino);
+  if ("ok" in destino) return destino;
   if (!sonTextosEditables(textos)) {
     return { ok: false, mensaje: "Los textos no son válidos" };
   }
-  const errorLimites = errorLimitesTextos(red as RedVista["red"], textos);
+  const errorLimites = errorLimitesTextos(destino.red as RedVista["red"], textos);
   if (errorLimites) return { ok: false, mensaje: errorLimites };
 
   const cuerpo: TextosEditables = {
@@ -225,7 +232,7 @@ export async function guardarTextos(
   };
 
   return ejecutar(
-    `${rutaPieza(curso, numero, pieza)}/redes/${encodeURIComponent(red)}/textos`,
+    `${rutaPieza(destino.curso, destino.numero, destino.pieza)}/redes/${encodeURIComponent(destino.red)}/textos`,
     cuerpo,
   );
 }

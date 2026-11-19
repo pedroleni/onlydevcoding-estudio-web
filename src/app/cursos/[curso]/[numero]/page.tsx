@@ -89,17 +89,7 @@ function BloqueGrabacion({
   );
 }
 
-function ContenidoPestana({
-  curso,
-  leccion,
-  pestana,
-  publicacion,
-  teleprompter,
-  acciones,
-  camara,
-  piezaSeleccionada,
-  redSeleccionada,
-}: {
+interface PropiedadesContenidoPestana {
   curso: string;
   leccion: Leccion;
   pestana: PestanaLeccion;
@@ -109,39 +99,79 @@ function ContenidoPestana({
   camara: DatosCamara | null;
   piezaSeleccionada?: string;
   redSeleccionada?: string;
-}) {
-  if (pestana === "grabaciones") {
-    const escenasVoz = teleprompter?.escenas.filter(({ modo }) => modo === "voz");
-    return (
-      <div role="tabpanel" className="grid gap-8">
-        {escenasVoz ? (
-          <GrabacionesVoz
-            curso={curso}
-            numero={leccion.numero}
-            escenas={escenasVoz}
-            avance={leccion.estado.voz}
-            sinAlinear={leccion.montaje?.sin_alinear ?? []}
-            accion={acciones?.find(({ id }) => id === "alinear-voz") ?? null}
-          />
-        ) : (
-          <BloqueGrabacion
-            id="grabacion-voz"
-            titulo="Voz en off"
-            escenas={leccion.escenas.filter(({ modo }) => modo === "voz")}
-            avance={leccion.estado.voz}
-          />
-        )}
-        <TomasCamara
+}
+
+function ContenidoGrabaciones({
+  curso,
+  leccion,
+  teleprompter,
+  acciones,
+  camara,
+}: Pick<
+  PropiedadesContenidoPestana,
+  "curso" | "leccion" | "teleprompter" | "acciones" | "camara"
+>) {
+  const escenasVoz = teleprompter?.escenas.filter(({ modo }) => modo === "voz");
+  return (
+    <div role="tabpanel" className="grid gap-8">
+      {escenasVoz ? (
+        <GrabacionesVoz
           curso={curso}
           numero={leccion.numero}
-          camara={camara}
-          acciones={acciones}
-          avance={leccion.estado.camara}
-          escenas={leccion.escenas.filter(({ modo }) => modo === "camara")}
+          escenas={escenasVoz}
+          avance={leccion.estado.voz}
+          sinAlinear={leccion.montaje?.sin_alinear ?? []}
+          accion={acciones?.find(({ id }) => id === "alinear-voz") ?? null}
         />
-      </div>
+      ) : (
+        <BloqueGrabacion
+          id="grabacion-voz"
+          titulo="Voz en off"
+          escenas={leccion.escenas.filter(({ modo }) => modo === "voz")}
+          avance={leccion.estado.voz}
+        />
+      )}
+      <TomasCamara
+        curso={curso}
+        numero={leccion.numero}
+        camara={camara}
+        acciones={acciones}
+        avance={leccion.estado.camara}
+        escenas={leccion.escenas.filter(({ modo }) => modo === "camara")}
+      />
+    </div>
+  );
+}
+
+function ContenidoPublicar({
+  publicacion,
+  piezaSeleccionada,
+  redSeleccionada,
+}: Pick<
+  PropiedadesContenidoPestana,
+  "publicacion" | "piezaSeleccionada" | "redSeleccionada"
+>) {
+  if (!publicacion) {
+    return (
+      <p role="tabpanel" className="border border-borde bg-superficie p-6 text-tenue">
+        No se ha encontrado la información de publicación de esta lección.
+      </p>
     );
   }
+
+  return (
+    <PublicarLeccion
+      vista={publicacion}
+      piezaSeleccionada={piezaSeleccionada}
+      redSeleccionada={redSeleccionada}
+    />
+  );
+}
+
+function ContenidoPestana(propiedades: PropiedadesContenidoPestana) {
+  const { curso, leccion, pestana, publicacion, teleprompter, acciones } = propiedades;
+
+  if (pestana === "grabaciones") return <ContenidoGrabaciones {...propiedades} />;
 
   if (pestana === "video") {
     return (
@@ -175,17 +205,7 @@ function ContenidoPestana({
   }
 
   if (pestana === "publicar") {
-    return publicacion ? (
-      <PublicarLeccion
-        vista={publicacion}
-        piezaSeleccionada={piezaSeleccionada}
-        redSeleccionada={redSeleccionada}
-      />
-    ) : (
-      <p role="tabpanel" className="border border-borde bg-superficie p-6 text-tenue">
-        No se ha encontrado la información de publicación de esta lección.
-      </p>
-    );
+    return <ContenidoPublicar {...propiedades} />;
   }
 
   const ultimaPrevia =
@@ -202,6 +222,68 @@ function ContenidoPestana({
       acciones={acciones}
     />
   );
+}
+
+interface DatosPestana {
+  publicacion: VistaPublicacion | null;
+  teleprompter: Teleprompter | null;
+  acciones: EstadoAccion[] | null;
+  camara: DatosCamara | null;
+}
+
+const DATOS_PESTANA_VACIOS: DatosPestana = {
+  publicacion: null,
+  teleprompter: null,
+  acciones: null,
+  camara: null,
+};
+
+async function cargarDatosPestana({
+  curso,
+  numero,
+  pestana,
+}: {
+  curso: string;
+  numero: number;
+  pestana: PestanaLeccion;
+}): Promise<DatosPestana> {
+  if (pestana === "publicar") {
+    return { ...DATOS_PESTANA_VACIOS, publicacion: await obtenerPublicacion(curso, numero) };
+  }
+  if (pestana === "grabaciones") {
+    const [teleprompter, acciones, camara] = await Promise.all([
+      lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
+      lecturaApiOpcional(obtenerAcciones(curso, numero)),
+      lecturaApiOpcional(obtenerCamara(curso, numero)),
+    ]);
+    return { publicacion: null, teleprompter, acciones, camara };
+  }
+  if (pestana === "guion") {
+    const [teleprompter, acciones] = await Promise.all([
+      lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
+      lecturaApiOpcional(obtenerAcciones(curso, numero)),
+    ]);
+    return { ...DATOS_PESTANA_VACIOS, teleprompter, acciones };
+  }
+  if (pestana === "shorts") {
+    // La publicación solo completa las tarjetas (duración y portada elegida): si falla, se pintan sin ella.
+    const [acciones, publicacion] = await Promise.all([
+      lecturaApiOpcional(obtenerAcciones(curso, numero)),
+      lecturaApiOpcional(obtenerPublicacion(curso, numero)),
+    ]);
+    return { ...DATOS_PESTANA_VACIOS, acciones, publicacion };
+  }
+
+  const acciones = await lecturaApiOpcional(obtenerAcciones(curso, numero));
+  return { ...DATOS_PESTANA_VACIOS, acciones };
+}
+
+function primerValor(valor: string | string[] | undefined): string | undefined {
+  return Array.isArray(valor) ? valor[0] : valor;
+}
+
+function esFalloEsperadoApi(error: unknown): error is ApiNoDisponible | ErrorApi {
+  return error instanceof ApiNoDisponible || error instanceof ErrorApi;
 }
 
 function CargandoLeccion() {
@@ -237,7 +319,7 @@ async function ContenidoLeccion({
       obtenerCursos(),
     ]);
   } catch (error) {
-    if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
+    if (esFalloEsperadoApi(error)) {
       return <AvisoApi error={error} />;
     }
 
@@ -250,51 +332,23 @@ async function ContenidoLeccion({
     notFound();
   }
 
-  const valorPestana = Array.isArray(consulta.pestana)
-    ? consulta.pestana[0]
-    : consulta.pestana;
+  const valorPestana = primerValor(consulta.pestana);
   const pestana: PestanaLeccion = esPestanaLeccion(valorPestana)
     ? valorPestana
     : "guion";
-  const valorPieza = Array.isArray(consulta.pieza)
-    ? consulta.pieza[0]
-    : consulta.pieza;
-  const valorRed = Array.isArray(consulta.red) ? consulta.red[0] : consulta.red;
+  const valorPieza = primerValor(consulta.pieza);
+  const valorRed = primerValor(consulta.red);
 
-  let publicacion: VistaPublicacion | null = null;
-  let teleprompter: Teleprompter | null = null;
-  let acciones: EstadoAccion[] | null = null;
-  let camara: DatosCamara | null = null;
-  if (pestana === "publicar") {
-    try {
-      publicacion = await obtenerPublicacion(curso, numero);
-    } catch (error) {
-      if (error instanceof ApiNoDisponible || error instanceof ErrorApi) {
-        return <AvisoApi error={error} />;
-      }
-      throw error;
+  let datosPestana: DatosPestana;
+  try {
+    datosPestana = await cargarDatosPestana({ curso, numero, pestana });
+  } catch (error) {
+    if (esFalloEsperadoApi(error)) {
+      return <AvisoApi error={error} />;
     }
+    throw error;
   }
-  if (pestana === "grabaciones") {
-    [teleprompter, acciones, camara] = await Promise.all([
-      lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
-      lecturaApiOpcional(obtenerAcciones(curso, numero)),
-      lecturaApiOpcional(obtenerCamara(curso, numero)),
-    ]);
-  } else if (pestana === "guion") {
-    [teleprompter, acciones] = await Promise.all([
-      lecturaApiOpcional(obtenerTeleprompter(curso, numero)),
-      lecturaApiOpcional(obtenerAcciones(curso, numero)),
-    ]);
-  } else if (pestana === "shorts") {
-    // La publicación solo completa las tarjetas (duración y portada elegida): si falla, se pintan sin ella.
-    [acciones, publicacion] = await Promise.all([
-      lecturaApiOpcional(obtenerAcciones(curso, numero)),
-      lecturaApiOpcional(obtenerPublicacion(curso, numero)),
-    ]);
-  } else if (pestana === "video") {
-    acciones = await lecturaApiOpcional(obtenerAcciones(curso, numero));
-  }
+  const { publicacion, teleprompter, acciones, camara } = datosPestana;
 
   // El panel separa la publicación por pieza; si la vista no llega, enseña el resumen por red.
   const vistaPanel =

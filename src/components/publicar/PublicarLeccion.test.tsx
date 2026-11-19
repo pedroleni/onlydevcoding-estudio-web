@@ -719,10 +719,7 @@ describe("pestaña Publicar", () => {
 
     await waitFor(() => {
       expect(cambiarEstado).toHaveBeenCalledWith(
-        "curso-ficticio",
-        4,
-        "leccion",
-        "youtube",
+        { curso: "curso-ficticio", numero: 4, pieza: "leccion", red: "youtube" },
         { estado: "publicado", fecha: null, url: "https://youtu.be/abc" },
       );
     });
@@ -751,10 +748,7 @@ describe("pestaña Publicar", () => {
 
     await waitFor(() => {
       expect(cambiarEstado).toHaveBeenCalledWith(
-        "curso-ficticio",
-        4,
-        "leccion",
-        "youtube",
+        { curso: "curso-ficticio", numero: 4, pieza: "leccion", red: "youtube" },
         { estado: "publicado", fecha: fechaPublicada, url: "https://youtu.be/abc" },
       );
     });

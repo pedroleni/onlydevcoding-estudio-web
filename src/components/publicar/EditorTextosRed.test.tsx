@@ -73,10 +73,7 @@ describe("EditorTextosRed", () => {
 
     await waitFor(() => {
       expect(guardarTextos).toHaveBeenCalledWith(
-        "curso-ficticio",
-        4,
-        "leccion",
-        "youtube",
+        { curso: "curso-ficticio", numero: 4, pieza: "leccion", red: "youtube" },
         {
           titulos: ["Primero", "Segundo"],
           descripcion: null,
@@ -269,10 +266,7 @@ describe("EditorTextosRed", () => {
 
     await waitFor(() => {
       expect(guardarTextos).toHaveBeenCalledWith(
-        "curso-ficticio",
-        4,
-        "leccion",
-        "youtube",
+        { curso: "curso-ficticio", numero: 4, pieza: "leccion", red: "youtube" },
         expect.objectContaining({
           descripcion: valor,
           texto: valor,

@@ -89,16 +89,21 @@ describe("EditorTextos", () => {
     await userEvent.type(frase, "  Frase   corregida a mano.  ");
     await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
 
-    expect(guardarTextos).toHaveBeenCalledWith("react", 4, VERSION, [
-      {
-        id: "E03",
-        cues: [
-          "Frase corregida a mano.",
-          "Segunda frase inventada.",
-          "Tercera frase inventada.",
-        ],
-      },
-    ]);
+    expect(guardarTextos).toHaveBeenCalledWith({
+      curso: "react",
+      numero: 4,
+      version: VERSION,
+      escenas: [
+        {
+          id: "E03",
+          cues: [
+            "Frase corregida a mano.",
+            "Segunda frase inventada.",
+            "Tercera frase inventada.",
+          ],
+        },
+      ],
+    });
     expect(alGuardado).toHaveBeenCalledWith(devuelto);
     // El teleprompter refresca él solo con el guion devuelto: aquí no se recarga la página.
     expect(router.refresh).not.toHaveBeenCalled();
@@ -123,9 +128,14 @@ describe("EditorTextos", () => {
     await userEvent.type(punto, " corregido");
     await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
 
-    expect(guardarTextos).toHaveBeenCalledWith("react", 4, VERSION, [
-      { id: "E02", puntos: ["Primer punto inventado", "Segundo punto inventado corregido"] },
-    ]);
+    expect(guardarTextos).toHaveBeenCalledWith({
+      curso: "react",
+      numero: 4,
+      version: VERSION,
+      escenas: [
+        { id: "E02", puntos: ["Primer punto inventado", "Segundo punto inventado corregido"] },
+      ],
+    });
   });
 
   it("guarda con la versión con la que se empezó a editar aunque llegue otra", async () => {
@@ -142,7 +152,7 @@ describe("EditorTextos", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar texto" }));
 
-    expect(vi.mocked(guardarTextos).mock.calls[0][2]).toBe(VERSION);
+    expect(vi.mocked(guardarTextos).mock.calls[0][0]).toMatchObject({ version: VERSION });
   });
 
   async function enConflicto() {

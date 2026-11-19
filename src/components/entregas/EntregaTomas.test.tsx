@@ -161,7 +161,7 @@ describe("EntregaTomas", () => {
   it("sube dos archivos soltados de uno en uno y lanza identificar-tomas una vez", async () => {
     const pendientes: Array<(resultado: ResultadoSubida) => void> = [];
     vi.mocked(subirEntrega).mockImplementation(
-      (_curso, _numero, archivo, alAvanzar) =>
+      ({ archivo, alAvanzar }) =>
         new Promise((resolver) => {
           alAvanzar(0.25);
           pendientes.push(() => resolver({ ok: true, archivo: archivo.name, bytes: 6 }));
@@ -173,7 +173,7 @@ describe("EntregaTomas", () => {
     soltar([video("Toma ficticia 1.MOV"), video("Toma ficticia 2.MOV")]);
 
     await waitFor(() => expect(subirEntrega).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(subirEntrega).mock.calls[0][2].name).toBe("Toma ficticia 1.MOV");
+    expect(vi.mocked(subirEntrega).mock.calls[0][0].archivo.name).toBe("Toma ficticia 1.MOV");
     expect(
       screen.getByRole("progressbar", { name: "Subida de Toma ficticia 1.MOV" }),
     ).toHaveAttribute("aria-valuenow", "25");
@@ -181,7 +181,7 @@ describe("EntregaTomas", () => {
 
     await act(async () => pendientes[0]({ ok: true, archivo: "", bytes: 0 }));
     await waitFor(() => expect(subirEntrega).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(subirEntrega).mock.calls[1][2].name).toBe("Toma ficticia 2.MOV");
+    expect(vi.mocked(subirEntrega).mock.calls[1][0].archivo.name).toBe("Toma ficticia 2.MOV");
     expect(lanzarAccion).not.toHaveBeenCalled();
 
     await act(async () => pendientes[1]({ ok: true, archivo: "", bytes: 0 }));
@@ -212,7 +212,7 @@ describe("EntregaTomas", () => {
 
   it("cancela una subida en curso con su señal", async () => {
     vi.mocked(subirEntrega).mockImplementation(
-      (_curso, _numero, _archivo, _alAvanzar, senal) =>
+      ({ senal }) =>
         new Promise((resolver) => {
           senal.addEventListener("abort", () =>
             resolver({ ok: false, cancelada: true, mensaje: "Subida cancelada" }),

@@ -136,13 +136,7 @@ export function EditorTextosRed({
   function guardar() {
     setError(null);
     iniciarTransicion(async () => {
-      const resultado = await guardarTextos(
-        curso,
-        numero,
-        pieza,
-        red,
-        preparados,
-      );
+      const resultado = await guardarTextos({ curso, numero, pieza, red }, preparados);
       if (!resultado.ok) {
         setError(resultado.mensaje);
         return;

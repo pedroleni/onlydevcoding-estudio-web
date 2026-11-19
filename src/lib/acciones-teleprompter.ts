@@ -63,6 +63,22 @@ function normalizarLista(valor: unknown): string[] | null {
   return copia;
 }
 
+function normalizarEscena(valor: unknown): TextosEscena | null {
+  if (typeof valor !== "object" || valor === null) return null;
+  const { id, cues, puntos } = valor as Record<string, unknown>;
+  if (typeof id !== "string" || !ESCENA_VALIDA.test(id)) return null;
+
+  const cuesNormalizados = cues === undefined ? undefined : normalizarLista(cues);
+  const puntosNormalizados = puntos === undefined ? undefined : normalizarLista(puntos);
+  if (cuesNormalizados === null || puntosNormalizados === null) return null;
+
+  return {
+    id,
+    ...(cuesNormalizados === undefined ? {} : { cues: cuesNormalizados }),
+    ...(puntosNormalizados === undefined ? {} : { puntos: puntosNormalizados }),
+  };
+}
+
 function normalizarEscenas(valor: unknown): TextosEscena[] | null {
   if (!Array.isArray(valor)) return null;
   const longitud = valor.length;
@@ -70,20 +86,9 @@ function normalizarEscenas(valor: unknown): TextosEscena[] | null {
 
   const escenas: TextosEscena[] = [];
   for (let indice = 0; indice < longitud; indice += 1) {
-    const candidata = valor[indice];
-    if (typeof candidata !== "object" || candidata === null) return null;
-    const { id, cues, puntos } = candidata as Record<string, unknown>;
-    if (typeof id !== "string" || !ESCENA_VALIDA.test(id)) return null;
-
-    const cuesNormalizados = cues === undefined ? undefined : normalizarLista(cues);
-    const puntosNormalizados = puntos === undefined ? undefined : normalizarLista(puntos);
-    if (cuesNormalizados === null || puntosNormalizados === null) return null;
-
-    escenas.push({
-      id,
-      ...(cuesNormalizados === undefined ? {} : { cues: cuesNormalizados }),
-      ...(puntosNormalizados === undefined ? {} : { puntos: puntosNormalizados }),
-    });
+    const escena = normalizarEscena(valor[indice]);
+    if (!escena) return null;
+    escenas.push(escena);
   }
   return escenas;
 }
@@ -107,6 +112,14 @@ function normalizarGanchos(valor: unknown): TextoGancho[] | undefined | null {
   return ganchos;
 }
 
+function sonTextosNormalizadosValidos(
+  escenas: TextosEscena[] | null,
+  ganchos: TextoGancho[] | undefined | null,
+): escenas is TextosEscena[] {
+  if (!escenas || ganchos === null) return false;
+  return escenas.length > 0 || ganchos !== undefined;
+}
+
 function mensajeEstado(estado: number): string {
   const mensajes: Record<number, string> = {
     401: "La API ha rechazado el token de escritura",
@@ -121,29 +134,25 @@ function mensajeEstado(estado: number): string {
 }
 
 export async function guardarTextos(
-  curso: string,
-  numero: number,
-  version: string,
-  escenas: TextosEscena[],
-  ganchos?: TextoGancho[],
+  valor: unknown,
 ): Promise<ResultadoGuardarTextos> {
+  const datos = typeof valor === "object" && valor !== null
+    ? valor as Record<string, unknown>
+    : {};
+  const { curso, numero, version, escenas, ganchos } = datos;
   if (!leccionValida(curso, numero)) return error("La lección no es válida");
   if (typeof version !== "string" || !VERSION_VALIDA.test(version)) {
     return error("La versión del guion no es válida");
   }
   const escenasNormalizadas = normalizarEscenas(escenas);
   const ganchosNormalizados = normalizarGanchos(ganchos);
-  if (
-    !escenasNormalizadas ||
-    ganchosNormalizados === null ||
-    (escenasNormalizadas.length === 0 && ganchosNormalizados === undefined)
-  ) {
+  if (!sonTextosNormalizadosValidos(escenasNormalizadas, ganchosNormalizados)) {
     return error("Los textos no son válidos");
   }
   if (!(await origenPermitido())) return error("Origen no permitido");
 
   const escritura = await escribirEnApi(
-    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/guion/textos`,
+    `/api/cursos/${encodeURIComponent(curso as string)}/lecciones/${numero as number}/guion/textos`,
     {
       version,
       escenas: escenasNormalizadas,

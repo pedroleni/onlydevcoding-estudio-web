@@ -35,6 +35,16 @@ const teleprompter = {
   },
 };
 
+function solicitudTextos(escenas: unknown, version = "a".repeat(64), ganchos?: unknown) {
+  return {
+    curso: "react",
+    numero: 4,
+    version,
+    escenas,
+    ...(ganchos === undefined ? {} : { ganchos }),
+  };
+}
+
 describe("Server Actions del teleprompter", () => {
   beforeEach(() => {
     headersSimulados.mockResolvedValue(new Headers({
@@ -52,9 +62,9 @@ describe("Server Actions del teleprompter", () => {
   });
 
   it("rechaza un texto con salto de línea antes de escribir", async () => {
-    await expect(guardarTextos("react", 4, "a".repeat(64), [
+    await expect(guardarTextos(solicitudTextos([
       { id: "E01", cues: ["Primera línea\nSegunda línea"] },
-    ])).resolves.toMatchObject({ ok: false });
+    ]))).resolves.toMatchObject({ ok: false });
 
     expect(escribirSimulado).not.toHaveBeenCalled();
   });
@@ -68,9 +78,9 @@ describe("Server Actions del teleprompter", () => {
       ),
     });
 
-    await expect(guardarTextos("react", 4, "a".repeat(64), [
+    await expect(guardarTextos(solicitudTextos([
       { id: "E01", cues: ["Texto válido"] },
-    ])).resolves.toEqual({
+    ]))).resolves.toEqual({
       ok: false,
       mensaje: "El guion ha cambiado fuera de la app. Recarga antes de guardar.",
       conflicto: true,
@@ -89,9 +99,9 @@ describe("Server Actions del teleprompter", () => {
       ),
     });
 
-    await expect(guardarTextos("react", 4, "a".repeat(64), [
+    await expect(guardarTextos(solicitudTextos([
       { id: "E01", cues: ["Texto válido"] },
-    ])).resolves.toEqual({
+    ]))).resolves.toEqual({
       ok: false,
       mensaje:
         "No se puede cambiar mientras se prepara esta lección. Espera a que termine el trabajo.",
@@ -99,14 +109,14 @@ describe("Server Actions del teleprompter", () => {
   });
 
   it("reconstruye y recorta un cuerpo válido antes de escribir", async () => {
-    await expect(guardarTextos("react", 4, "a".repeat(64), [
+    await expect(guardarTextos(solicitudTextos([
       {
         id: "E01",
         cues: ["  Texto válido  "],
         extra: BigInt(1),
       },
       { id: "E02", puntos: ["  Idea clave  "] },
-    ] as never)).resolves.toEqual({ ok: true, teleprompter });
+    ] as never))).resolves.toEqual({ ok: true, teleprompter });
 
     expect(escribirSimulado).toHaveBeenCalledWith(
       "/api/cursos/react/lecciones/4/guion/textos",
@@ -123,10 +133,10 @@ describe("Server Actions del teleprompter", () => {
   });
 
   it("acepta escenas vacías si envía todos los ganchos", async () => {
-    await expect(guardarTextos("react", 4, "a".repeat(64), [], [
+    await expect(guardarTextos(solicitudTextos([], "a".repeat(64), [
       { id: "gancho-1", texto: "  Texto de gancho válido  " },
       { id: "gancho_2", texto: "Otro texto válido" },
-    ])).resolves.toEqual({ ok: true, teleprompter });
+    ]))).resolves.toEqual({ ok: true, teleprompter });
 
     expect(escribirSimulado).toHaveBeenCalledWith(
       "/api/cursos/react/lecciones/4/guion/textos",
@@ -150,7 +160,7 @@ describe("Server Actions del teleprompter", () => {
     ["un texto vacío", [{ id: "gancho-1", texto: "  " }]],
     ["un salto", [{ id: "gancho-1", texto: "Primera\nsegunda" }]],
   ])("rechaza %s antes de escribir", async (_caso, ganchos) => {
-    await expect(guardarTextos("react", 4, "a".repeat(64), [], ganchos)).resolves.toMatchObject({ ok: false });
+    await expect(guardarTextos(solicitudTextos([], "a".repeat(64), ganchos))).resolves.toMatchObject({ ok: false });
     expect(escribirSimulado).not.toHaveBeenCalled();
   });
 
@@ -158,9 +168,9 @@ describe("Server Actions del teleprompter", () => {
     const cues = Array<string>(2);
     cues[1] = "Texto válido";
 
-    await expect(guardarTextos("react", 4, "a".repeat(64), [
+    await expect(guardarTextos(solicitudTextos([
       { id: "E01", cues },
-    ])).resolves.toMatchObject({ ok: false });
+    ]))).resolves.toMatchObject({ ok: false });
 
     expect(escribirSimulado).not.toHaveBeenCalled();
   });
@@ -177,9 +187,9 @@ describe("Server Actions del teleprompter", () => {
       },
     });
 
-    await expect(guardarTextos("react", 4, "a".repeat(64), [
+    await expect(guardarTextos(solicitudTextos([
       { id: "E01", cues },
-    ])).resolves.toEqual({ ok: true, teleprompter });
+    ]))).resolves.toEqual({ ok: true, teleprompter });
 
     expect(lecturas).toBe(1);
     expect(escribirSimulado).toHaveBeenCalledWith(
@@ -206,7 +216,7 @@ describe("Server Actions del teleprompter", () => {
     ["más de 200 textos", "a".repeat(64), [{ id: "E01", cues: Array(201).fill("Texto") }]],
     ["hexadecimal en mayúsculas", "A".repeat(64), [{ id: "E01", cues: ["Texto"] }]],
   ])("rechaza %s antes de escribir", async (_caso, version, escenas) => {
-    await expect(guardarTextos("react", 4, version, escenas)).resolves.toMatchObject({ ok: false });
+    await expect(guardarTextos(solicitudTextos(escenas, version))).resolves.toMatchObject({ ok: false });
     expect(escribirSimulado).not.toHaveBeenCalled();
   });
 
