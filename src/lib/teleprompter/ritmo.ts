@@ -2,7 +2,7 @@ import { trocear } from "./trocear";
 
 export const ESPERA = { coma: 0.22, punto: 0.42, frase: 0.5 };
 
-export type Paso = {
+type Paso = {
   c: number;
   p?: number;
   pausa?: true;

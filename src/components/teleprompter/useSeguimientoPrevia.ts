@@ -8,7 +8,7 @@ import { generarPreviaGrabacion } from "@/lib/acciones-teleprompter";
 import type { EstadoPrevia, Trabajo } from "@/lib/tipos";
 
 // Tras acabar en `hecho`: cuántas veces se piden los datos nuevos y cuánto se espera a cada uno.
-export const MAXIMO_REFRESCOS = 3;
+const MAXIMO_REFRESCOS = 3;
 const ESPERA_REFRESCO_MS = 5000;
 
 export type SeguimientoPrevia = {

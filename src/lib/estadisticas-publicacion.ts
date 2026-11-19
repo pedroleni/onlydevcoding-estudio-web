@@ -13,7 +13,7 @@ import type {
   VistaPublicacion,
 } from "@/lib/tipos";
 
-export interface PiezaContada {
+interface PiezaContada {
   // Identifica la fila: el id de la pieza o «leccion-linkedin» para el vídeo de LinkedIn.
   clave: string;
   titulo: string;

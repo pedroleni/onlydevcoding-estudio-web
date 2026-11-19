@@ -74,7 +74,7 @@ export async function aWav(blob: Blob, contexto: BaseAudioContext): Promise<Blob
 }
 
 // Una subida que no acaba en este tiempo se corta y cuenta como fallida (se puede reintentar).
-export const LIMITE_SUBIDA_MS = 120_000;
+const LIMITE_SUBIDA_MS = 120_000;
 
 export async function subirToma(
   curso: string,

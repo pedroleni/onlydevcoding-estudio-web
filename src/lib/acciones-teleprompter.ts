@@ -2,9 +2,8 @@
 
 import { refresh } from "next/cache";
 
-import { escribir } from "@/lib/api-escritura";
-import { CURSO_VALIDO } from "@/lib/curso";
-import { detalleDe } from "@/lib/detalle-api";
+import { escribirEnApi, leerJson } from "@/lib/escritura-con-detalle";
+import { leccionValida } from "@/lib/curso";
 import { origenPermitido } from "@/lib/origen-servidor";
 import type { Teleprompter, Trabajo } from "@/lib/tipos";
 
@@ -37,17 +36,6 @@ export type ResultadoPreviaGrabacion =
 
 function error(mensaje: string): { ok: false; mensaje: string } {
   return { ok: false, mensaje };
-}
-
-function destinoValido(curso: unknown, numero: unknown): boolean {
-  return (
-    typeof curso === "string" &&
-    CURSO_VALIDO.test(curso) &&
-    typeof numero === "number" &&
-    Number.isInteger(numero) &&
-    numero >= 1 &&
-    numero <= 999
-  );
 }
 
 function textoValido(valor: unknown): valor is string {
@@ -139,7 +127,7 @@ export async function guardarTextos(
   escenas: TextosEscena[],
   ganchos?: TextoGancho[],
 ): Promise<ResultadoGuardarTextos> {
-  if (!destinoValido(curso, numero)) return error("La lección no es válida");
+  if (!leccionValida(curso, numero)) return error("La lección no es válida");
   if (typeof version !== "string" || !VERSION_VALIDA.test(version)) {
     return error("La versión del guion no es válida");
   }
@@ -154,84 +142,55 @@ export async function guardarTextos(
   }
   if (!(await origenPermitido())) return error("Origen no permitido");
 
-  let escritura;
-  try {
-    escritura = await escribir(
-      `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/guion/textos`,
-      {
-        version,
-        escenas: escenasNormalizadas,
-        ...(ganchosNormalizados === undefined ? {} : { ganchos: ganchosNormalizados }),
-      },
-      "PUT",
-    );
-  } catch (causa) {
-    console.error("Error inesperado al guardar los textos del teleprompter", {
-      tipo: causa instanceof Error ? causa.name : typeof causa,
-    });
-    return error("No se puede conectar con la API");
-  }
-  if (!escritura.ok) return escritura;
-
-  const { respuesta } = escritura;
-  if (!respuesta.ok) {
-    const detalle = ESTADOS_CON_DETALLE.has(respuesta.status)
-      ? await detalleDe(respuesta, { textoBruto: false })
-      : undefined;
-    const mensaje = typeof detalle === "string" ? detalle : mensajeEstado(respuesta.status);
+  const escritura = await escribirEnApi(
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/guion/textos`,
+    {
+      version,
+      escenas: escenasNormalizadas,
+      ...(ganchosNormalizados === undefined ? {} : { ganchos: ganchosNormalizados }),
+    },
+    {
+      contexto: "guardar los textos del teleprompter",
+      estadosConDetalle: ESTADOS_CON_DETALLE,
+      mensajeEstado,
+    },
+  );
+  if (!escritura.ok) {
+    const { mensaje } = escritura;
     // Un 409 es un conflicto de versión (se ofrece recargar), salvo cuando la lección está
     // ocupada por un trabajo: eso se enseña como un error normal.
-    return respuesta.status === 409 && !mensaje.startsWith(LECCION_OCUPADA)
+    return escritura.estado === 409 && !mensaje.startsWith(LECCION_OCUPADA)
       ? { ok: false, mensaje, conflicto: true }
       : error(mensaje);
   }
 
-  try {
-    const teleprompter = (await respuesta.json()) as Teleprompter;
-    refresh();
-    return { ok: true, teleprompter };
-  } catch {
-    return error("La API ha devuelto una respuesta no válida");
-  }
+  const teleprompter = await leerJson<Teleprompter>(escritura.respuesta);
+  if (!teleprompter) return error("La API ha devuelto una respuesta no válida");
+  refresh();
+  return { ok: true, teleprompter };
 }
 
 export async function generarPreviaGrabacion(
   curso: string,
   numero: number,
 ): Promise<ResultadoPreviaGrabacion> {
-  if (!destinoValido(curso, numero)) return error("La lección no es válida");
+  if (!leccionValida(curso, numero)) return error("La lección no es válida");
   if (!(await origenPermitido())) return error("Origen no permitido");
 
-  let escritura;
-  try {
-    escritura = await escribir(
-      `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/previa-grabacion`,
-      {},
-      "POST",
-    );
-  } catch (causa) {
-    console.error("Error inesperado al generar la previa de grabación", {
-      tipo: causa instanceof Error ? causa.name : typeof causa,
-    });
-    return error("No se puede conectar con la API");
-  }
-  if (!escritura.ok) return escritura;
+  const escritura = await escribirEnApi(
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/previa-grabacion`,
+    {},
+    {
+      metodo: "POST",
+      contexto: "generar la previa de grabación",
+      estadosConDetalle: ESTADOS_CON_DETALLE,
+      mensajeEstado,
+    },
+  );
+  if (!escritura.ok) return error(escritura.mensaje);
 
-  const { respuesta } = escritura;
-  if (!respuesta.ok) {
-    const detalle = ESTADOS_CON_DETALLE.has(respuesta.status)
-      ? await detalleDe(respuesta, { textoBruto: false })
-      : undefined;
-    return error(
-      typeof detalle === "string" ? detalle : mensajeEstado(respuesta.status),
-    );
-  }
-
-  try {
-    const trabajo = (await respuesta.json()) as Trabajo;
-    refresh();
-    return { ok: true, trabajo };
-  } catch {
-    return error("La API ha devuelto una respuesta no válida");
-  }
+  const trabajo = await leerJson<Trabajo>(escritura.respuesta);
+  if (!trabajo) return error("La API ha devuelto una respuesta no válida");
+  refresh();
+  return { ok: true, trabajo };
 }

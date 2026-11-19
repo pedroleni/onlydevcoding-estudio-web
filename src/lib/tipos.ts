@@ -71,7 +71,7 @@ export interface EnlaceTarea {
   red?: RedVista["red"] | null;
 }
 
-export interface EnlaceVista {
+interface EnlaceVista {
   curso_nombre: string | null;
   leccion_titulo: string | null;
   pieza_titulo: string | null;
@@ -251,17 +251,17 @@ export interface TomaGuardada {
 }
 
 // Tomas de cámara entregadas (`GET /api/cursos/{curso}/lecciones/{numero}/entregas`).
-export interface ArchivoEntregado {
+interface ArchivoEntregado {
   archivo: string;
   bytes: number;
 }
 
-export interface DestinoPropuesta {
+interface DestinoPropuesta {
   tipo: "camara" | "gancho";
   id: string;
 }
 
-export interface CandidatoPropuesta extends DestinoPropuesta {
+interface CandidatoPropuesta extends DestinoPropuesta {
   puntuacion: number;
   desde: number;
   hasta: number;
@@ -285,7 +285,7 @@ export interface PropuestaTomas {
   archivos: TomaPropuesta[];
 }
 
-export interface DestinosEntrega {
+interface DestinosEntrega {
   camara: Array<{ id: string; titulo: string; tiene_toma: boolean }>;
   ganchos: Array<{ id: string; titulo: string; entregado: boolean }>;
 }
@@ -334,7 +334,7 @@ export interface TomasCamara {
 }
 
 // Ganchos verticales por grabar (`GET /api/cursos/{curso}/reels`).
-export interface GanchoReel {
+interface GanchoReel {
   id: string;
   titulo: string;
   texto: string;
@@ -343,7 +343,7 @@ export interface GanchoReel {
   entregado: boolean;
 }
 
-export interface LeccionReels {
+interface LeccionReels {
   numero: number;
   titulo: string;
   ganchos: GanchoReel[];

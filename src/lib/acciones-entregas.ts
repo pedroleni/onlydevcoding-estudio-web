@@ -1,7 +1,7 @@
 "use server";
 
 import { escribir, urlApi } from "@/lib/api-escritura";
-import { CURSO_VALIDO } from "@/lib/curso";
+import { leccionValida } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
 import { esNombreEntrega } from "@/lib/entregas";
 import { origenPermitido } from "@/lib/origen-servidor";
@@ -22,17 +22,6 @@ export type ResultadoColocarTomas = { ok: true; resultado: ResultadoColocar } | 
 
 function error(mensaje: string): Fallo {
   return { ok: false, mensaje };
-}
-
-function leccionValida(curso: unknown, numero: unknown): curso is string {
-  return (
-    typeof curso === "string" &&
-    CURSO_VALIDO.test(curso) &&
-    typeof numero === "number" &&
-    Number.isInteger(numero) &&
-    numero >= 1 &&
-    numero <= 999
-  );
 }
 
 function rutaEntregas(curso: string, numero: number): string {

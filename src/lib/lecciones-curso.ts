@@ -19,7 +19,7 @@ export interface PasosLeccion {
 }
 
 // Colores de los módulos del temario, en orden de aparición.
-export const COLORES_MODULO = [
+const COLORES_MODULO = [
   "#a78bfa",
   "#38bdf8",
   "#34d399",
@@ -105,7 +105,7 @@ export function estadoFicha(ficha: FichaLeccion): EstadoFicha {
   return "por-empezar";
 }
 
-export function sinAcentos(texto: string): string {
+function sinAcentos(texto: string): string {
   return texto
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

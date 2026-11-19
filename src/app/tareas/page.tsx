@@ -19,7 +19,80 @@ import {
   obtenerTiposTarea,
 } from "@/lib/api";
 import { diasDeSemana, fechaLocal } from "@/lib/fechas";
-import { filtrarTareas, leerParametrosTareas } from "@/lib/vista-tareas";
+import type { Curso, TareasDelRango, TareaVista, TipoTarea } from "@/lib/tipos";
+import {
+  filtrarTareas,
+  leerParametrosTareas,
+  type ParametrosTareas,
+} from "@/lib/vista-tareas";
+
+// Lo que pide cada vista: la lista total sin fecha, una semana o un día (con atrasadas si es hoy).
+function pedirTareas(
+  parametros: ParametrosTareas,
+  hoy: string,
+): Promise<TareasDelRango> {
+  if (parametros.vista === "todas") {
+    return obtenerTareasSinFecha().then((tareas) => ({
+      tareas,
+      atrasadas: [],
+    }));
+  }
+  if (parametros.vista === "semana") {
+    const dias = diasDeSemana(parametros.dia);
+    return obtenerTareas(dias[0], dias[6], false);
+  }
+  return obtenerTareas(parametros.dia, parametros.dia, parametros.dia === hoy);
+}
+
+function VistaElegida({
+  parametros,
+  hoy,
+  datos,
+  cursos,
+  tipos,
+}: {
+  parametros: ParametrosTareas;
+  hoy: string;
+  datos: TareasDelRango;
+  cursos: Curso[];
+  tipos: TipoTarea[];
+}) {
+  const editar = (tarea: TareaVista) => (
+    <BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />
+  );
+  const filtradas = (lista: TareaVista[]) =>
+    filtrarTareas(lista, parametros.curso, parametros.tipo);
+
+  switch (parametros.vista) {
+    case "todas":
+      return (
+        <VistaTodas
+          tareas={filtradas(datos.tareas)}
+          tipos={tipos}
+          editar={editar}
+        />
+      );
+    case "semana":
+      return (
+        <VistaSemana
+          tareas={datos.tareas}
+          tipos={tipos}
+          parametros={parametros}
+        />
+      );
+    case "dia":
+      return (
+        <VistaDia
+          tareas={filtradas(datos.tareas)}
+          atrasadas={filtradas(datos.atrasadas)}
+          cursos={cursos}
+          tipos={tipos}
+          esHoy={parametros.dia === hoy}
+          editar={editar}
+        />
+      );
+  }
+}
 
 async function ContenidoTareas({
   searchParams,
@@ -31,24 +104,13 @@ async function ContenidoTareas({
 
   const hoy = fechaLocal(new Date());
   const parametros = leerParametrosTareas(consulta, hoy);
-  const esHoy = parametros.dia === hoy;
-  const semana = parametros.vista === "semana";
-  const todas = parametros.vista === "todas";
-  const dias = diasDeSemana(parametros.dia);
 
   let datos;
   let cursos;
   let tipos;
   try {
     [datos, cursos, tipos] = await Promise.all([
-      todas
-        ? obtenerTareasSinFecha().then((lista) => ({
-            tareas: lista,
-            atrasadas: [],
-          }))
-        : semana
-          ? obtenerTareas(dias[0], dias[6], false)
-          : obtenerTareas(parametros.dia, parametros.dia, esHoy),
+      pedirTareas(parametros, hoy),
       obtenerCursos(),
       obtenerTiposTarea(),
     ]);
@@ -70,49 +132,18 @@ async function ContenidoTareas({
           <BotonNuevaTarea
             cursos={cursos}
             tipos={tipos}
-            fecha={todas ? null : parametros.dia}
+            fecha={parametros.vista === "todas" ? null : parametros.dia}
           />
         }
       />
       <div className="mt-8">
-        {todas ? (
-          <VistaTodas
-            tareas={filtrarTareas(
-              datos.tareas,
-              parametros.curso,
-              parametros.tipo,
-            )}
-            tipos={tipos}
-            editar={(tarea) => (
-              <BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />
-            )}
-          />
-        ) : semana ? (
-          <VistaSemana
-            tareas={datos.tareas}
-            tipos={tipos}
-            parametros={parametros}
-          />
-        ) : (
-          <VistaDia
-            tareas={filtrarTareas(
-              datos.tareas,
-              parametros.curso,
-              parametros.tipo,
-            )}
-            atrasadas={filtrarTareas(
-              datos.atrasadas,
-              parametros.curso,
-              parametros.tipo,
-            )}
-            cursos={cursos}
-            tipos={tipos}
-            esHoy={esHoy}
-            editar={(tarea) => (
-              <BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />
-            )}
-          />
-        )}
+        <VistaElegida
+          parametros={parametros}
+          hoy={hoy}
+          datos={datos}
+          cursos={cursos}
+          tipos={tipos}
+        />
       </div>
     </>
   );

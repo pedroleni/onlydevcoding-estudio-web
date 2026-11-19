@@ -22,7 +22,7 @@ export const mensaje = (error: unknown) => (error instanceof Error ? error.messa
 type Subida = { ok: true } | { ok: false; error: string };
 
 // Tras reintentar varias tomas: cuántas se han subido y cuántas siguen pendientes.
-export function resumenSubidas(subidas: number, total: number, ultimoError: string): string {
+function resumenSubidas(subidas: number, total: number, ultimoError: string): string {
   const quedan = total - subidas;
   if (quedan === 0) return `Subidas las ${total} tomas pendientes.`;
   const pendientes = quedan === 1 ? "queda 1 pendiente" : `quedan ${quedan} pendientes`;

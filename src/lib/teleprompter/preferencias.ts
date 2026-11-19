@@ -6,7 +6,7 @@ export const CLAVE_PREFERENCIAS = "teleprompter-preferencias";
 
 export const TAMANOS_PREVIA = [0, 320, 440, 600] as const;
 
-export type LeccionPreferida = { curso: string; numero: number };
+type LeccionPreferida = { curso: string; numero: number };
 
 export type Preferencias = {
   ritmo: number;

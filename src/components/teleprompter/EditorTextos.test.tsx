@@ -100,6 +100,8 @@ describe("EditorTextos", () => {
       },
     ]);
     expect(alGuardado).toHaveBeenCalledWith(devuelto);
+    // El teleprompter refresca él solo con el guion devuelto: aquí no se recarga la página.
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it("no deja saltos de línea: Intro no parte la frase", async () => {

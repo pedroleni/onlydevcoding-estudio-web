@@ -5,7 +5,7 @@ import type { EscenaTeleprompter } from "@/lib/tipos";
 
 // Palabra a palabra para el teleprompter. Las clases `dicha` y `ahora` las pone la animación
 // directamente en el DOM (por refs), así que React no vuelve a pintar este bloque mientras lees.
-export const CLASE_PALABRA =
+const CLASE_PALABRA =
   "p rounded-md text-[#c9cad1] transition-colors duration-[120ms] motion-reduce:transition-none [&.dicha]:text-[#5e5f68] [&.ahora]:bg-marca/35 [&.ahora]:text-white [&.ahora]:shadow-[0_0_0_4px_rgb(41_155_198/0.35)]";
 
 export const TextoConRitmo = memo(function TextoConRitmo({

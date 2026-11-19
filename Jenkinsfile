@@ -74,6 +74,13 @@ pipeline {
             }
         }
 
+        // Puerta automática de clean code (docs/clean-code.md), la misma que en GitHub.
+        stage('Clean code') {
+            steps {
+                sh 'npm run clean-code'
+            }
+        }
+
         stage('Build') {
             steps {
                 sh 'npm run build'

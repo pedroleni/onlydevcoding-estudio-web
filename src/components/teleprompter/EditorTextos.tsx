@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
+import { useGuardarTextosGuion } from "@/components/guion/useGuardarTextosGuion";
 import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
-import { guardarTextos, type TextosEscena } from "@/lib/acciones-teleprompter";
-import { limpio, sinSaltos, valido } from "@/lib/textos-guion";
+import type { TextosEscena } from "@/lib/acciones-teleprompter";
+import { cambiarTexto, limpio, valido } from "@/lib/textos-guion";
 import type { EscenaTeleprompter, Teleprompter } from "@/lib/tipos";
 
 const BOTON =
@@ -27,27 +27,23 @@ export function EditorTextos({
   alGuardado: (teleprompter: Teleprompter) => void;
   alCancelar: () => void;
 }) {
-  const router = useRouter();
   const voz = escena.modo === "voz";
   const textosDe = (de: EscenaTeleprompter) =>
     de.modo === "voz" ? de.cues.map(({ texto }) => texto) : [...de.puntos];
-  // La base de la edición: la versión con la que se guarda y los textos con los que se compara.
-  const [base] = useState(() => ({ version, originales: textosDe(escena) }));
-  const [textos, setTextos] = useState(base.originales);
-  const [error, setError] = useState<{ mensaje: string; conflicto: boolean } | null>(null);
-  // Tras «Recargar», hasta que llega el guion nuevo no se puede guardar con la versión vieja.
-  const [recargando, setRecargando] = useState(false);
-  const [guardando, iniciar] = useTransition();
+  // Los textos con los que se compara; la versión con la que se guarda la guarda el hook.
+  const [originales] = useState(() => textosDe(escena));
+  const [textos, setTextos] = useState(originales);
+  const { error, setError, recargando, guardando, llegoNuevo, guardar: guardarCambio, recargar } =
+    useGuardarTextosGuion({ curso, numero, version, alGuardado, refrescarAlGuardar: false });
   const etiqueta = voz ? "Frase" : "Punto";
-  const llegoNuevo = recargando && version !== base.version;
-  const sinGuardar = textos.some((texto, i) => texto !== base.originales[i]);
+  const sinGuardar = textos.some((texto, i) => texto !== originales[i]);
 
   // Salir de la página (recargar, cerrar o un enlace interno) con texto sin guardar lo perdería:
   // se pregunta antes.
   useAvisoAlSalir(sinGuardar);
 
   function cambiar(i: number, valor: string) {
-    setTextos((actuales) => actuales.map((texto, j) => (j === i ? sinSaltos(valor) : texto)));
+    setTextos((actuales) => cambiarTexto(actuales, i, valor));
   }
 
   function guardar() {
@@ -57,29 +53,10 @@ export function EditorTextos({
       setError({ mensaje: "Cada texto tiene que tener entre 1 y 1000 caracteres.", conflicto: false });
       return;
     }
-    setError(null);
     const cambio: TextosEscena = voz
       ? { id: escena.id, cues: limpios }
       : { id: escena.id, puntos: limpios };
-    iniciar(async () => {
-      const resultado = await guardarTextos(curso, numero, base.version, [cambio]);
-      if (resultado.ok) {
-        alGuardado(resultado.teleprompter);
-      } else if (resultado.conflicto) {
-        setError({ mensaje: resultado.mensaje, conflicto: true });
-      } else {
-        setError({ mensaje: `No se pudo guardar: ${resultado.mensaje}`, conflicto: false });
-      }
-    });
-  }
-
-  // Pide el guion nuevo sin cerrar el editor. Nunca se pisa un cambio hecho fuera de la app: al
-  // llegar solo se puede descartar lo escrito, que mientras tanto sigue a la vista y se puede
-  // seleccionar para copiarlo.
-  function recargar() {
-    setError(null);
-    setRecargando(true);
-    router.refresh();
+    guardarCambio([cambio]);
   }
 
   return (
