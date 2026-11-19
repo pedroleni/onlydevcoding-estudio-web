@@ -123,7 +123,7 @@ flowchart TB
   prompt injection. Se ejecutan en local, en GitHub (`security-scan.yml`) y en Jenkins.
 - **Tests que vigilan a los escáneres** (`scripts/security/test_*.sh`): si un escáner se
   rompiera, seguiría diciendo «todo bien» y nadie se daría cuenta. Estos tests trabajan en una
-  carpeta temporal (uno copia el repo y otro monta proyectos mínimos), meten fallos a propósito
+  carpeta temporal (uno copia el repo y los demás montan proyectos mínimos), meten fallos a propósito
   (una ruta privada o un email inventados, una frase de prompt injection, una URL que no es
   local, un workflow con permisos de escritura, una acción sin fijar por SHA, un lockfile que
   falta, está desincronizado o descarga sin TLS…) y comprueban que los cinco escáneres saltan

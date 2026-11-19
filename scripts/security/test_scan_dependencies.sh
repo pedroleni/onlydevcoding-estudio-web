@@ -14,14 +14,22 @@ proyecto() {
   local dir="$TMP/$1"
   mkdir -p "$dir"
   cat >"$dir/package.json" <<'JSON'
-{ "name": "prueba", "dependencies": { "paquete-ficticio": "1.2.3" } }
+{
+  "name": "prueba",
+  "dependencies": { "paquete-ficticio": "1.2.3" },
+  "devDependencies": { "herramienta-ficticia": "4.5.6" }
+}
 JSON
   cat >"$dir/package-lock.json" <<'JSON'
 {
   "name": "prueba",
   "lockfileVersion": 3,
   "packages": {
-    "": { "name": "prueba", "dependencies": { "paquete-ficticio": "1.2.3" } },
+    "": {
+      "name": "prueba",
+      "dependencies": { "paquete-ficticio": "1.2.3" },
+      "devDependencies": { "herramienta-ficticia": "4.5.6" }
+    },
     "node_modules/paquete-ficticio": {
       "version": "1.2.3",
       "resolved": "https://registry.npmjs.org/paquete-ficticio/-/paquete-ficticio-1.2.3.tgz"
@@ -54,8 +62,12 @@ rm "$dir/package-lock.json"
 espera 1 "falta package-lock.json" "$dir" "Falta package-lock.json"
 
 dir="$(proyecto desincronizado)"
-sed -i.bak 's/"paquete-ficticio": "1.2.3" } }$/"paquete-ficticio": "9.9.9" } }/' "$dir/package.json"
+sed -i.bak 's/"paquete-ficticio": "1.2.3"/"paquete-ficticio": "9.9.9"/' "$dir/package.json"
 espera 1 "package.json pide otra versión" "$dir" "no están sincronizados"
+
+dir="$(proyecto dev-desincronizado)"
+sed -i.bak 's/"herramienta-ficticia": "4.5.6"/"herramienta-ficticia": "9.9.9"/' "$dir/package.json"
+espera 1 "devDependencies pide otra versión" "$dir" "no están sincronizados"
 
 dir="$(proyecto lock-antiguo)"
 sed -i.bak 's/"lockfileVersion": 3/"lockfileVersion": 2/' "$dir/package-lock.json"
