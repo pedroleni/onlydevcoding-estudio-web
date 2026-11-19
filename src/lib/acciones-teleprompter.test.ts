@@ -269,6 +269,23 @@ describe("Server Actions del teleprompter", () => {
     });
   });
 
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["una cadena", "react"],
+    ["un array vacío", []],
+    ["un objeto vacío", {}],
+    ["el array posicional antiguo", ["react", 4, "leccion", "youtube"]],
+  ])("rechaza una solicitud de textos malformada (%s) sin llamar a la API", async (_, valor) => {
+    await expect(guardarTextos(valor)).resolves.toEqual({
+      ok: false,
+      mensaje: "La lección no es válida",
+    });
+
+    expect(escribirSimulado).not.toHaveBeenCalled();
+    expect(refreshSimulado).not.toHaveBeenCalled();
+  });
+
   it("bloquea un origen ajeno antes de escribir", async () => {
     headersSimulados.mockResolvedValueOnce(new Headers({
       host: "127.0.0.1:3000",

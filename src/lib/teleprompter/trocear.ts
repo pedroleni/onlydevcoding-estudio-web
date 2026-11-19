@@ -64,6 +64,46 @@ const nucleo = (palabra: string) =>
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z]/g, "");
 
+export type Trozo = { t: string; dichas: string[] };
+
+type PasoNumero = {
+  actual: number | null;
+  total: number;
+  indice: number;
+};
+
+function leerPalabraNumero(
+  palabras: string[],
+  indice: number,
+  actual: number | null,
+  total: number,
+): PasoNumero | null {
+  const palabra = nucleo(palabras[indice]);
+  const siguiente = NUMEROS[nucleo(palabras[indice + 1] ?? "")];
+
+  if (palabra === "mil") {
+    return { total: total + (actual ?? 1) * 1_000, actual: null, indice };
+  }
+  if (
+    palabra === "y" &&
+    actual !== null &&
+    actual % 100 >= 30 &&
+    actual % 10 === 0 &&
+    siguiente < 10 &&
+    !/[^\p{L}\p{N}]$/u.test(palabras[indice - 1])
+  ) {
+    return { total, actual: actual + siguiente, indice: indice + 1 };
+  }
+  if (!(palabra in NUMEROS)) return null;
+
+  const valor = NUMEROS[palabra];
+  if (actual === null) return { total, actual: valor, indice };
+  if (actual >= 100 && actual % 100 === 0 && valor < 100) {
+    return { total, actual: actual + valor, indice };
+  }
+  return null;
+}
+
 export function leerNumero(
   palabras: string[],
   inicio: number,
@@ -74,29 +114,9 @@ export function leerNumero(
   let leidas = 0;
 
   while (j < palabras.length) {
-    const palabra = nucleo(palabras[j]);
-    const siguiente = NUMEROS[nucleo(palabras[j + 1] ?? "")];
-
-    if (palabra === "mil") {
-      total += (actual ?? 1) * 1_000;
-      actual = null;
-    } else if (
-      palabra === "y" &&
-      actual !== null &&
-      actual % 100 >= 30 &&
-      actual % 10 === 0 &&
-      siguiente < 10 &&
-      !/[^\p{L}\p{N}]$/u.test(palabras[j - 1])
-    ) {
-      j++;
-      actual += siguiente;
-    } else if (palabra in NUMEROS) {
-      const valor = NUMEROS[palabra];
-      if (actual === null) actual = valor;
-      else if (actual >= 100 && actual % 100 === 0 && valor < 100)
-        actual += valor;
-      else break;
-    } else break;
+    const paso = leerPalabraNumero(palabras, j, actual, total);
+    if (!paso) break;
+    ({ actual, total, indice: j } = paso);
 
     leidas++;
     const cierra = /[^\p{L}\p{N}]$/u.test(palabras[j]);
@@ -108,97 +128,127 @@ export function leerNumero(
   return { valor: total + (actual ?? 0), fin: j };
 }
 
-export type Trozo = { t: string; dichas: string[] };
+// Los trozos que salen a partir de una palabra y el índice de la siguiente sin trocear.
+type ResultadoTroceo = { trozos: Trozo[]; fin: number };
+
+function despuesDe(palabra: string): string {
+  return palabra.match(/[^\p{L}\p{N}]*$/u)?.[0] ?? "";
+}
+
+// «punto barra» se escribe «./».
+function trocearPuntoBarra(palabras: string[], inicio: number): ResultadoTroceo | null {
+  if (
+    nucleo(palabras[inicio]) !== "punto" ||
+    nucleo(palabras[inicio + 1] ?? "") !== "barra"
+  ) {
+    return null;
+  }
+  return {
+    trozos: [{
+      t:
+        (palabras[inicio].match(/^[¿¡("«]*/)?.[0] ?? "") +
+        "./" +
+        despuesDe(palabras[inicio + 1]),
+      dichas: palabras.slice(inicio, inicio + 2),
+    }],
+    fin: inicio + 2,
+  };
+}
+
+// «main punto jsx» se escribe «main.jsx»; tras «archivo» solo se junta la extensión.
+function trocearExtension(palabras: string[], inicio: number): ResultadoTroceo | null {
+  if (
+    nucleo(palabras[inicio + 1] ?? "") !== "punto" ||
+    !palabras[inicio + 2] ||
+    despuesDe(palabras[inicio]) ||
+    despuesDe(palabras[inicio + 1]) ||
+    ["y", "de", "barra"].includes(nucleo(palabras[inicio + 2])) ||
+    ["el", "un", "su", "desde", "usas"].includes(nucleo(palabras[inicio])) ||
+    nucleo(palabras[inicio]) in NUMEROS
+  ) {
+    return null;
+  }
+
+  const extension = palabras[inicio + 2].replace(/[^\p{L}\p{N}]*$/u, "");
+  const cola = despuesDe(palabras[inicio + 2]);
+  if (["archivo", "archivos"].includes(nucleo(palabras[inicio]))) {
+    return {
+      trozos: [
+        { t: palabras[inicio], dichas: [palabras[inicio]] },
+        { t: `.${extension}${cola}`, dichas: palabras.slice(inicio + 1, inicio + 3) },
+      ],
+      fin: inicio + 3,
+    };
+  }
+  return {
+    trozos: [{
+      t: `${palabras[inicio]}.${extension}${cola}`,
+      dichas: palabras.slice(inicio, inicio + 3),
+    }],
+    fin: inicio + 3,
+  };
+}
+
+function empiezaNumero(palabras: string[], inicio: number): boolean {
+  const nombre = nucleo(palabras[inicio]);
+  return (
+    (nombre in NUMEROS &&
+      (nombre !== "uno" || /[.,;:]$/.test(palabras[inicio]))) ||
+    (nombre === "mil" && nucleo(palabras[inicio + 1] ?? "") in NUMEROS)
+  );
+}
+
+// Un número dicho en palabras (con decimales tras «punto») se escribe en cifras.
+function trocearNumero(palabras: string[], inicio: number): ResultadoTroceo | null {
+  const numero = empiezaNumero(palabras, inicio) ? leerNumero(palabras, inicio) : null;
+  if (!numero) return null;
+
+  let fin = numero.fin;
+  let cifra = String(numero.valor);
+  if (
+    nucleo(palabras[fin] ?? "") === "punto" &&
+    !/[.,;:?!…]$/.test(palabras[fin - 1]) &&
+    nucleo(palabras[fin + 1] ?? "") in NUMEROS
+  ) {
+    const decimal = leerNumero(palabras, fin + 1);
+    if (decimal) {
+      cifra += `.${decimal.valor}`;
+      fin = decimal.fin;
+    }
+  }
+
+  const primera = palabras[inicio];
+  const ultima = palabras[fin - 1];
+  const antes = primera.match(/^[¿¡("«]*/)?.[0] ?? "";
+  const despues = ultima.match(/[^\p{L}\p{N}]*$/u)?.[0] ?? "";
+  return {
+    trozos: [{
+      t: antes + cifra + despues,
+      dichas: palabras.slice(inicio, fin),
+    }],
+    fin,
+  };
+}
+
+function trocearPalabra(palabras: string[], inicio: number): ResultadoTroceo {
+  return {
+    trozos: [{ t: palabras[inicio], dichas: [palabras[inicio]] }],
+    fin: inicio + 1,
+  };
+}
 
 export function trocear(texto: string): Trozo[] {
   const palabras = texto.split(/\s+/).filter(Boolean);
   const trozos: Trozo[] = [];
 
   for (let i = 0; i < palabras.length; ) {
-    const despuesDe = (palabra: string) =>
-      palabra.match(/[^\p{L}\p{N}]*$/u)?.[0] ?? "";
-
-    if (
-      nucleo(palabras[i]) === "punto" &&
-      nucleo(palabras[i + 1] ?? "") === "barra"
-    ) {
-      trozos.push({
-        t:
-          (palabras[i].match(/^[¿¡("«]*/)?.[0] ?? "") +
-          "./" +
-          despuesDe(palabras[i + 1]),
-        dichas: palabras.slice(i, i + 2),
-      });
-      i += 2;
-      continue;
-    }
-
-    if (
-      nucleo(palabras[i + 1] ?? "") === "punto" &&
-      palabras[i + 2] &&
-      !despuesDe(palabras[i]) &&
-      !despuesDe(palabras[i + 1]) &&
-      !["y", "de", "barra"].includes(nucleo(palabras[i + 2])) &&
-      !["el", "un", "su", "desde", "usas"].includes(
-        nucleo(palabras[i]),
-      ) &&
-      !(nucleo(palabras[i]) in NUMEROS)
-    ) {
-      const extension = palabras[i + 2].replace(/[^\p{L}\p{N}]*$/u, "");
-      const cola = despuesDe(palabras[i + 2]);
-
-      if (["archivo", "archivos"].includes(nucleo(palabras[i]))) {
-        trozos.push(
-          { t: palabras[i], dichas: [palabras[i]] },
-          { t: `.${extension}${cola}`, dichas: palabras.slice(i + 1, i + 3) },
-        );
-      } else {
-        trozos.push({
-          t: `${palabras[i]}.${extension}${cola}`,
-          dichas: palabras.slice(i, i + 3),
-        });
-      }
-      i += 3;
-      continue;
-    }
-
-    const nombre = nucleo(palabras[i]);
-    const empieza =
-      (nombre in NUMEROS &&
-        (nombre !== "uno" || /[.,;:]$/.test(palabras[i]))) ||
-      (nombre === "mil" && nucleo(palabras[i + 1] ?? "") in NUMEROS);
-    const numero = empieza ? leerNumero(palabras, i) : null;
-
-    if (!numero) {
-      trozos.push({ t: palabras[i], dichas: [palabras[i]] });
-      i++;
-      continue;
-    }
-
-    let fin = numero.fin;
-    let cifra = String(numero.valor);
-
-    if (
-      nucleo(palabras[fin] ?? "") === "punto" &&
-      !/[.,;:?!…]$/.test(palabras[fin - 1]) &&
-      nucleo(palabras[fin + 1] ?? "") in NUMEROS
-    ) {
-      const decimal = leerNumero(palabras, fin + 1);
-      if (decimal) {
-        cifra += `.${decimal.valor}`;
-        fin = decimal.fin;
-      }
-    }
-
-    const primera = palabras[i];
-    const ultima = palabras[fin - 1];
-    const antes = primera.match(/^[¿¡("«]*/)?.[0] ?? "";
-    const despues = ultima.match(/[^\p{L}\p{N}]*$/u)?.[0] ?? "";
-    trozos.push({
-      t: antes + cifra + despues,
-      dichas: palabras.slice(i, fin),
-    });
-    i = fin;
+    const resultado =
+      trocearPuntoBarra(palabras, i) ??
+      trocearExtension(palabras, i) ??
+      trocearNumero(palabras, i) ??
+      trocearPalabra(palabras, i);
+    trozos.push(...resultado.trozos);
+    i = resultado.fin;
   }
 
   return trozos;
