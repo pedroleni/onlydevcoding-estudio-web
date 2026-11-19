@@ -17,7 +17,7 @@ const TIPO_VALIDO = /^[a-z0-9-]{1,30}$/;
 const FECHA = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 
 // «todas»: la lista total de tareas sin día, agrupada por lección.
-export type VistaTareas = "dia" | "semana" | "todas";
+type VistaTareas = "dia" | "semana" | "todas";
 
 export interface ParametrosTareas {
   vista: VistaTareas;
@@ -26,7 +26,7 @@ export interface ParametrosTareas {
   tipo: string | null;
 }
 
-export interface GrupoTipo {
+interface GrupoTipo {
   tipo: TipoTarea;
   tareas: TareaVista[];
 }

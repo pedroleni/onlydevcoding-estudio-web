@@ -1,9 +1,8 @@
 "use server";
 
-import { escribir } from "@/lib/api-escritura";
+import { escribirEnApi, leerJson } from "@/lib/escritura-con-detalle";
 import { esIdAccion } from "@/lib/catalogo-acciones";
-import { CURSO_VALIDO } from "@/lib/curso";
-import { detalleDe } from "@/lib/detalle-api";
+import { leccionValida } from "@/lib/curso";
 import { origenPermitido } from "@/lib/origen-servidor";
 import type { IdAccion, Trabajo } from "@/lib/tipos";
 
@@ -28,17 +27,6 @@ export type ResultadoTrabajo =
 
 function error(mensaje: string): { ok: false; mensaje: string } {
   return { ok: false, mensaje };
-}
-
-function destinoValido(curso: unknown, numero: unknown): boolean {
-  return (
-    typeof curso === "string" &&
-    CURSO_VALIDO.test(curso) &&
-    typeof numero === "number" &&
-    Number.isInteger(numero) &&
-    numero >= 1 &&
-    numero <= 999
-  );
 }
 
 function normalizarOpciones(valor: unknown): OpcionesAccion | null {
@@ -89,32 +77,16 @@ async function resolverEscritura(
   ruta: string,
   cuerpo: OpcionesAccion | Record<string, never>,
 ): Promise<ResultadoTrabajo> {
-  let escritura;
-  try {
-    escritura = await escribir(ruta, cuerpo, "POST");
-  } catch (causa) {
-    console.error("Error inesperado al gestionar un trabajo del estudio", {
-      tipo: causa instanceof Error ? causa.name : typeof causa,
-    });
-    return error("No se puede conectar con la API");
-  }
-  if (!escritura.ok) return escritura;
+  const escritura = await escribirEnApi(ruta, cuerpo, {
+    metodo: "POST",
+    contexto: "gestionar un trabajo del estudio",
+    estadosConDetalle: ESTADOS_CON_DETALLE,
+    mensajeEstado,
+  });
+  if (!escritura.ok) return error(escritura.mensaje);
 
-  const { respuesta } = escritura;
-  if (!respuesta.ok) {
-    const detalle = ESTADOS_CON_DETALLE.has(respuesta.status)
-      ? await detalleDe(respuesta, { textoBruto: false })
-      : undefined;
-    return error(
-      typeof detalle === "string" ? detalle : mensajeEstado(respuesta.status),
-    );
-  }
-
-  try {
-    return { ok: true, trabajo: (await respuesta.json()) as Trabajo };
-  } catch {
-    return error("La API ha devuelto una respuesta no válida");
-  }
+  const trabajo = await leerJson<Trabajo>(escritura.respuesta);
+  return trabajo ? { ok: true, trabajo } : error("La API ha devuelto una respuesta no válida");
 }
 
 export async function lanzarAccion(
@@ -123,7 +95,7 @@ export async function lanzarAccion(
   accion: IdAccion,
   opciones: OpcionesAccion,
 ): Promise<ResultadoTrabajo> {
-  if (!destinoValido(curso, numero)) return error("La lección no es válida");
+  if (!leccionValida(curso, numero)) return error("La lección no es válida");
   if (!esIdAccion(accion)) return error("La acción no es válida");
   const opcionesValidas = normalizarOpciones(opciones);
   if (!opcionesValidas) return error("Las opciones de la acción no son válidas");

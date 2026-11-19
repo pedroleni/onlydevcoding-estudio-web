@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const PESTANAS = [
+const PESTANAS = [
   { id: "guion", etiqueta: "Guion" },
   { id: "grabaciones", etiqueta: "Grabaciones" },
   { id: "video", etiqueta: "Vídeo final" },

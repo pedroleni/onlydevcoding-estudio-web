@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-export const AVISO_SALIR = "Hay una toma o un texto sin guardar. ¿Salir igualmente?";
+const AVISO_SALIR = "Hay una toma o un texto sin guardar. ¿Salir igualmente?";
 
 // Clics ya confirmados: si hay varios avisos activos (toma y texto a la vez), se pregunta una vez.
 const confirmados = new WeakSet<Event>();

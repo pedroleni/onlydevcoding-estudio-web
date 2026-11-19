@@ -33,6 +33,7 @@ afecte al producto o a la seguridad, señala la duda en vez de improvisarla.
 - Tests: `npm test -- --run`
 - Build: `npm run build`
 - Scanners: `for s in scripts/security/scan_*.sh; do bash "$s"; done`
+- Clean code: `npm run clean-code` (informe completo: `npm run clean-code:informe`)
 
 ## Seguridad obligatoria
 
@@ -59,6 +60,23 @@ con más del 80 % de confianza. Guarda auditorías completas en
 `security/reviews/YYYY-MM-DD-<tema>.md`; los chequeos puntuales no requieren
 un informe en esa carpeta.
 
+## Clean code obligatorio
+
+Las normas están en `docs/clean-code.md` (convenciones del repo, normas por tecnología con
+sus fuentes, umbrales y checklist del revisor). Léelas antes de escribir código.
+
+1. Antes de abrir una PR, la puerta automática tiene que estar en verde: `npm run clean-code`.
+2. Después, el agente `.claude/agents/clean-code.md` revisa el diff contra `main` (modo
+   `cambios`) con la suscripción de Claude Code, sin claves de API. Su bloque
+   «## Revisión clean code» va en la descripción de la PR. Si hay más commits después,
+   se vuelve a pasar: la CI comprueba que el veredicto es `APROBADO` y que corresponde al
+   último commit.
+3. No se añade deuda: nada de ``eslint-disable`` nuevo para saltarse una regla de complejidad o
+   tamaño sin justificarlo en la PR. Al refactorizar código con deuda congelada, ejecuta `npm run clean-code:podar` para que `eslint-suppressions.json` baje.
+4. Revisión completa: cada lunes `.github/workflows/clean-code-semanal.yml` deja el
+   informe en el resumen de la ejecución y como artefacto `informe-clean-code`; cuando se pida, el agente
+   hace la auditoría completa (modo `auditoria`) y propone PR pequeñas para reducir deuda.
+
 ## Enforcement
 
 - `bash scripts/security/install_hooks.sh` configura `.githooks/pre-commit`.
@@ -73,7 +91,8 @@ un informe en esa carpeta.
 1. Parte de `main` actualizado y crea `feat/<nombre-corto>` o
    `fix/<nombre-corto>`.
 2. Mantén una tarea o un grupo pequeño y cohesionado por rama.
-3. Ejecuta scanners, lint, tests y build.
+3. Ejecuta scanners, lint, tests, build y la puerta de clean code; pasa el agente
+   `clean-code` y pega su veredicto en la PR.
 4. Haz commits normales en la rama, push y PR contra `main`.
 5. Solo integra cuando CI y la revisión estén verdes. Nunca hagas push directo
    a `main`.
