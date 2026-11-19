@@ -1,22 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useCallback, useId, useMemo, useState, useTransition } from "react";
 
+import {
+  dosCifras,
+  PantallaReel,
+  type ReelPlano,
+} from "@/components/teleprompter/PantallaReel";
 import { marcarGanchoGrabado } from "@/lib/acciones-reels";
 import type { ReelsCurso } from "@/lib/tipos";
 
 export const TODAS = "todas";
-
-interface ReelPlano {
-  clave: string;
-  numero: number;
-  tituloLeccion: string;
-  id: string;
-  titulo: string;
-  texto: string;
-  grabado: boolean;
-  entregado: boolean;
-}
 
 function aplanar(reels: ReelsCurso): ReelPlano[] {
   return reels.lecciones.flatMap((leccion) =>
@@ -29,110 +23,176 @@ function aplanar(reels: ReelsCurso): ReelPlano[] {
   );
 }
 
-function dosCifras(numero: number): string {
-  return String(numero).padStart(2, "0");
+function SelectorLeccion({
+  id,
+  leccion,
+  lecciones,
+  onElegir,
+}: {
+  id: string;
+  leccion: string;
+  lecciones: ReelsCurso["lecciones"];
+  onElegir: (valor: string) => void;
+}) {
+  return (
+    <label htmlFor={id} className="grid w-full gap-1 text-sm md:w-auto">
+      <span className="text-tenue">Lección</span>
+      <select
+        id={id}
+        value={leccion}
+        onChange={(evento) => onElegir(evento.target.value)}
+        className="min-h-11 w-full min-w-0 rounded-xl border border-borde bg-superficie px-3 text-base text-texto md:max-w-sm md:text-sm"
+      >
+        <option value={TODAS}>Todas las lecciones</option>
+        {lecciones.map((l) => (
+          <option key={l.numero} value={String(l.numero)}>
+            {dosCifras(l.numero)} · {l.titulo}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
-function Pantalla({
-  secuencia,
-  posicion,
-  grabados,
-  pendiente,
-  onMover,
-  onGrabado,
-  onCerrar,
+function ProgresoReels({
+  idOcultar,
+  hechos,
+  total,
+  porcentaje,
+  ocultar,
+  onOcultar,
 }: {
-  secuencia: ReelPlano[];
-  posicion: number;
-  grabados: Set<string>;
-  pendiente: boolean;
-  onMover: (delta: number) => void;
-  onGrabado: (reel: ReelPlano) => void;
-  onCerrar: () => void;
+  idOcultar: string;
+  hechos: number;
+  total: number;
+  porcentaje: number;
+  ocultar: boolean;
+  onOcultar: (ocultar: boolean) => void;
 }) {
-  const reel = secuencia[posicion];
-  const grabado = reel ? grabados.has(reel.clave) : false;
-
-  useEffect(() => {
-    function tecla(evento: KeyboardEvent) {
-      if (evento.key === "Escape") onCerrar();
-      if (evento.key === "ArrowRight") onMover(1);
-      if (evento.key === "ArrowLeft") onMover(-1);
-    }
-    window.addEventListener("keydown", tecla);
-    const anterior = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", tecla);
-      document.body.style.overflow = anterior;
-    };
-  }, [onCerrar, onMover]);
-
-  if (!reel) return null;
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Reel en grande"
-      className="fixed inset-0 z-50 flex flex-col bg-fondo px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
-    >
-      <div className="flex items-center justify-between gap-3 text-sm text-tenue">
-        <span className="min-w-0 truncate">
-          <span className="font-mono text-marca">L{dosCifras(reel.numero)}</span> · {reel.id} ·{" "}
-          {reel.titulo}
-        </span>
-        <span className="shrink-0 font-mono">
-          {posicion + 1}/{secuencia.length}
-        </span>
-      </div>
-      <div className="grid flex-1 place-items-center overflow-y-auto py-6">
-        <p
-          key={reel.clave}
-          className="entrar max-w-4xl text-center text-[clamp(2rem,7.5vw,5.5rem)] font-semibold leading-[1.15] tracking-[-0.02em]"
-        >
-          {reel.texto}
+    <div className="sticky top-0 z-10 -mx-4 mt-5 bg-fondo/90 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="font-semibold">
+          {hechos} de {total} grabados
         </p>
+        <label htmlFor={idOcultar} className="flex items-center gap-2 text-sm text-tenue">
+          <input
+            id={idOcultar}
+            type="checkbox"
+            checked={ocultar}
+            onChange={(evento) => onOcultar(evento.target.checked)}
+            className="size-4 accent-[var(--marca)]"
+          />
+          Ocultar los grabados
+        </label>
       </div>
-      {grabado ? (
-        <p className="mb-2 text-center text-sm text-verde">✓ Grabado</p>
-      ) : null}
-      <div className="grid grid-cols-[1fr_1.4fr_1fr] gap-2">
+      <div
+        role="progressbar"
+        aria-label="Reels grabados"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={porcentaje}
+        className="mt-2 h-2 overflow-hidden rounded-full bg-carbon"
+      >
+        <span
+          className="block h-full rounded-full bg-verde transition-[width] duration-500"
+          style={{ width: `${porcentaje}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TarjetaReel({
+  reel,
+  indice,
+  grabado,
+  pendiente,
+  onAbrir,
+  onGuardar,
+}: {
+  reel: ReelPlano;
+  indice: number;
+  grabado: boolean;
+  pendiente: boolean;
+  onAbrir: (reel: ReelPlano) => void;
+  onGuardar: (reel: ReelPlano, grabado: boolean) => void;
+}) {
+  return (
+    <li
+      aria-label={`${reel.id} · ${reel.titulo}`}
+      className={`entrar rounded-2xl border bg-superficie p-4 ${grabado ? "border-verde/50" : "border-borde"}`}
+      style={{ animationDelay: `${Math.min(indice, 10) * 40}ms` }}
+    >
+      <p className="flex items-baseline gap-2 text-xs text-tenue">
+        <span className="rounded-full bg-carbon px-2 py-0.5 font-mono text-azul-claro">
+          {reel.id}
+        </span>
+        {reel.titulo}
+        {reel.entregado ? <span className="text-verde">· toma entregada</span> : null}
+      </p>
+      <p className="mt-2 text-lg leading-snug">{reel.texto}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => onMover(-1)}
-          disabled={posicion === 0}
-          className="min-h-14 rounded-2xl border border-borde text-sm font-medium disabled:opacity-40"
+          onClick={() => onAbrir(reel)}
+          className="min-h-10 rounded-xl border border-marca px-3 text-sm font-semibold text-marca hover:bg-marca hover:text-fondo"
         >
-          ← Anterior
+          Leer en grande
         </button>
         <button
           type="button"
-          onClick={() => onGrabado(reel)}
-          disabled={pendiente}
+          onClick={() => onGuardar(reel, !grabado)}
+          disabled={pendiente || reel.entregado}
           aria-pressed={grabado}
-          className={`min-h-14 rounded-2xl text-base font-bold transition-colors disabled:cursor-wait ${
-            grabado ? "border border-verde text-verde" : "bg-verde text-fondo"
+          className={`min-h-10 rounded-xl px-3 text-sm font-semibold disabled:opacity-60 ${
+            grabado ? "border border-verde text-verde" : "bg-carbon text-texto hover:bg-verde hover:text-fondo"
           }`}
         >
-          {grabado ? "✓ Ya grabado" : "Grabado ✓"}
-        </button>
-        <button
-          type="button"
-          onClick={() => onMover(1)}
-          disabled={posicion === secuencia.length - 1}
-          className="min-h-14 rounded-2xl border border-borde text-sm font-medium disabled:opacity-40"
-        >
-          Siguiente →
+          {grabado ? "✓ Grabado" : "Marcar grabado"}
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onCerrar}
-        className="mt-2 min-h-11 text-sm text-tenue hover:text-texto"
-      >
-        Cerrar
-      </button>
-    </div>
+    </li>
+  );
+}
+
+function SeccionLeccion({
+  numero,
+  titulo,
+  reels,
+  grabados,
+  pendiente,
+  onAbrir,
+  onGuardar,
+}: {
+  numero: number;
+  titulo: string;
+  reels: ReelPlano[];
+  grabados: Set<string>;
+  pendiente: boolean;
+  onAbrir: (reel: ReelPlano) => void;
+  onGuardar: (reel: ReelPlano, grabado: boolean) => void;
+}) {
+  return (
+    <section aria-label={`Lección ${numero}`} className="mt-7">
+      <h2 className="text-lg font-semibold tracking-[-0.02em]">
+        <span className="mr-2 font-mono text-sm text-marca">{dosCifras(numero)}</span>
+        {titulo}
+      </h2>
+      <ul className="mt-3 grid gap-3 md:grid-cols-2">
+        {reels.map((reel, i) => (
+          <TarjetaReel
+            key={reel.clave}
+            reel={reel}
+            indice={i}
+            grabado={grabados.has(reel.clave)}
+            pendiente={pendiente}
+            onAbrir={onAbrir}
+            onGuardar={onGuardar}
+          />
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -225,54 +285,22 @@ export function TeleprompterReels({
           <h1 className="text-3xl font-semibold tracking-[-0.035em] md:text-4xl">Reels por grabar</h1>
           <p className="mt-2 text-tenue">Los ganchos verticales de los shorts, frase a frase.</p>
         </div>
-        <label htmlFor={idLeccion} className="grid w-full gap-1 text-sm md:w-auto">
-          <span className="text-tenue">Lección</span>
-          <select
-            id={idLeccion}
-            value={leccion}
-            onChange={(evento) => elegirLeccion(evento.target.value)}
-            className="min-h-11 w-full min-w-0 rounded-xl border border-borde bg-superficie px-3 text-base text-texto md:max-w-sm md:text-sm"
-          >
-            <option value={TODAS}>Todas las lecciones</option>
-            {reels.lecciones.map((l) => (
-              <option key={l.numero} value={String(l.numero)}>
-                {dosCifras(l.numero)} · {l.titulo}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectorLeccion
+          id={idLeccion}
+          leccion={leccion}
+          lecciones={reels.lecciones}
+          onElegir={elegirLeccion}
+        />
       </header>
 
-      <div className="sticky top-0 z-10 -mx-4 mt-5 bg-fondo/90 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="font-semibold">
-            {hechos} de {deLaSeleccion.length} grabados
-          </p>
-          <label htmlFor={idOcultar} className="flex items-center gap-2 text-sm text-tenue">
-            <input
-              id={idOcultar}
-              type="checkbox"
-              checked={ocultar}
-              onChange={(evento) => setOcultar(evento.target.checked)}
-              className="size-4 accent-[var(--marca)]"
-            />
-            Ocultar los grabados
-          </label>
-        </div>
-        <div
-          role="progressbar"
-          aria-label="Reels grabados"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={porcentaje}
-          className="mt-2 h-2 overflow-hidden rounded-full bg-carbon"
-        >
-          <span
-            className="block h-full rounded-full bg-verde transition-[width] duration-500"
-            style={{ width: `${porcentaje}%` }}
-          />
-        </div>
-      </div>
+      <ProgresoReels
+        idOcultar={idOcultar}
+        hechos={hechos}
+        total={deLaSeleccion.length}
+        porcentaje={porcentaje}
+        ocultar={ocultar}
+        onOcultar={setOcultar}
+      />
 
       <aside className="mt-4 rounded-2xl border border-borde bg-superficie p-4 text-sm leading-6 text-tenue">
         <strong className="text-texto">📱 iPhone en vertical.</strong> Una toma por frase, con
@@ -296,58 +324,20 @@ export function TeleprompterReels({
       ) : null}
 
       {porLeccion.map((l) => (
-        <section key={l.numero} aria-label={`Lección ${l.numero}`} className="mt-7">
-          <h2 className="text-lg font-semibold tracking-[-0.02em]">
-            <span className="mr-2 font-mono text-sm text-marca">{dosCifras(l.numero)}</span>
-            {l.titulo}
-          </h2>
-          <ul className="mt-3 grid gap-3 md:grid-cols-2">
-            {l.reels.map((reel, i) => {
-              const grabado = grabados.has(reel.clave);
-              return (
-                <li
-                  key={reel.clave}
-                  aria-label={`${reel.id} · ${reel.titulo}`}
-                  className={`entrar rounded-2xl border bg-superficie p-4 ${grabado ? "border-verde/50" : "border-borde"}`}
-                  style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}
-                >
-                  <p className="flex items-baseline gap-2 text-xs text-tenue">
-                    <span className="rounded-full bg-carbon px-2 py-0.5 font-mono text-azul-claro">
-                      {reel.id}
-                    </span>
-                    {reel.titulo}
-                    {reel.entregado ? <span className="text-verde">· toma entregada</span> : null}
-                  </p>
-                  <p className="mt-2 text-lg leading-snug">{reel.texto}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => abrir(reel)}
-                      className="min-h-10 rounded-xl border border-marca px-3 text-sm font-semibold text-marca hover:bg-marca hover:text-fondo"
-                    >
-                      Leer en grande
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => guardar(reel, !grabado)}
-                      disabled={pendiente || reel.entregado}
-                      aria-pressed={grabado}
-                      className={`min-h-10 rounded-xl px-3 text-sm font-semibold disabled:opacity-60 ${
-                        grabado ? "border border-verde text-verde" : "bg-carbon text-texto hover:bg-verde hover:text-fondo"
-                      }`}
-                    >
-                      {grabado ? "✓ Grabado" : "Marcar grabado"}
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <SeccionLeccion
+          key={l.numero}
+          numero={l.numero}
+          titulo={l.titulo}
+          reels={l.reels}
+          grabados={grabados}
+          pendiente={pendiente}
+          onAbrir={abrir}
+          onGuardar={guardar}
+        />
       ))}
 
       {secuencia ? (
-        <Pantalla
+        <PantallaReel
           secuencia={secuencia}
           posicion={posicion}
           grabados={grabados}

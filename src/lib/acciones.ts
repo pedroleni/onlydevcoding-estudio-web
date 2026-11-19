@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { escribir } from "@/lib/api-escritura";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
+import { esObjeto } from "@/lib/es-objeto";
 import { errorLimitesTextos } from "@/lib/limites";
 import { origenPermitido } from "@/lib/origen-servidor";
 import type {
@@ -56,9 +57,7 @@ function validarPieza(
 function validarDestino(
   valor: unknown,
 ): DestinoPublicacion | ResultadoAccion {
-  const destino = typeof valor === "object" && valor !== null
-    ? valor as Record<string, unknown>
-    : {};
+  const destino = esObjeto(valor) ? valor : {};
   const { curso, numero, pieza, red } = destino;
   const errorPieza = validarPieza(curso, numero, pieza);
   if (errorPieza) return errorPieza;
@@ -82,7 +81,7 @@ function esListaDeCadenas(valor: unknown): valor is string[] {
 }
 
 function esEstadoRed(valor: unknown): valor is EstadoRed {
-  if (typeof valor !== "object" || valor === null) {
+  if (!esObjeto(valor)) {
     return false;
   }
   const estado = valor as Partial<EstadoRed>;
@@ -97,7 +96,7 @@ function esEstadoRed(valor: unknown): valor is EstadoRed {
 }
 
 function sonTextosEditables(valor: unknown): valor is TextosEditables {
-  if (typeof valor !== "object" || valor === null) {
+  if (!esObjeto(valor)) {
     return false;
   }
   const textos = valor as Partial<TextosEditables>;

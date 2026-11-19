@@ -1,9 +1,4 @@
 {
-  "src/components/acciones/useSeguimientoTrabajo.ts": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
   "src/components/entregas/EntregaTomas.tsx": {
     "complexity": {
       "count": 1
@@ -12,17 +7,6 @@
       "count": 1
     },
     "max-lines-per-function": {
-      "count": 1
-    },
-    "no-nested-ternary": {
-      "count": 3
-    },
-    "sonarjs/cognitive-complexity": {
-      "count": 1
-    }
-  },
-  "src/components/teleprompter/PanelPrevia.tsx": {
-    "complexity": {
       "count": 1
     },
     "no-nested-ternary": {
@@ -47,32 +31,6 @@
     },
     "sonarjs/cognitive-complexity": {
       "count": 3
-    }
-  },
-  "src/components/teleprompter/TeleprompterReels.tsx": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
-  "src/components/teleprompter/useSeguimientoPrevia.ts": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
-  "src/components/teleprompter/useSesionGrabacion.ts": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
-  "src/lib/teleprompter/trocear.ts": {
-    "complexity": {
-      "count": 2
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
-    "sonarjs/cognitive-complexity": {
-      "count": 2
     }
   }
 }

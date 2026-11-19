@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 
 import { escribirEnApi, leerJson } from "@/lib/escritura-con-detalle";
 import { leccionValida } from "@/lib/curso";
+import { esObjeto } from "@/lib/es-objeto";
 import { origenPermitido } from "@/lib/origen-servidor";
 import type { Teleprompter, Trabajo } from "@/lib/tipos";
 
@@ -64,8 +65,8 @@ function normalizarLista(valor: unknown): string[] | null {
 }
 
 function normalizarEscena(valor: unknown): TextosEscena | null {
-  if (typeof valor !== "object" || valor === null) return null;
-  const { id, cues, puntos } = valor as Record<string, unknown>;
+  if (!esObjeto(valor)) return null;
+  const { id, cues, puntos } = valor;
   if (typeof id !== "string" || !ESCENA_VALIDA.test(id)) return null;
 
   const cuesNormalizados = cues === undefined ? undefined : normalizarLista(cues);
@@ -102,8 +103,8 @@ function normalizarGanchos(valor: unknown): TextoGancho[] | undefined | null {
   const ganchos: TextoGancho[] = [];
   for (let indice = 0; indice < valor.length; indice += 1) {
     const candidato = valor[indice];
-    if (typeof candidato !== "object" || candidato === null) return null;
-    const { id, texto } = candidato as Record<string, unknown>;
+    if (!esObjeto(candidato)) return null;
+    const { id, texto } = candidato;
     if (typeof id !== "string" || !GANCHO_VALIDO.test(id) || !textoValido(texto)) {
       return null;
     }
@@ -112,12 +113,41 @@ function normalizarGanchos(valor: unknown): TextoGancho[] | undefined | null {
   return ganchos;
 }
 
-function sonTextosNormalizadosValidos(
-  escenas: TextosEscena[] | null,
-  ganchos: TextoGancho[] | undefined | null,
-): escenas is TextosEscena[] {
-  if (!escenas || ganchos === null) return false;
-  return escenas.length > 0 || ganchos !== undefined;
+// Hace falta al menos una escena o la lista de ganchos.
+function normalizarTextos(
+  escenas: unknown,
+  ganchos: unknown,
+): { escenas: TextosEscena[]; ganchos: TextoGancho[] | undefined } | null {
+  const escenasNormalizadas = normalizarEscenas(escenas);
+  const ganchosNormalizados = normalizarGanchos(ganchos);
+  if (!escenasNormalizadas || ganchosNormalizados === null) return null;
+  if (escenasNormalizadas.length === 0 && ganchosNormalizados === undefined) return null;
+  return { escenas: escenasNormalizadas, ganchos: ganchosNormalizados };
+}
+
+type SolicitudTextos = {
+  curso: string;
+  numero: number;
+  version: string;
+  escenas: TextosEscena[];
+  ganchos: TextoGancho[] | undefined;
+};
+
+// Devuelve la solicitud ya validada y normalizada, o el error que se enseña.
+function validarSolicitudTextos(
+  valor: unknown,
+): SolicitudTextos | { ok: false; mensaje: string } {
+  const { curso, numero, version, escenas, ganchos } = esObjeto(valor) ? valor : {};
+  // `leccionValida` solo estrecha el tipo de `curso`; el de `numero` se comprueba aparte.
+  if (!leccionValida(curso, numero) || typeof numero !== "number") {
+    return error("La lección no es válida");
+  }
+  if (typeof version !== "string" || !VERSION_VALIDA.test(version)) {
+    return error("La versión del guion no es válida");
+  }
+  const textos = normalizarTextos(escenas, ganchos);
+  if (!textos) return error("Los textos no son válidos");
+  return { curso, numero, version, ...textos };
 }
 
 function mensajeEstado(estado: number): string {
@@ -136,27 +166,17 @@ function mensajeEstado(estado: number): string {
 export async function guardarTextos(
   valor: unknown,
 ): Promise<ResultadoGuardarTextos> {
-  const datos = typeof valor === "object" && valor !== null
-    ? valor as Record<string, unknown>
-    : {};
-  const { curso, numero, version, escenas, ganchos } = datos;
-  if (!leccionValida(curso, numero)) return error("La lección no es válida");
-  if (typeof version !== "string" || !VERSION_VALIDA.test(version)) {
-    return error("La versión del guion no es válida");
-  }
-  const escenasNormalizadas = normalizarEscenas(escenas);
-  const ganchosNormalizados = normalizarGanchos(ganchos);
-  if (!sonTextosNormalizadosValidos(escenasNormalizadas, ganchosNormalizados)) {
-    return error("Los textos no son válidos");
-  }
+  const solicitud = validarSolicitudTextos(valor);
+  if ("ok" in solicitud) return solicitud;
   if (!(await origenPermitido())) return error("Origen no permitido");
 
+  const { curso, numero, version, escenas, ganchos } = solicitud;
   const escritura = await escribirEnApi(
-    `/api/cursos/${encodeURIComponent(curso as string)}/lecciones/${numero as number}/guion/textos`,
+    `/api/cursos/${encodeURIComponent(curso)}/lecciones/${numero}/guion/textos`,
     {
       version,
-      escenas: escenasNormalizadas,
-      ...(ganchosNormalizados === undefined ? {} : { ganchos: ganchosNormalizados }),
+      escenas,
+      ...(ganchos === undefined ? {} : { ganchos }),
     },
     {
       contexto: "guardar los textos del teleprompter",

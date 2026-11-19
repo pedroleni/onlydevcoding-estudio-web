@@ -7,6 +7,7 @@ import { escribir } from "@/lib/api-escritura";
 import { COLORES_TAREA } from "@/lib/colores-tareas";
 import { CURSO_VALIDO, REDES } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
+import { esObjeto } from "@/lib/es-objeto";
 import { esFechaValida } from "@/lib/fechas";
 import { origenPermitido } from "@/lib/origen-servidor";
 import type { EnlaceTarea, TareaNueva, TipoTarea } from "@/lib/tipos";
@@ -28,10 +29,6 @@ type CambiosTipo = Pick<TipoTarea, "nombre" | "color" | "orden">;
 
 function error(mensaje: string): ResultadoAccionTareas {
   return { ok: false, mensaje };
-}
-
-function esObjeto(valor: unknown): valor is Record<string, unknown> {
-  return typeof valor === "object" && valor !== null;
 }
 
 function idPositivo(valor: unknown): valor is number {

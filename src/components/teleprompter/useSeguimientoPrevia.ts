@@ -25,17 +25,55 @@ export type SeguimientoPrevia = {
 
 type Espera = { versionAntes: number | null; intentos: number };
 
+type OpcionesSeguimientoPrevia = { curso: string; numero: number; previa: EstadoPrevia };
+
+// La espera empieza al acabar el trabajo, recordando qué previa había hasta entonces.
+function esperaDesde(previa: EstadoPrevia): Espera {
+  return { versionAntes: previa.existe ? previa.version : null, intentos: 0 };
+}
+
+// Hay una previa distinta de la que había antes de generar.
+function esPreviaNueva(previa: EstadoPrevia, versionAntes: number | null): boolean {
+  return previa.existe && previa.version !== null && previa.version !== versionAntes;
+}
+
+// Cada espera nueva pide los datos otra vez; si no llegan en 5 s, cuenta como otro intento.
+// Devuelve la limpieza del efecto.
+function programarEspera(
+  espera: Espera,
+  {
+    refrescar,
+    rendirse,
+    reintentar,
+  }: {
+    refrescar: () => void;
+    rendirse: (versionAntes: number | null) => void;
+    reintentar: (espera: Espera) => void;
+  },
+): () => void {
+  if (espera.intentos >= MAXIMO_REFRESCOS) {
+    const temporizador = setTimeout(() => rendirse(espera.versionAntes), 0);
+    return () => clearTimeout(temporizador);
+  }
+  // El primer refresco lo hace el hook general al detectar que el trabajo ha terminado.
+  if (espera.intentos > 0) refrescar();
+  const temporizador = setTimeout(() => {
+    if (espera.intentos + 1 >= MAXIMO_REFRESCOS) {
+      rendirse(espera.versionAntes);
+    } else {
+      reintentar({ ...espera, intentos: espera.intentos + 1 });
+    }
+  }, ESPERA_REFRESCO_MS);
+  return () => clearTimeout(temporizador);
+}
+
 // El trabajo de la vista previa se sigue en la sesión del teleprompter, no en el panel: así no se
 // pierde al ocultarlo y el refresco al acabar llega igual.
 export function useSeguimientoPrevia({
   curso,
   numero,
   previa,
-}: {
-  curso: string;
-  numero: number;
-  previa: EstadoPrevia;
-}): SeguimientoPrevia {
+}: OpcionesSeguimientoPrevia): SeguimientoPrevia {
   const router = useRouter();
   const [seguido, setSeguido] = useState<Trabajo | null>(null);
   const [espera, setEspera] = useState<Espera | null>(null);
@@ -44,9 +82,6 @@ export function useSeguimientoPrevia({
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [desaparecido, setDesaparecido] = useState<number | null>(null);
   const [pidiendo, iniciar] = useTransition();
-
-  const esNueva = (versionAntes: number | null) =>
-    previa.existe && previa.version !== null && previa.version !== versionAntes;
 
   // Se deja de esperar. El trabajo hecho se queda como seguido: si los datos de la página no
   // llegaron, su trabajo sería aún el de «en marcha» y se volvería a consultar sin fin.
@@ -59,7 +94,7 @@ export function useSeguimientoPrevia({
   if (previa !== previaAnterior) {
     setPreviaAnterior(previa);
     if (espera) {
-      if (esNueva(espera.versionAntes)) {
+      if (esPreviaNueva(previa, espera.versionAntes)) {
         setEspera(null);
         setSeguido(null);
       } else if (espera.intentos >= MAXIMO_REFRESCOS) {
@@ -70,27 +105,17 @@ export function useSeguimientoPrevia({
     } else {
       // Sin espera, manda el trabajo de los datos de la página.
       setSeguido(null);
-      if (perdida && esNueva(perdida.versionAntes)) setPerdida(null);
+      if (perdida && esPreviaNueva(previa, perdida.versionAntes)) setPerdida(null);
     }
   }
 
-  // Cada espera nueva pide los datos otra vez; si no llegan en 5 s, cuenta como otro intento.
   useEffect(() => {
     if (!espera) return;
-    if (espera.intentos >= MAXIMO_REFRESCOS) {
-      const temporizador = setTimeout(() => rendirse(espera.versionAntes), 0);
-      return () => clearTimeout(temporizador);
-    }
-    // El primer refresco lo hace el hook general al detectar que el trabajo ha terminado.
-    if (espera.intentos > 0) router.refresh();
-    const temporizador = setTimeout(() => {
-      if (espera.intentos + 1 >= MAXIMO_REFRESCOS) {
-        rendirse(espera.versionAntes);
-      } else {
-        setEspera({ ...espera, intentos: espera.intentos + 1 });
-      }
-    }, ESPERA_REFRESCO_MS);
-    return () => clearTimeout(temporizador);
+    return programarEspera(espera, {
+      refrescar: () => router.refresh(),
+      rendirse,
+      reintentar: setEspera,
+    });
   }, [espera, router]);
 
   const trabajo = useSeguimientoTrabajo({
@@ -103,10 +128,7 @@ export function useSeguimientoPrevia({
     alTerminar(leido) {
       setSeguido(leido);
       if (leido.estado === "hecho") {
-        setEspera({
-          versionAntes: previa.existe ? previa.version : null,
-          intentos: 0,
-        });
+        setEspera(esperaDesde(previa));
         router.refresh();
       }
     },

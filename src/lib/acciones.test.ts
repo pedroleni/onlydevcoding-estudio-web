@@ -448,6 +448,25 @@ describe("Server Actions de publicación", () => {
     expect(registro).not.toContain("contenido privado del cuerpo");
   });
 
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["una cadena", "react"],
+    ["un array vacío", []],
+    ["un objeto vacío", {}],
+    ["el array posicional antiguo", ["react", 4, "leccion", "youtube"]],
+  ])("rechaza un destino malformado (%s) sin llamar a la API", async (_, destino) => {
+    const fetchSimulado = vi.fn();
+    vi.stubGlobal("fetch", fetchSimulado);
+    const esperado = { ok: false, mensaje: "El curso no es válido" };
+
+    await expect(cambiarEstado(destino, estadoValido)).resolves.toEqual(esperado);
+    await expect(guardarTextos(destino, textosValidos)).resolves.toEqual(esperado);
+
+    expect(fetchSimulado).not.toHaveBeenCalled();
+    expect(refreshSimulado).not.toHaveBeenCalled();
+  });
+
   it("no menciona el token en ningún módulo cliente", () => {
     const clienteConToken = archivosDe(join(process.cwd(), "src"))
       .filter((ruta) => /\.[cm]?[jt]sx?$/.test(ruta))

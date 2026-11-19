@@ -9,6 +9,71 @@ import { leerTrabajo } from "@/lib/trabajos";
 
 const CONSULTA_MS = 2000;
 
+type AvisosConsulta = {
+  alLeer: (leido: Trabajo) => void;
+  alDesaparecer: (id: number) => void;
+  alTerminar: (terminado: Trabajo) => void;
+};
+
+// Pregunta por el trabajo cada CONSULTA_MS mientras la pestaña está visible y siga en marcha.
+// Devuelve la limpieza del efecto.
+function consultarHastaTerminar(id: number, avisos: AvisosConsulta): () => void {
+  let vivo = true;
+  let consultando = false;
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
+
+  const programar = () => {
+    clearTimeout(temporizador);
+    temporizador = undefined;
+    if (vivo && !consultando && document.visibilityState === "visible") {
+      temporizador = setTimeout(consultar, CONSULTA_MS);
+    }
+  };
+
+  async function consultar() {
+    temporizador = undefined;
+    if (document.visibilityState !== "visible") return;
+    consultando = true;
+    let leido: Trabajo | null = null;
+    let desaparecido = false;
+    try {
+      leido = await leerTrabajo(id);
+    } catch (causa) {
+      // Un fallo transitorio no detiene el seguimiento; un 404 sí.
+      desaparecido = causa instanceof TrabajoInexistente;
+    }
+    consultando = false;
+    if (!vivo) return;
+    if (desaparecido) {
+      avisos.alDesaparecer(id);
+      return;
+    }
+    if (leido) avisos.alLeer(leido);
+    if (!leido || leido.estado === "en_marcha") {
+      programar();
+    } else {
+      avisos.alTerminar(leido);
+    }
+  }
+
+  const alCambiarVisibilidad = () => {
+    if (document.visibilityState === "visible") {
+      programar();
+    } else {
+      clearTimeout(temporizador);
+      temporizador = undefined;
+    }
+  };
+
+  programar();
+  document.addEventListener("visibilitychange", alCambiarVisibilidad);
+  return () => {
+    vivo = false;
+    clearTimeout(temporizador);
+    document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+  };
+}
+
 export function useSeguimientoTrabajo({
   trabajo,
   alTerminar,
@@ -45,63 +110,17 @@ export function useSeguimientoTrabajo({
 
   useEffect(() => {
     if (id === null) return;
-
-    let vivo = true;
-    let consultando = false;
-    let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-    const programar = () => {
-      clearTimeout(temporizador);
-      temporizador = undefined;
-      if (vivo && !consultando && document.visibilityState === "visible") {
-        temporizador = setTimeout(consultar, CONSULTA_MS);
-      }
-    };
-
-    async function consultar() {
-      temporizador = undefined;
-      if (document.visibilityState !== "visible") return;
-      consultando = true;
-      let leido: Trabajo | null = null;
-      let desaparecido = false;
-      try {
-        leido = await leerTrabajo(id as number);
-      } catch (causa) {
-        // Un fallo transitorio no detiene el seguimiento; un 404 sí.
-        desaparecido = causa instanceof TrabajoInexistente;
-      }
-      consultando = false;
-      if (!vivo) return;
-      if (desaparecido) {
-        setInexistente(id);
-        avisarDesaparecido(id as number);
-        return;
-      }
-      if (leido) setSeguido(leido);
-      if (!leido || leido.estado === "en_marcha") {
-        programar();
-      } else {
-        avisarTerminado(leido);
+    return consultarHastaTerminar(id, {
+      alLeer: setSeguido,
+      alDesaparecer(idDesaparecido) {
+        setInexistente(idDesaparecido);
+        avisarDesaparecido(idDesaparecido);
+      },
+      alTerminar(terminado) {
+        avisarTerminado(terminado);
         if (refrescarAlTerminar) router.refresh();
-      }
-    }
-
-    const alCambiarVisibilidad = () => {
-      if (document.visibilityState === "visible") {
-        programar();
-      } else {
-        clearTimeout(temporizador);
-        temporizador = undefined;
-      }
-    };
-
-    programar();
-    document.addEventListener("visibilitychange", alCambiarVisibilidad);
-    return () => {
-      vivo = false;
-      clearTimeout(temporizador);
-      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
-    };
+      },
+    });
   }, [id, refrescarAlTerminar, router]);
 
   return actual;
