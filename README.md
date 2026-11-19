@@ -106,7 +106,7 @@ flowchart TB
     end
     subgraph pr["En cada PR y en main"]
         scan["security-scan.yml y etapa Seguridad de Jenkins<br/>secretos · patrones de código · configuración<br/>dependencias · prompt injection"]
-        tests["Tests de contrato<br/>de los propios escáneres"]
+        tests["Tests que vigilan a los escáneres<br/>meten fallos a propósito y comprueban<br/>que los escáneres los detectan"]
     end
     subgraph ejecucion["En ejecución"]
         local["Solo 127.0.0.1<br/>web :3000 · API :8000"]
@@ -121,6 +121,15 @@ flowchart TB
 - **Escáneres** en `scripts/security/`: secretos, patrones de código peligrosos,
   configuración (workflows con permisos mínimos y acciones fijadas por SHA), dependencias y
   prompt injection. Se ejecutan en local, en GitHub (`security-scan.yml`) y en Jenkins.
+- **Tests que vigilan a los escáneres** (`scripts/security/test_*.sh`): si un escáner se
+  rompiera, seguiría diciendo «todo bien» y nadie se daría cuenta. Estos tests trabajan en una
+  carpeta temporal (uno copia el repo y otro monta proyectos mínimos), meten fallos a propósito
+  (una ruta privada o un email inventados, una frase de prompt injection, una URL que no es
+  local, un workflow con permisos de escritura, una acción sin fijar por SHA…) y comprueban que
+  los escáneres de secretos, prompt injection, patrones de código y configuración saltan cuando
+  deben y callan cuando todo está limpio. También comprueban que revisan todos los archivos del
+  repo y que el hook `pre-commit` mira exactamente lo que va a entrar en el commit. El escáner de
+  dependencias aún no tiene test propio. Se ejecutan junto a los escáneres en GitHub y en Jenkins.
 - **Agentes de seguridad**: ocho dominios en `.claude/agents/security-*.md`, con los
   precedentes del proyecto en `security/security-review-instructions.md`. Las auditorías
   completas se guardan en `security/reviews/`.
@@ -158,7 +167,7 @@ flowchart LR
 
 | Comprobación | GitHub Actions | Jenkins (`Jenkinsfile`) |
 |---|---|---|
-| Escáneres de seguridad y sus tests | `security-scan.yml` | etapa *Seguridad* |
+| Escáneres de seguridad y los tests que los vigilan | `security-scan.yml` | etapa *Seguridad* |
 | Lint, tests y build | `ci.yml` · job `verify` | etapas *Lint*, *Tests* y *Build* |
 | Puerta de clean code | `ci.yml` · job `clean-code` | etapa *Clean code* |
 | Veredicto del agente en la PR | `revision-clean-code.yml` | — (Jenkins construye `main`) |
