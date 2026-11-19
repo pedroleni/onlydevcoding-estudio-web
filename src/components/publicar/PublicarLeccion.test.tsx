@@ -138,6 +138,93 @@ describe("pestaña Publicar", () => {
     ).toBeVisible();
   });
 
+  it("cambia de red sin navegar (no salta arriba) y deja la red en la URL", async () => {
+    const reemplazar = vi.spyOn(window.history, "replaceState");
+    render(
+      <PublicarLeccion
+        vista={vista}
+        piezaSeleccionada="leccion"
+        redSeleccionada="youtube"
+      />,
+    );
+
+    const pestanaInstagram = screen.getByRole("tab", { name: "Instagram" });
+    let navegaria: boolean | null = null;
+    window.addEventListener(
+      "click",
+      (evento) => {
+        navegaria = !evento.defaultPrevented;
+        evento.preventDefault();
+      },
+      { once: true },
+    );
+    await userEvent.click(pestanaInstagram);
+
+    expect(navegaria).toBe(false);
+    expect(reemplazar).toHaveBeenCalledWith(
+      null,
+      "",
+      "?pestana=publicar&pieza=leccion&red=instagram",
+    );
+    expect(screen.getByRole("tabpanel", { name: "Instagram" })).toBeVisible();
+    reemplazar.mockRestore();
+  });
+
+  it("enseña arriba el vídeo propio de LinkedIn y no avisa de que falte", () => {
+    const conClip: VistaPublicacion = {
+      ...vista,
+      piezas: [
+        {
+          ...pieza,
+          redes: pieza.redes.map((red) =>
+            red.red === "linkedin"
+              ? {
+                  ...red,
+                  textos: { ...textosYoutube, video: "cursos/x/publicar/4-linkedin/clip.mp4" },
+                }
+              : red,
+          ),
+        },
+      ],
+    };
+    render(
+      <PublicarLeccion vista={conClip} piezaSeleccionada="leccion" redSeleccionada="linkedin" />,
+    );
+
+    const panel = screen.getByRole("tabpanel", { name: "LinkedIn" });
+    const titulo = within(panel).getByRole("heading", { name: "Vídeo para LinkedIn" });
+    const primero = within(panel).getAllByRole("heading")[0];
+    expect(primero).toBe(titulo);
+    expect(panel.querySelector("video")).toHaveAttribute(
+      "src",
+      expect.stringContaining(encodeURIComponent("4-linkedin/clip.mp4")),
+    );
+    expect(within(panel).queryByText(/Aún no hay vídeo para LinkedIn/)).not.toBeInTheDocument();
+  });
+
+  it("avisa al marcar LinkedIn si la lección aún no tiene su vídeo", () => {
+    const sinClip: VistaPublicacion = {
+      ...vista,
+      piezas: [
+        {
+          ...pieza,
+          redes: pieza.redes.map((red) =>
+            red.red === "linkedin" ? { ...red, textos: { ...textosYoutube, video: null } } : red,
+          ),
+        },
+      ],
+    };
+    render(
+      <PublicarLeccion vista={sinClip} piezaSeleccionada="leccion" redSeleccionada="linkedin" />,
+    );
+
+    expect(
+      within(screen.getByRole("tabpanel", { name: "LinkedIn" })).getByText(
+        "Aún no hay vídeo para LinkedIn. Prepáralo en 4-linkedin/ antes de marcarlo como subido.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("no deja montado ningún panel de una red inactiva", async () => {
     const conTodasLasRedes: VistaPublicacion = {
       ...vista,

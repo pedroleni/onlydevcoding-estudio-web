@@ -20,8 +20,8 @@ import {
 } from "@/lib/estadisticas-publicacion";
 import { fechaPublicacionLegible } from "@/lib/fecha-publicacion";
 import { lecturaApiOpcional } from "@/lib/lectura-opcional";
-import { nombreRed } from "@/lib/redes-publicacion";
-import type { Curso, EstadoRed, LeccionResumen, RedVista } from "@/lib/tipos";
+import { faltaVideoPropio, nombreRed } from "@/lib/redes-publicacion";
+import type { Curso, EstadoRed, LeccionResumen, PiezaVista, RedVista } from "@/lib/tipos";
 import { errorUrlPublicacion } from "@/lib/url-publicacion";
 
 const ICONO: Record<EstadoRed["estado"], string> = {
@@ -199,17 +199,19 @@ function ChipRed({
 }: {
   curso: string;
   numero: number;
-  pieza: string;
+  pieza: PiezaVista;
   red: RedVista;
 }) {
   const estado = red.estado.estado;
+  const sinVideo = estado !== "publicado" && faltaVideoPropio(pieza, red);
   return (
     <Link
-      href={hrefPublicar(curso, numero, pieza, red.red)}
-      aria-label={`${ICONO[estado]} ${nombreRed(red.red)}, ${ESTADO_LEGIBLE[estado]}`}
+      href={hrefPublicar(curso, numero, pieza.id, red.red)}
+      aria-label={`${ICONO[estado]} ${nombreRed(red.red)}, ${ESTADO_LEGIBLE[estado]}${sinVideo ? ", sin vídeo" : ""}`}
       className={`border bg-carbon px-2 py-0.5 text-xs hover:border-marca hover:text-texto ${CHIP[estado]}`}
     >
       <span aria-hidden="true">{ICONO[estado]}</span> {nombreRed(red.red)}
+      {sinVideo ? " · sin vídeo" : null}
     </Link>
   );
 }
@@ -277,7 +279,7 @@ function QuedaPorSubir({ datos }: { datos: DatosCurso }) {
                           key={red.red}
                           curso={curso.id}
                           numero={leccion.numero}
-                          pieza={pieza.id}
+                          pieza={pieza}
                           red={red}
                         />
                       ))}

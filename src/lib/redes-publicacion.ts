@@ -31,6 +31,15 @@ export function redesDisponibles(pieza: PiezaVista): RedVista[] {
   );
 }
 
+// LinkedIn no publica la lección entera, sino un clip horizontal hecho para esa red
+// (publicar/4-linkedin/). Sin ese clip, la red aún no está lista para subirse.
+export function faltaVideoPropio(pieza: Pick<PiezaVista, "tipo">, red: RedVista): boolean {
+  return pieza.tipo === "leccion" && red.red === "linkedin" && !red.textos?.video;
+}
+
+export const AVISO_SIN_VIDEO_LINKEDIN =
+  "Aún no hay vídeo para LinkedIn. Prepáralo en 4-linkedin/ antes de marcarlo como subido.";
+
 export function avisoRedesAusentes(redes: RedVista[]): string | null {
   if (!redes.some(tieneContenido)) return null;
   const nombres = redes

@@ -194,11 +194,33 @@ describe("página de publicación", () => {
     );
     expect(within(short).getByRole("link", { name: "✅ Instagram, subido" })).toBeInTheDocument();
     const leccion1 = within(bloques[0]).getByRole("listitem", { name: "Lección completa" });
-    expect(within(leccion1).getByRole("link", { name: "⬜ LinkedIn, pendiente" })).toHaveAttribute(
+    const linkedin = within(leccion1).getByRole("link", { name: "⬜ LinkedIn, pendiente, sin vídeo" });
+    expect(linkedin).toHaveTextContent("LinkedIn · sin vídeo");
+    expect(linkedin).toHaveAttribute(
       "href",
       "/cursos/react/1?pestana=publicar&pieza=leccion&red=linkedin",
     );
     expect(within(queda).getByText("Lección 3: aún sin textos de publicación.")).toBeInTheDocument();
+  });
+
+  it("no avisa de vídeo en un LinkedIn que ya tiene su clip", async () => {
+    vi.mocked(obtenerPublicacion).mockImplementation(async (_curso, numero) =>
+      numero === 1
+        ? vista(1, [
+            pieza({
+              redes: [
+                red("youtube", "publicado", "https://youtu.be/abc"),
+                { ...red("linkedin"), textos: { ...TEXTOS, video: "cursos/x/4-linkedin/l.mp4" } },
+              ],
+            }),
+          ])
+        : (VISTAS[numero] ?? null),
+    );
+
+    render(await ContenidoPublicacion());
+
+    const queda = screen.getByRole("region", { name: "Queda por subir" });
+    expect(within(queda).getByRole("link", { name: "⬜ LinkedIn, pendiente" })).toBeInTheDocument();
   });
 
   it("lista lo subido por lección con fecha y enlace solo si la URL es de la red", async () => {

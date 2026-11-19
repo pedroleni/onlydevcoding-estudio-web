@@ -6,7 +6,9 @@ import { useId, useState } from "react";
 import { EstadoPublicacion } from "@/components/publicar/EstadoPublicacion";
 import { PanelTextosRed } from "@/components/publicar/TextosRed";
 import {
+  AVISO_SIN_VIDEO_LINKEDIN,
   avisoRedesAusentes,
+  faltaVideoPropio,
   nombreRed,
   redesDisponibles,
 } from "@/lib/redes-publicacion";
@@ -49,16 +51,24 @@ export function PestanasRed({
         <div role="tablist" className="flex min-w-max border-b border-borde">
           {redes.map((redVista) => {
             const seleccionada = redVista.red === redActiva.red;
+            const href = `?pestana=publicar&pieza=${encodeURIComponent(pieza.id)}&red=${encodeURIComponent(redVista.red)}`;
             return (
               <Link
                 key={redVista.red}
                 id={idTab(redVista.red)}
-                href={`?pestana=publicar&pieza=${encodeURIComponent(pieza.id)}&red=${encodeURIComponent(redVista.red)}`}
+                href={href}
                 role="tab"
                 aria-selected={seleccionada}
                 aria-controls={idPanel(redVista.red)}
                 aria-current={seleccionada ? "page" : undefined}
-                onClick={() => setRedActivaId(redVista.red)}
+                onClick={(evento) => {
+                  // Cambiar de red no pide la página al servidor: solo se cambia el panel y
+                  // la URL. Navegar recargaba la lección y la devolvía arriba del todo.
+                  if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return;
+                  evento.preventDefault();
+                  setRedActivaId(redVista.red);
+                  window.history.replaceState(null, "", href);
+                }}
                 className="inline-flex min-h-12 items-center gap-2 border-b-2 border-transparent px-4 text-sm font-medium text-tenue transition-colors hover:text-texto aria-[selected=true]:border-marca aria-[selected=true]:text-texto"
               >
                 {nombreRed(redVista.red)}
@@ -104,6 +114,7 @@ export function PestanasRed({
             nombreRed={nombreRed(redActiva.red)}
             estado={redActiva.estado}
             fechaPropuesta={pieza.fecha_propuesta}
+            avisoVideo={faltaVideoPropio(pieza, redActiva) ? AVISO_SIN_VIDEO_LINKEDIN : null}
           />
         </div>
       </div>

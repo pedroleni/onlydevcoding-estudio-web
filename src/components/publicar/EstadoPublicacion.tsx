@@ -25,6 +25,7 @@ export function EstadoPublicacion({
   nombreRed,
   estado,
   fechaPropuesta,
+  avisoVideo = null,
 }: {
   curso: string;
   numero: number;
@@ -33,6 +34,8 @@ export function EstadoPublicacion({
   nombreRed: string;
   estado: EstadoRed;
   fechaPropuesta: string | null;
+  // Aviso si la red necesita un vídeo propio que aún no está preparado.
+  avisoVideo?: string | null;
 }) {
   const fechaInicial =
     estado.estado === "programado" ? estado.fecha : fechaPropuesta;
@@ -122,6 +125,11 @@ export function EstadoPublicacion({
       ) : null}
       {estado.url ? (
         <p className="mt-1 break-all text-sm text-marca">{estado.url}</p>
+      ) : null}
+      {avisoVideo && estado.estado !== "publicado" ? (
+        <p className="mt-3 border-l-2 border-ambar pl-3 text-sm text-ambar">
+          {avisoVideo}
+        </p>
       ) : null}
 
       <div className="mt-5 grid gap-5">
