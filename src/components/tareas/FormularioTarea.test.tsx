@@ -142,6 +142,18 @@ describe("FormularioTarea", () => {
     expect(vi.mocked(crearTarea).mock.calls[0][0].enlace).toBeNull();
   });
 
+  it("no se cierra con Escape mientras se guarda", async () => {
+    vi.mocked(crearTarea).mockReturnValue(new Promise(() => {}));
+    await abrirNueva();
+
+    await userEvent.type(screen.getByLabelText("Texto"), "Guardando despacio");
+    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(crearTarea).toHaveBeenCalled());
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.getByRole("dialog", { name: "Nueva tarea" })).toBeInTheDocument();
+  });
+
   it("desactiva Guardar con el texto vacío o de más de 300 caracteres", async () => {
     await abrirNueva();
     const guardar = screen.getByRole("button", { name: "Guardar" });
