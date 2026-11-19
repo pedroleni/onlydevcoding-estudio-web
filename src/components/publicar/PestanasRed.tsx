@@ -28,7 +28,7 @@ export function PestanasRed({
   const prefijo = useId();
   const [redActivaId, setRedActivaId] = useState(redInicial);
   const redes = redesDisponibles(pieza);
-  const ausentes = avisoRedesAusentes(pieza.redes);
+  const ausentes = avisoRedesAusentes(pieza);
   const redActiva = redes.find(({ red }) => red === redActivaId) ?? redes[0];
 
   if (!redActiva) return null;
@@ -71,6 +71,11 @@ export function PestanasRed({
                 }}
                 className="inline-flex min-h-12 items-center gap-2 border-b-2 border-transparent px-4 text-sm font-medium text-tenue transition-colors hover:text-texto aria-[selected=true]:border-marca aria-[selected=true]:text-texto"
               >
+                {redVista.estado.estado === "publicado" ? (
+                  <span aria-label="subido" title="Subido">✅</span>
+                ) : redVista.estado.estado === "programado" ? (
+                  <span aria-label="programado" title="Programado">📅</span>
+                ) : null}
                 {nombreRed(redVista.red)}
                 {redVista.textos ? (
                   <span
@@ -103,6 +108,10 @@ export function PestanasRed({
             red={redActiva.red}
             textos={redActiva.textos}
             fechaPropuesta={pieza.fecha_propuesta}
+            video={
+              redActiva.textos?.video ?? (pieza.tipo === "leccion" ? null : pieza.video)
+            }
+            vertical={pieza.tipo !== "leccion" && !redActiva.textos?.video}
           />
         </div>
         <div className="min-w-0">

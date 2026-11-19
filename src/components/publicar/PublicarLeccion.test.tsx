@@ -522,14 +522,49 @@ describe("pestaña Publicar", () => {
 
     expect(
       screen.getAllByRole("tab").map((pestana) => pestana.textContent),
-    ).toEqual(["YouTube", "Instagram", "LinkedIn"]);
-    expect(screen.queryByRole("tab", { name: "TikTok" })).not.toBeInTheDocument();
+    ).toEqual(["YouTube", "Instagram", "📅LinkedIn"]);
+    expect(screen.queryByRole("tab", { name: /TikTok/ })).not.toBeInTheDocument();
     expect(
       screen.getByText("Esta pieza no se publica en TikTok"),
     ).toBeInTheDocument();
   });
 
-  it("nombra todas las redes que faltan en una sola línea", () => {
+  it("un short subido a LinkedIn sin textos enseña su vídeo, el check en la pestaña y el estado", () => {
+    const subido: VistaPublicacion = {
+      ...vista,
+      piezas: vista.piezas.map((p) =>
+        p.id === "short-1"
+          ? {
+              ...p,
+              video: "cursos/x/publicar/2-shorts-y-reels/short-1.mp4",
+              redes: [
+                {
+                  red: "linkedin",
+                  textos: null,
+                  estado: {
+                    estado: "publicado",
+                    fecha: "2026-11-11T10:26:24+01:00",
+                    url: "https://www.linkedin.com/feed/update/urn:li:activity:1/",
+                  },
+                },
+              ],
+            }
+          : p,
+      ),
+    };
+    render(<PublicarLeccion vista={subido} piezaSeleccionada="short-1" redSeleccionada="linkedin" />);
+
+    const pestana = screen.getByRole("tab", { name: /LinkedIn/ });
+    expect(pestana).toHaveTextContent("✅LinkedIn");
+    expect(pestana).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Vídeo para LinkedIn" })).toBeInTheDocument();
+    expect(document.querySelector("video")?.getAttribute("src")).toContain(
+      encodeURIComponent("2-shorts-y-reels/short-1.mp4"),
+    );
+    expect(screen.getByText("✅ Publicado")).toBeInTheDocument();
+  });
+
+  it("enseña las redes del tipo de pieza y nombra en una línea las que no le tocan", () => {
     const soloLinkedin: VistaPublicacion = {
       ...vista,
       piezas: [
@@ -545,14 +580,11 @@ describe("pestaña Publicar", () => {
     render(<PublicarLeccion vista={soloLinkedin} />);
 
     expect(screen.getAllByRole("tab").map((pestana) => pestana.textContent)).toEqual([
+      "YouTube",
       "LinkedIn",
     ]);
-    expect(screen.getByRole("tab", { name: "LinkedIn" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
     expect(
-      screen.getByText("Esta pieza no se publica en YouTube, Instagram ni TikTok"),
+      screen.getByText("Esta pieza no se publica en Instagram ni TikTok"),
     ).toBeInTheDocument();
   });
 
@@ -606,12 +638,12 @@ describe("pestaña Publicar", () => {
     expect(screen.queryByText(/Esta pieza no se publica en/)).not.toBeInTheDocument();
   });
 
-  it("un short sin textos ni estado muestra YouTube, Instagram y TikTok", () => {
+  it("un short sin textos ni estado muestra YouTube, Instagram, TikTok y LinkedIn", () => {
     render(<PublicarLeccion vista={vista} piezaSeleccionada="short-1" />);
 
     expect(
       screen.getAllByRole("tab").map((pestana) => pestana.textContent),
-    ).toEqual(["YouTube", "Instagram", "TikTok"]);
+    ).toEqual(["YouTube", "Instagram", "TikTok", "LinkedIn"]);
     expect(screen.getByRole("heading", { name: /Estado/ })).toBeInTheDocument();
     expect(screen.queryByText(/Esta pieza no se publica en/)).not.toBeInTheDocument();
   });

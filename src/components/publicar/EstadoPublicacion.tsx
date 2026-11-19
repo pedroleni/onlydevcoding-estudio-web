@@ -113,7 +113,16 @@ export function EstadoPublicacion({
         <h2 id="estado-publicacion-titulo" className="text-xl font-semibold">
           Estado
         </h2>
-        <span className="border border-borde bg-carbon px-2 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-tenue">
+        <span
+          className={`border px-2 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+            estado.estado === "publicado"
+              ? "border-verde/50 bg-verde/15 text-verde"
+              : estado.estado === "programado"
+                ? "border-marca/50 bg-marca/15 text-azul-claro"
+                : "border-borde bg-carbon text-tenue"
+          }`}
+        >
+          {estado.estado === "publicado" ? "✅ " : estado.estado === "programado" ? "📅 " : ""}
           {etiquetaEstado}
         </span>
       </div>

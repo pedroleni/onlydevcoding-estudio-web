@@ -47,6 +47,8 @@ export function PanelTextosRed({
   red,
   textos,
   fechaPropuesta,
+  video,
+  vertical = false,
 }: {
   curso: string;
   numero: number;
@@ -54,6 +56,9 @@ export function PanelTextosRed({
   red: RedVista["red"];
   textos: TextosRedDatos | null;
   fechaPropuesta: string | null;
+  // Vídeo que se sube a esta red: el propio de la red o, en reels y shorts, el de la pieza.
+  video?: string | null;
+  vertical?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const [confirmacion, setConfirmacion] = useState<string | null>(null);
@@ -97,10 +102,29 @@ export function PanelTextosRed({
     </div>
   );
 
+  const videoRed = video === undefined ? (textos?.video ?? null) : video;
+  const bloqueVideo = videoRed ? (
+    <section aria-labelledby="video-red-titulo">
+      <h3 id="video-red-titulo" className="text-sm font-semibold">
+        Vídeo para {nombreRed(red)}
+      </h3>
+      <video
+        src={urlMedio(videoRed)}
+        controls
+        preload="metadata"
+        playsInline
+        className={`mt-3 border border-borde bg-carbon object-contain ${
+          vertical ? "mx-auto aspect-[9/16] max-h-[70vh] w-auto max-w-full" : "aspect-video w-full"
+        }`}
+      />
+    </section>
+  ) : null;
+
   if (textos === null) {
     return (
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         {controles}
+        {bloqueVideo}
         <p className="border border-borde bg-superficie p-5 text-sm text-tenue">
           Esta red todavía no tiene textos preparados.
         </p>
@@ -120,20 +144,7 @@ export function PanelTextosRed({
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       {controles}
-      {textos.video ? (
-        <section aria-labelledby="video-red-titulo">
-          <h3 id="video-red-titulo" className="text-sm font-semibold">
-            Vídeo para {nombreRed(red)}
-          </h3>
-          <video
-            src={urlMedio(textos.video)}
-            controls
-            preload="metadata"
-            playsInline
-            className="mt-3 aspect-video w-full border border-borde bg-carbon object-contain"
-          />
-        </section>
-      ) : null}
+      {bloqueVideo}
       {titulos.length > 0 ? (
         <section aria-labelledby="titulos-red" className="grid gap-3">
           <h3 id="titulos-red" className="text-sm font-semibold uppercase tracking-[0.14em] text-tenue">

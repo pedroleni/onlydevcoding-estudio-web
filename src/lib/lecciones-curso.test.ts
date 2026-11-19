@@ -59,19 +59,19 @@ describe("fichas del curso", () => {
     expect(filtrarFichas(fichas, "  ", " ")).toHaveLength(3);
   });
 
-  it("calcula el estado de cada ficha con la publicación sobre 17", () => {
+  it("calcula el estado de cada ficha con la publicación sobre 22", () => {
     const terminada = estado({
       voz: { hechas: 10, total: 10 },
       camara: { hechas: 2, total: 2 },
       video_final: true,
-      publicado_avance: { youtube: { hechas: 17, total: 17 } },
+      publicado_avance: { youtube: { hechas: 22, total: 22 } },
     });
     const enMarcha = estado({ voz: { hechas: 3, total: 10 } });
 
     expect(pasosLeccion(enMarcha).voz).toBeCloseTo(0.3);
     expect(
       pasosLeccion(estado({ publicado_avance: { youtube: { hechas: 2, total: 4 } } })).publicacion,
-    ).toBeCloseTo(2 / 17);
+    ).toBeCloseTo(2 / 22);
     const fichas = fichasCurso(
       [leccion(1, "a", terminada), leccion(2, "b", enMarcha), leccion(3, "c")],
       [...TEMARIO, { numero: 4, titulo: "d", modulo: null }],

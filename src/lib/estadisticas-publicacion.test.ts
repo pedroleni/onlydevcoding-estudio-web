@@ -84,7 +84,7 @@ function estado(parcial: Partial<EstadoLeccion>): EstadoLeccion {
 }
 
 describe("contarLeccion", () => {
-  it("cuenta las 17 publicaciones del plan y separa lo pendiente de lo subido", () => {
+  it("cuenta las 22 publicaciones del plan y separa lo pendiente de lo subido", () => {
     const leccion = contarLeccion(
       1,
       "¿Qué problema resuelve React?",
@@ -111,9 +111,9 @@ describe("contarLeccion", () => {
       ]),
     );
 
-    expect(leccion.pendientes).toBe(14);
+    expect(leccion.pendientes).toBe(19);
     expect(leccion.subidas).toBe(3);
-    expect(leccion.total).toBe(17);
+    expect(leccion.total).toBe(22);
     expect(leccion.empezada).toBe(true);
     expect(leccion.piezas.map((p) => [p.pieza.id, p.pieza.titulo, p.prevista])).toEqual([
       ["leccion", "Lección completa", false],
@@ -124,12 +124,13 @@ describe("contarLeccion", () => {
       ["short-4", "Short 4", true],
     ]);
     expect(leccion.piezas[0].pendientes.map(({ red: r }) => r)).toEqual(["linkedin"]);
-    expect(leccion.piezas[3].pendientes.map(({ red: r }) => r)).toEqual(["youtube"]);
+    expect(leccion.piezas[3].pendientes.map(({ red: r }) => r)).toEqual(["youtube", "linkedin"]);
     expect(leccion.piezas[3].subidas.map(({ red: r }) => r)).toEqual(["instagram", "tiktok"]);
     expect(leccion.piezas[1].redes.map(({ red: r }) => r)).toEqual([
       "youtube",
       "instagram",
       "tiktok",
+      "linkedin",
     ]);
   });
 
@@ -148,7 +149,8 @@ describe("contarLeccion", () => {
       ]),
     );
 
-    expect(leccion.total).toBe(19);
+    // 22 del plan y las 4 redes de un short de más.
+    expect(leccion.total).toBe(26);
     expect(leccion.subidas).toBe(1);
     expect(leccion.piezas.at(-1)?.pieza.id).toBe("short-5");
   });
@@ -162,7 +164,7 @@ describe("contarLeccion", () => {
     const sinVista = contarLeccion(3, "Sin datos", null);
 
     for (const leccion of [sinPreparar, sinVista]) {
-      expect(leccion).toMatchObject({ pendientes: 17, subidas: 0, total: 17, empezada: false });
+      expect(leccion).toMatchObject({ pendientes: 22, subidas: 0, total: 22, empezada: false });
       expect(leccion.piezas.every((p) => p.prevista)).toBe(true);
     }
   });
@@ -189,13 +191,13 @@ describe("totalesPublicacion", () => {
     );
 
     expect(totalesPublicacion([a, b])).toEqual({
-      quedan: 32,
+      quedan: 42,
       subidas: 2,
       quedanPorRed: [
         { red: "youtube", nombre: "YouTube", quedan: 11 },
         { red: "instagram", nombre: "Instagram", quedan: 10 },
         { red: "tiktok", nombre: "TikTok", quedan: 9 },
-        { red: "linkedin", nombre: "LinkedIn", quedan: 2 },
+        { red: "linkedin", nombre: "LinkedIn", quedan: 12 },
       ],
     });
   });

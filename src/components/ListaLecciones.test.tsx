@@ -39,7 +39,7 @@ describe("lista de lecciones del curso", () => {
       "/cursos/react/1",
     );
     expect(within(primeros).getByLabelText("Voz 5/10")).toBeInTheDocument();
-    expect(within(primeros).getByLabelText("Publicación 0/17")).toBeInTheDocument();
+    expect(within(primeros).getByLabelText("Publicación 0/22")).toBeInTheDocument();
     expect(
       within(primeros).getByLabelText("Lección 2: Crear un proyecto con Vite, por preparar"),
     ).toBeInTheDocument();
