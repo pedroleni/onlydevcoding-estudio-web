@@ -3,7 +3,11 @@ import type { ReactNode } from "react";
 
 import { fechaLegible, lunesDe, sumarDias } from "@/lib/fechas";
 import type { Curso, TipoTarea } from "@/lib/tipos";
-import { hrefTareas, SIN_CURSO, type ParametrosTareas } from "@/lib/vista-tareas";
+import {
+  hrefTareas,
+  SIN_CURSO,
+  type ParametrosTareas,
+} from "@/lib/vista-tareas";
 
 const claseBoton =
   "inline-flex min-h-10 items-center border border-borde px-3 text-sm hover:text-texto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca";
@@ -22,6 +26,7 @@ export function CabeceraTareas({
   accion?: ReactNode;
 }) {
   const semana = parametros.vista === "semana";
+  const todas = parametros.vista === "todas";
   const paso = semana ? 7 : 1;
   const referencia = semana ? lunesDe(parametros.dia) : parametros.dia;
   const anterior = sumarDias(referencia, -paso);
@@ -31,30 +36,41 @@ export function CabeceraTareas({
   return (
     <header className="grid gap-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={hrefTareas(parametros, { dia: anterior })}
-            aria-label={`${semana ? "Semana anterior" : "Día anterior"}: ${fechaLegible(anterior)}`}
-            className={`${claseBoton} text-tenue`}
-          >
-            ‹ {fechaLegible(anterior)}
-          </Link>
-          <h1 className="px-2 text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
-            {semana ? `Semana del ${fechaLegible(referencia)}` : fechaLegible(parametros.dia)}
+        {todas ? (
+          <h1 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
+            Todas las tareas
           </h1>
-          <Link
-            href={hrefTareas(parametros, { dia: siguiente })}
-            aria-label={`${semana ? "Semana siguiente" : "Día siguiente"}: ${fechaLegible(siguiente)}`}
-            className={`${claseBoton} text-tenue`}
-          >
-            {fechaLegible(siguiente)} ›
-          </Link>
-          {yaEsHoy ? null : (
-            <Link href={hrefTareas(parametros, { dia: hoy })} className={`${claseBoton} text-marca`}>
-              Hoy
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={hrefTareas(parametros, { dia: anterior })}
+              aria-label={`${semana ? "Semana anterior" : "Día anterior"}: ${fechaLegible(anterior)}`}
+              className={`${claseBoton} text-tenue`}
+            >
+              ‹ {fechaLegible(anterior)}
             </Link>
-          )}
-        </div>
+            <h1 className="px-2 text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
+              {semana
+                ? `Semana del ${fechaLegible(referencia)}`
+                : fechaLegible(parametros.dia)}
+            </h1>
+            <Link
+              href={hrefTareas(parametros, { dia: siguiente })}
+              aria-label={`${semana ? "Semana siguiente" : "Día siguiente"}: ${fechaLegible(siguiente)}`}
+              className={`${claseBoton} text-tenue`}
+            >
+              {fechaLegible(siguiente)} ›
+            </Link>
+            {yaEsHoy ? null : (
+              <Link
+                href={hrefTareas(parametros, { dia: hoy })}
+                className={`${claseBoton} text-marca`}
+              >
+                Hoy
+              </Link>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <nav aria-label="Vista" className="flex">
@@ -62,6 +78,7 @@ export function CabeceraTareas({
               [
                 ["dia", "Día"],
                 ["semana", "Semana"],
+                ["todas", "Todas"],
               ] as const
             ).map(([vista, etiqueta]) => {
               const activa = parametros.vista === vista;

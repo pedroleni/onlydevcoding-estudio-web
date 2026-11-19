@@ -36,7 +36,7 @@ function Formulario({
   cursos: Curso[];
   tipos: TipoTarea[];
   inicial?: TareaVista;
-  fecha: string;
+  fecha: string | null;
   onCerrar: () => void;
 }) {
   const id = useId();
@@ -56,7 +56,7 @@ function Formulario({
   const enlaceInicial = enlaceRoto ? null : (inicial?.enlace ?? null);
 
   const [texto, setTexto] = useState(inicial?.texto ?? "");
-  const [dia, setDia] = useState(inicial?.fecha ?? fecha);
+  const [dia, setDia] = useState(inicial ? (inicial.fecha ?? "") : (fecha ?? ""));
   const [hora, setHora] = useState(inicial?.hora ?? "");
   const [tipo, setTipo] = useState(inicial?.tipo ?? tipos[0]?.id ?? "");
   const [curso, setCurso] = useState(enlaceInicial?.curso ?? "");
@@ -166,7 +166,7 @@ function Formulario({
 
   const largo = longitud(texto);
   const recortado = texto.trim();
-  const valido = recortado !== "" && longitud(recortado) <= LIMITE_TEXTO && dia !== "" && tipo !== "";
+  const valido = recortado !== "" && longitud(recortado) <= LIMITE_TEXTO && tipo !== "";
 
   function enlaceElegido(): EnlaceTarea | null {
     if (!curso) return null;
@@ -185,7 +185,7 @@ function Formulario({
     evento.preventDefault();
     if (!valido) return;
     const nueva: TareaNueva = {
-      fecha: dia,
+      fecha: dia || null,
       hora: hora || null,
       texto: recortado,
       tipo,
@@ -234,7 +234,7 @@ function Formulario({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1 text-tenue">
-              <label htmlFor={`${id}-fecha`}>Fecha</label>
+              <label htmlFor={`${id}-fecha`}>Fecha (vacía: sin día)</label>
               <input
                 id={`${id}-fecha`}
                 type="date"
@@ -382,7 +382,7 @@ export function BotonNuevaTarea({
 }: {
   cursos: Curso[];
   tipos: TipoTarea[];
-  fecha: string;
+  fecha: string | null;
 }) {
   const [abierto, setAbierto] = useState(false);
   return (

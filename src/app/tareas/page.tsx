@@ -3,14 +3,19 @@ import { Suspense } from "react";
 
 import { AvisoApi } from "@/components/AvisoApi";
 import { CabeceraTareas } from "@/components/tareas/CabeceraTareas";
-import { BotonEditarTarea, BotonNuevaTarea } from "@/components/tareas/FormularioTarea";
+import {
+  BotonEditarTarea,
+  BotonNuevaTarea,
+} from "@/components/tareas/FormularioTarea";
 import { VistaDia } from "@/components/tareas/VistaDia";
 import { VistaSemana } from "@/components/tareas/VistaSemana";
+import { VistaTodas } from "@/components/tareas/VistaTodas";
 import {
   ApiNoDisponible,
   ErrorApi,
   obtenerCursos,
   obtenerTareas,
+  obtenerTareasSinFecha,
   obtenerTiposTarea,
 } from "@/lib/api";
 import { diasDeSemana, fechaLocal } from "@/lib/fechas";
@@ -28,6 +33,7 @@ async function ContenidoTareas({
   const parametros = leerParametrosTareas(consulta, hoy);
   const esHoy = parametros.dia === hoy;
   const semana = parametros.vista === "semana";
+  const todas = parametros.vista === "todas";
   const dias = diasDeSemana(parametros.dia);
 
   let datos;
@@ -35,9 +41,14 @@ async function ContenidoTareas({
   let tipos;
   try {
     [datos, cursos, tipos] = await Promise.all([
-      semana
-        ? obtenerTareas(dias[0], dias[6], false)
-        : obtenerTareas(parametros.dia, parametros.dia, esHoy),
+      todas
+        ? obtenerTareasSinFecha().then((lista) => ({
+            tareas: lista,
+            atrasadas: [],
+          }))
+        : semana
+          ? obtenerTareas(dias[0], dias[6], false)
+          : obtenerTareas(parametros.dia, parametros.dia, esHoy),
       obtenerCursos(),
       obtenerTiposTarea(),
     ]);
@@ -55,19 +66,51 @@ async function ContenidoTareas({
         hoy={hoy}
         cursos={cursos}
         tipos={tipos}
-        accion={<BotonNuevaTarea cursos={cursos} tipos={tipos} fecha={parametros.dia} />}
+        accion={
+          <BotonNuevaTarea
+            cursos={cursos}
+            tipos={tipos}
+            fecha={todas ? null : parametros.dia}
+          />
+        }
       />
       <div className="mt-8">
-        {semana ? (
-          <VistaSemana tareas={datos.tareas} tipos={tipos} parametros={parametros} />
+        {todas ? (
+          <VistaTodas
+            tareas={filtrarTareas(
+              datos.tareas,
+              parametros.curso,
+              parametros.tipo,
+            )}
+            tipos={tipos}
+            editar={(tarea) => (
+              <BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />
+            )}
+          />
+        ) : semana ? (
+          <VistaSemana
+            tareas={datos.tareas}
+            tipos={tipos}
+            parametros={parametros}
+          />
         ) : (
           <VistaDia
-            tareas={filtrarTareas(datos.tareas, parametros.curso, parametros.tipo)}
-            atrasadas={filtrarTareas(datos.atrasadas, parametros.curso, parametros.tipo)}
+            tareas={filtrarTareas(
+              datos.tareas,
+              parametros.curso,
+              parametros.tipo,
+            )}
+            atrasadas={filtrarTareas(
+              datos.atrasadas,
+              parametros.curso,
+              parametros.tipo,
+            )}
             cursos={cursos}
             tipos={tipos}
             esHoy={esHoy}
-            editar={(tarea) => <BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />}
+            editar={(tarea) => (
+              <BotonEditarTarea tarea={tarea} cursos={cursos} tipos={tipos} />
+            )}
           />
         )}
       </div>
@@ -78,7 +121,9 @@ async function ContenidoTareas({
 export default function Tareas({ searchParams }: PageProps<"/tareas">) {
   return (
     <section className="py-8 md:py-12">
-      <Suspense fallback={<p className="text-sm text-tenue">Cargando tareas…</p>}>
+      <Suspense
+        fallback={<p className="text-sm text-tenue">Cargando tareas…</p>}
+      >
         <ContenidoTareas searchParams={searchParams} />
       </Suspense>
     </section>

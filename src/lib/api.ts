@@ -5,6 +5,7 @@ import type {
   LeccionResumen,
   ReelsCurso,
   TareasDelRango,
+  TareaVista,
   Temario,
   Teleprompter,
   TipoTarea,
@@ -94,6 +95,10 @@ export function obtenerTareas(
     atrasadas: String(atrasadas),
   });
   return pedir<TareasDelRango>(`/api/tareas?${parametros}`);
+}
+
+export function obtenerTareasSinFecha(): Promise<TareaVista[]> {
+  return pedir<TareaVista[]>("/api/tareas/sin-fecha");
 }
 
 export function obtenerTiposTarea(): Promise<TipoTarea[]> {

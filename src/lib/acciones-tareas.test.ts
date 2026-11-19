@@ -7,12 +7,14 @@ const {
   headersSimulados,
   obtenerLeccionSimulado,
   obtenerLeccionesSimulado,
+  obtenerTemarioSimulado,
   refreshSimulado,
 } = vi.hoisted(() => ({
   escribirSimulado: vi.fn(),
   headersSimulados: vi.fn(),
   obtenerLeccionSimulado: vi.fn(),
   obtenerLeccionesSimulado: vi.fn(),
+  obtenerTemarioSimulado: vi.fn(),
   refreshSimulado: vi.fn(),
 }));
 
@@ -22,6 +24,7 @@ vi.mock("@/lib/api-escritura", () => ({ escribir: escribirSimulado }));
 vi.mock("@/lib/api", () => ({
   obtenerLeccion: obtenerLeccionSimulado,
   obtenerLecciones: obtenerLeccionesSimulado,
+  obtenerTemario: obtenerTemarioSimulado,
 }));
 
 import {
@@ -82,6 +85,26 @@ describe("Server Actions de tareas", () => {
     await expect(crearTarea({ ...tareaValida, ...cambios } as TareaNueva)).resolves
       .toMatchObject({ ok: false });
     expect(escribirSimulado).not.toHaveBeenCalled();
+  });
+
+  it("acepta una tarea sin fecha y la manda con fecha null", async () => {
+    const sinFecha: Partial<TareaNueva> = { ...tareaValida };
+    delete sinFecha.fecha;
+    await expect(crearTarea(sinFecha as TareaNueva)).resolves.toEqual({ ok: true });
+    await expect(crearTarea({ ...tareaValida, fecha: null })).resolves.toEqual({ ok: true });
+
+    expect(escribirSimulado).toHaveBeenNthCalledWith(
+      1,
+      "/api/tareas",
+      { ...tareaValida, fecha: null },
+      "POST",
+    );
+    expect(escribirSimulado).toHaveBeenNthCalledWith(
+      2,
+      "/api/tareas",
+      { ...tareaValida, fecha: null },
+      "POST",
+    );
   });
 
   it("mide la longitud del texto en puntos de código", async () => {
@@ -275,8 +298,17 @@ describe("Server Actions de tareas", () => {
       ],
     });
 
+    obtenerTemarioSimulado.mockResolvedValueOnce({
+      lecciones: [
+        { numero: 4, titulo: "Título del temario", modulo: "Base" },
+        { numero: 40, titulo: "Efectos", modulo: "Efectos" },
+      ],
+    });
+
+    // Las del temario también salen; si hay carpeta, manda su título.
     await expect(opcionesLecciones("react")).resolves.toEqual([
       { numero: 4, titulo: "Estado" },
+      { numero: 40, titulo: "Efectos" },
     ]);
     await expect(opcionesPiezas("react", 4)).resolves.toEqual([
       { id: "leccion", titulo: "Lección" },
