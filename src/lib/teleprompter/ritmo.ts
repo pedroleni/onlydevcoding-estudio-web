@@ -12,6 +12,12 @@ type Paso = {
 
 export type Plan = { pasos: Paso[]; total: number };
 
+function esperaTras(palabra: string): number {
+  if (/[.:;?!…]$/.test(palabra)) return ESPERA.punto;
+  if (/,$/.test(palabra)) return ESPERA.coma;
+  return 0;
+}
+
 export function calcularPlan(
   cues: { texto: string; pausa: number }[],
   ppm: number,
@@ -36,13 +42,7 @@ export function calcularPlan(
         0,
       );
       pasos.push({ c, p, desde: tiempo, hasta: tiempo + duracion });
-      tiempo +=
-        duracion +
-        (/[.:;?!…]$/.test(palabra)
-          ? ESPERA.punto
-          : /,$/.test(palabra)
-            ? ESPERA.coma
-            : 0);
+      tiempo += duracion + esperaTras(palabra);
     });
 
     const pausa = cue.pausa ?? 0;

@@ -7,12 +7,33 @@ const AVISO_SALIR = "Hay una toma o un texto sin guardar. ¿Salir igualmente?";
 // Clics ya confirmados: si hay varios avisos activos (toma y texto a la vez), se pregunta una vez.
 const confirmados = new WeakSet<Event>();
 
+function esClicSimple(evento: MouseEvent): boolean {
+  return !(
+    evento.button !== 0 ||
+    evento.metaKey ||
+    evento.ctrlKey ||
+    evento.shiftKey ||
+    evento.altKey
+  );
+}
+
+function urlDelEnlace(enlace: HTMLAnchorElement | SVGAElement): URL | null {
+  try {
+    return new URL(enlace.getAttribute("href") ?? "", window.location.href);
+  } catch {
+    return null;
+  }
+}
+
+function esSaltoEnLaPagina(url: URL): boolean {
+  const aqui = window.location;
+  return Boolean(url.hash && url.pathname === aqui.pathname && url.search === aqui.search);
+}
+
 // El enlace del mismo origen que sacaría de la página con este clic, si lo hay. Los clics que
 // abren otra pestaña o descargan, los enlaces externos y los saltos dentro de la página no salen.
 function enlaceQueSale(evento: MouseEvent): HTMLAnchorElement | SVGAElement | null {
-  if (evento.button !== 0 || evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) {
-    return null;
-  }
+  if (!esClicSimple(evento)) return null;
   const destino = evento.target;
   if (!(destino instanceof Element)) return null;
   const enlace = destino.closest<HTMLAnchorElement | SVGAElement>("a[href]");
@@ -20,15 +41,10 @@ function enlaceQueSale(evento: MouseEvent): HTMLAnchorElement | SVGAElement | nu
   const objetivo = enlace.getAttribute("target");
   if (objetivo && objetivo !== "_self") return null;
 
-  let url: URL;
-  try {
-    url = new URL(enlace.getAttribute("href") ?? "", window.location.href);
-  } catch {
-    return null;
-  }
+  const url = urlDelEnlace(enlace);
+  if (!url) return null;
   if (url.origin !== window.location.origin) return null;
-  const aqui = window.location;
-  if (url.hash && url.pathname === aqui.pathname && url.search === aqui.search) return null;
+  if (esSaltoEnLaPagina(url)) return null;
   return enlace;
 }
 

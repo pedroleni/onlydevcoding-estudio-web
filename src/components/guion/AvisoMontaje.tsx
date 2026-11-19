@@ -14,6 +14,32 @@ export type Aviso = {
   anterior: { etiqueta: string; trabajo: Trabajo } | null;
 };
 
+function accionRequerida(estado: EstadoMontaje["estado"]): IdAccion | null {
+  if (estado === "voz_sin_alinear") return "alinear-voz";
+  if (estado === "al_dia") return null;
+  return "preparar-montaje";
+}
+
+function avisoAnterior(
+  delAviso: EstadoAccion | null,
+  accion: EstadoAccion | null,
+): Aviso["anterior"] {
+  if (!delAviso?.ultimo) return null;
+  if (delAviso.id === accion?.id || delAviso.ultimo.estado === "en_marcha") return null;
+  return { etiqueta: delAviso.etiqueta, trabajo: delAviso.ultimo };
+}
+
+function textoAviso(montaje: EstadoMontaje): string {
+  if (montaje.estado === "voz_sin_alinear") {
+    return `Voz sin alinear: ${montaje.sin_alinear.join(", ")}.`;
+  }
+  if (montaje.estado === "guion_cambiado") {
+    return "Guion cambiado: hay que regenerar el montaje.";
+  }
+  if (montaje.estado === "sin_montaje") return "Esta lección aún no tiene montaje.";
+  return "Montaje al día.";
+}
+
 // Qué enseña el aviso. Por orden:
 // 1. Un trabajo del montaje en marcha: se sigue enseñando aunque un refresco cambie el estado,
 //    para no perder su progreso ni «Cancelar».
@@ -33,33 +59,14 @@ export function elegirAviso(
       (accion) =>
         ACCIONES_DEL_AVISO.includes(accion.id) && accion.ultimo?.estado === "en_marcha",
     ) ?? null;
-  const requerida: IdAccion | null =
-    montaje.estado === "voz_sin_alinear"
-      ? "alinear-voz"
-      : montaje.estado === "al_dia"
-        ? null
-        : "preparar-montaje";
+  const requerida = accionRequerida(montaje.estado);
 
   if (montaje.estado === "al_dia" && !enMarcha && !lanzada) return null;
 
   const accion = enMarcha ?? buscar(requerida) ?? buscar(lanzada);
   const delAviso = buscar(lanzada);
-  const anterior =
-    delAviso &&
-    delAviso.id !== accion?.id &&
-    delAviso.ultimo &&
-    delAviso.ultimo.estado !== "en_marcha"
-      ? { etiqueta: delAviso.etiqueta, trabajo: delAviso.ultimo }
-      : null;
-
-  const texto =
-    montaje.estado === "voz_sin_alinear"
-      ? `Voz sin alinear: ${montaje.sin_alinear.join(", ")}.`
-      : montaje.estado === "guion_cambiado"
-        ? "Guion cambiado: hay que regenerar el montaje."
-        : montaje.estado === "sin_montaje"
-          ? "Esta lección aún no tiene montaje."
-          : "Montaje al día.";
+  const anterior = avisoAnterior(delAviso, accion);
+  const texto = textoAviso(montaje);
 
   return { texto, alDia: montaje.estado === "al_dia", accion, anterior };
 }

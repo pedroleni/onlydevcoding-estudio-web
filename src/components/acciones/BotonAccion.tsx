@@ -55,6 +55,120 @@ function EstadoTrabajo({ trabajo }: { trabajo: Trabajo }) {
   );
 }
 
+function trabajoDeAccion(accion: EstadoAccion, objetivo?: string): Trabajo | null {
+  if (objetivo) return accion.ultimos[objetivo] ?? null;
+  return accion.ultimo;
+}
+
+function idEnMarcha(trabajo: Trabajo | null): number | null {
+  if (trabajo?.estado === "en_marcha") return trabajo.id;
+  return null;
+}
+
+function trabajoParaMostrar(
+  trabajo: Trabajo | null,
+  ocultarAnterior: boolean,
+  propio: number | null,
+): Trabajo | null {
+  if (!trabajo) return null;
+  if (!ocultarAnterior || trabajo.estado === "en_marcha" || trabajo.id === propio) return trabajo;
+  return null;
+}
+
+function opcionesParaLanzar(
+  accion: IdAccion,
+  objetivo: string | undefined,
+  opciones: OpcionesAccion,
+): OpcionesAccion {
+  if (objetivo) return opcionesDelObjetivo(accion, objetivo);
+  return opciones;
+}
+
+function EstadoSeguimiento({
+  cancelando,
+  inexistente,
+  trabajo,
+}: {
+  cancelando: boolean;
+  inexistente: boolean;
+  trabajo: Trabajo | null;
+}) {
+  if (cancelando) {
+    return <span role="status" className="text-sm text-tenue">Cancelando…</span>;
+  }
+  if (inexistente) {
+    return <span role="status" className="text-sm text-ambar">El trabajo ya no existe.</span>;
+  }
+  if (trabajo) return <EstadoTrabajo trabajo={trabajo} />;
+  return null;
+}
+
+function ControlAccion({
+  accion,
+  cancelando,
+  enMarcha,
+  idMotivo,
+  nombreAccesible,
+  pendiente,
+  textoBoton,
+  alCancelar,
+  alLanzar,
+}: {
+  accion: EstadoAccion;
+  cancelando: boolean;
+  enMarcha: boolean;
+  idMotivo: string;
+  nombreAccesible?: string;
+  pendiente: boolean;
+  textoBoton?: string;
+  alCancelar: () => void;
+  alLanzar: () => void;
+}) {
+  if (enMarcha) {
+    return (
+      <button
+        type="button"
+        className={BOTON_CANCELAR}
+        aria-label="Cancelar el trabajo"
+        disabled={pendiente || cancelando}
+        onClick={alCancelar}
+      >
+        Cancelar
+      </button>
+    );
+  }
+  const motivo = !accion.disponible && accion.motivo ? accion.motivo : null;
+  return (
+    <button
+      type="button"
+      className={BOTON_PRINCIPAL}
+      aria-label={nombreAccesible}
+      aria-describedby={motivo ? idMotivo : undefined}
+      disabled={!accion.disponible || pendiente}
+      onClick={alLanzar}
+    >
+      {textoBoton ?? accion.etiqueta}
+    </button>
+  );
+}
+
+function MensajeLanzamiento({ mensaje }: { mensaje: string | null }) {
+  if (!mensaje) return null;
+  return (
+    <p role="alert" className="m-0 text-sm text-ambar">
+      {mensaje}
+      {mensaje.startsWith(OTRO_TRABAJO_EN_MARCHA) ? (
+        <>
+          {" "}
+          <Link href="/trabajos" className="font-semibold text-marca underline hover:text-texto">
+            Ver trabajos
+          </Link>
+        </>
+      ) : null}
+    </p>
+  );
+}
+
 export function BotonAccion({
   curso,
   numero,
@@ -87,15 +201,11 @@ export function BotonAccion({
   alCambiarTrabajo?: (trabajo: Trabajo | null) => void;
 }) {
   const idMotivo = useId();
-  const trabajoRecibido = objetivo
-    ? accion.ultimos[objetivo] ?? null
-    : accion.ultimo;
+  const trabajoRecibido = trabajoDeAccion(accion, objetivo);
   const [trabajoBase, setTrabajoBase] = useState(trabajoRecibido);
   const [ultimoRecibido, setUltimoRecibido] = useState(trabajoRecibido);
   const [accionRecibida, setAccionRecibida] = useState(accion);
-  const [propio, setPropio] = useState<number | null>(
-    trabajoRecibido?.estado === "en_marcha" ? trabajoRecibido.id : null,
-  );
+  const [propio, setPropio] = useState<number | null>(idEnMarcha(trabajoRecibido));
   const [mensajeLanzamiento, setMensajeLanzamiento] = useState<string | null>(null);
   const [lanzando, iniciarLanzamiento] = useTransition();
 
@@ -125,11 +235,7 @@ export function BotonAccion({
     actualizarTrabajo: setTrabajoBase,
   });
   const trabajo = inexistente ? null : trabajoSeguido;
-  const trabajoVisible =
-    trabajo &&
-    (!ocultarAnterior || trabajo.estado === "en_marcha" || trabajo.id === propio)
-      ? trabajo
-      : null;
+  const trabajoVisible = trabajoParaMostrar(trabajo, ocultarAnterior, propio);
 
   const avisarCambio = useEffectEvent((actual: Trabajo | null) => {
     alCambiarTrabajo?.(actual);
@@ -147,7 +253,7 @@ export function BotonAccion({
         curso,
         numero,
         accion.id,
-        objetivo ? opcionesDelObjetivo(accion.id, objetivo) : opciones,
+        opcionesParaLanzar(accion.id, objetivo, opciones),
       );
       if (resultado.ok) {
         setPropio(resultado.trabajo.id);
@@ -166,51 +272,26 @@ export function BotonAccion({
 
   return (
     <div className="grid justify-items-start gap-2">
-      {cancelando ? (
-        <span role="status" className="text-sm text-tenue">Cancelando…</span>
-      ) : inexistente ? (
-        <span role="status" className="text-sm text-ambar">El trabajo ya no existe.</span>
-      ) : trabajoVisible ? (
-        <EstadoTrabajo trabajo={trabajoVisible} />
-      ) : null}
-      {enMarcha ? (
-        <button
-          type="button"
-          className={BOTON_CANCELAR}
-          aria-label="Cancelar el trabajo"
-          disabled={pendiente || cancelando}
-          onClick={cancelar}
-        >
-          Cancelar
-        </button>
-      ) : (
-        <button
-          type="button"
-          className={BOTON_PRINCIPAL}
-          aria-label={nombreAccesible}
-          aria-describedby={motivo ? idMotivo : undefined}
-          disabled={!accion.disponible || pendiente}
-          onClick={lanzar}
-        >
-          {textoBoton ?? accion.etiqueta}
-        </button>
-      )}
+      <EstadoSeguimiento
+        cancelando={cancelando}
+        inexistente={inexistente}
+        trabajo={trabajoVisible}
+      />
+      <ControlAccion
+        accion={accion}
+        cancelando={cancelando}
+        enMarcha={enMarcha}
+        idMotivo={idMotivo}
+        nombreAccesible={nombreAccesible}
+        pendiente={pendiente}
+        textoBoton={textoBoton}
+        alCancelar={cancelar}
+        alLanzar={lanzar}
+      />
       {motivo ? (
         <p id={idMotivo} className="m-0 text-sm text-tenue">{motivo}</p>
       ) : null}
-      {mensaje ? (
-        <p role="alert" className="m-0 text-sm text-ambar">
-          {mensaje}
-          {mensaje.startsWith(OTRO_TRABAJO_EN_MARCHA) ? (
-            <>
-              {" "}
-              <Link href="/trabajos" className="font-semibold text-marca underline hover:text-texto">
-                Ver trabajos
-              </Link>
-            </>
-          ) : null}
-        </p>
-      ) : null}
+      <MensajeLanzamiento mensaje={mensaje} />
     </div>
   );
 }

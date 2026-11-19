@@ -12,6 +12,92 @@ function siguientePrevia(previas: string[]): number {
   );
 }
 
+function completarAccionVideoFinal(
+  accion: EstadoAccion | undefined,
+  disponible: boolean,
+): EstadoAccion | null {
+  if (!accion) return null;
+  return {
+    ...accion,
+    disponible: accion.disponible && disponible,
+    motivo: disponible
+      ? accion.motivo
+      : accion.motivo ?? "No hay ninguna previa disponible",
+  };
+}
+
+function AccionRenderizar({
+  accion,
+  curso,
+  numero,
+  siguiente,
+}: {
+  accion: EstadoAccion | undefined;
+  curso: string;
+  numero: number;
+  siguiente: number;
+}) {
+  if (!accion) return null;
+  return (
+    <BotonAccion
+      curso={curso}
+      numero={numero}
+      accion={accion}
+      textoBoton={`Renderizar una versión nueva (previa-v${siguiente})`}
+      confirmar={`Se renderizará previa-v${siguiente} con el montaje actual. Puede tardar bastante. ¿Seguimos?`}
+    />
+  );
+}
+
+function AccionVideoFinal({
+  accion,
+  curso,
+  numero,
+  previa,
+  disponible,
+  alElegir,
+}: {
+  accion: EstadoAccion | null;
+  curso: string;
+  numero: number;
+  previa: string;
+  disponible: boolean;
+  alElegir: (previa: string) => void;
+}) {
+  if (!accion) return null;
+  return (
+    <div className="grid justify-items-start gap-3 border-t border-borde pt-5">
+      {disponible ? (
+        <label className="grid max-w-full min-w-0 gap-2 text-sm font-medium text-texto">
+          Previa para el vídeo final
+          <select
+            className="min-h-11 w-full max-w-full border border-borde bg-carbon px-3 text-sm text-texto"
+            value={previa}
+            onChange={(evento) => alElegir(evento.target.value)}
+          >
+            {accion.opciones.map((opcion, indice) => (
+              <option key={`${opcion}-${indice}`} value={opcion}>
+                {etiquetaPrevia(opcion) ?? opcion}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <BotonAccion
+        curso={curso}
+        numero={numero}
+        accion={accion}
+        opciones={previa ? { previa } : {}}
+        confirmar={
+          previa
+            ? `Se creará el vídeo final a −14 LUFS desde ${previa}. Si ya hay un vídeo final, se guardará en anteriores/. ¿Seguimos?`
+            : undefined
+        }
+      />
+    </div>
+  );
+}
+
 export function PanelVideoFinal({
   curso,
   numero,
@@ -33,16 +119,7 @@ export function PanelVideoFinal({
   const videoFinalDisponible = (videoFinal?.opciones.length ?? 0) > 0;
   // La acción derivada solo cambia con datos nuevos: BotonAccion borra su mensaje cuando cambia.
   const accionVideoFinal = useMemo(
-    () =>
-      videoFinal
-        ? {
-            ...videoFinal,
-            disponible: videoFinal.disponible && videoFinalDisponible,
-            motivo: videoFinalDisponible
-              ? videoFinal.motivo
-              : videoFinal.motivo ?? "No hay ninguna previa disponible",
-          }
-        : null,
+    () => completarAccionVideoFinal(videoFinal, videoFinalDisponible),
     [videoFinal, videoFinalDisponible],
   );
 
@@ -57,47 +134,21 @@ export function PanelVideoFinal({
         Acciones de vídeo
       </h2>
 
-      {renderizar ? (
-        <BotonAccion
-          curso={curso}
-          numero={numero}
-          accion={renderizar}
-          textoBoton={`Renderizar una versión nueva (previa-v${siguiente})`}
-          confirmar={`Se renderizará previa-v${siguiente} con el montaje actual. Puede tardar bastante. ¿Seguimos?`}
-        />
-      ) : null}
+      <AccionRenderizar
+        accion={renderizar}
+        curso={curso}
+        numero={numero}
+        siguiente={siguiente}
+      />
 
-      {accionVideoFinal ? (
-        <div className="grid justify-items-start gap-3 border-t border-borde pt-5">
-          {videoFinalDisponible ? (
-            <label className="grid max-w-full min-w-0 gap-2 text-sm font-medium text-texto">
-              Previa para el vídeo final
-              <select
-                className="min-h-11 w-full max-w-full border border-borde bg-carbon px-3 text-sm text-texto"
-                value={previaValida}
-                onChange={(evento) => setPreviaElegida(evento.target.value)}
-              >
-                {accionVideoFinal.opciones.map((previa, indice) => (
-                  <option key={`${previa}-${indice}`} value={previa}>
-                    {etiquetaPrevia(previa) ?? previa}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <BotonAccion
-            curso={curso}
-            numero={numero}
-            accion={accionVideoFinal}
-            opciones={previaValida ? { previa: previaValida } : {}}
-            confirmar={
-              previaValida
-                ? `Se creará el vídeo final a −14 LUFS desde ${previaValida}. Si ya hay un vídeo final, se guardará en anteriores/. ¿Seguimos?`
-                : undefined
-            }
-          />
-        </div>
-      ) : null}
+      <AccionVideoFinal
+        accion={accionVideoFinal}
+        curso={curso}
+        numero={numero}
+        previa={previaValida}
+        disponible={videoFinalDisponible}
+        alElegir={setPreviaElegida}
+      />
     </section>
   );
 }

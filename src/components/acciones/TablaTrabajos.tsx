@@ -26,6 +26,16 @@ function etiqueta(accion: string): string {
   return esIdAccion(accion) ? ETIQUETAS_ACCION[accion] : accion;
 }
 
+function textoEstadoFila(
+  trabajo: Trabajo,
+  cancelando: boolean,
+  inexistente: boolean,
+): string {
+  if (cancelando) return "Cancelando…";
+  if (inexistente) return "El trabajo ya no existe.";
+  return ESTADOS[trabajo.estado];
+}
+
 function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
   const [base, setBase] = useState(inicial);
   const [inicialAnterior, setInicialAnterior] = useState(inicial);
@@ -69,11 +79,7 @@ function FilaTrabajo({ inicial }: { inicial: Trabajo }) {
       </td>
       <td className="px-4 py-4 font-mono text-xs">{trabajo.objetivo ?? "—"}</td>
       <td className="px-4 py-4">
-        {cancelando
-          ? "Cancelando…"
-          : inexistente
-            ? "El trabajo ya no existe."
-            : ESTADOS[trabajo.estado]}
+        {textoEstadoFila(trabajo, cancelando, inexistente)}
         {error && !inexistente ? (
           <span className="mt-1 block text-xs text-ambar">{error}</span>
         ) : null}

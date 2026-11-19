@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 
 import { escribir } from "@/lib/api-escritura";
-import { CURSO_VALIDO } from "@/lib/curso";
+import { leccionValida } from "@/lib/curso";
 import { detalleDe } from "@/lib/detalle-api";
 import { origenPermitido } from "@/lib/origen-servidor";
 import type { ReelsCurso } from "@/lib/tipos";
@@ -14,6 +14,12 @@ export type ResultadoGrabado =
   | { ok: true; reels: ReelsCurso }
   | { ok: false; mensaje: string };
 
+function mensajeDeRespuesta(estado: number, detalle: unknown): string {
+  if (typeof detalle === "string") return detalle;
+  if (estado === 401) return "La API ha rechazado el token de escritura";
+  return "No se pudo guardar el gancho";
+}
+
 export async function marcarGanchoGrabado(
   curso: string,
   numero: number,
@@ -21,12 +27,7 @@ export async function marcarGanchoGrabado(
   grabado: boolean,
 ): Promise<ResultadoGrabado> {
   if (
-    typeof curso !== "string" ||
-    !CURSO_VALIDO.test(curso) ||
-    typeof numero !== "number" ||
-    !Number.isInteger(numero) ||
-    numero < 1 ||
-    numero > 999 ||
+    !leccionValida(curso, numero) ||
     typeof gancho !== "string" ||
     !GANCHO_VALIDO.test(gancho) ||
     typeof grabado !== "boolean"
@@ -56,12 +57,7 @@ export async function marcarGanchoGrabado(
       respuesta.status === 404 ? await detalleDe(respuesta, { textoBruto: false }) : undefined;
     return {
       ok: false,
-      mensaje:
-        typeof detalle === "string"
-          ? detalle
-          : respuesta.status === 401
-            ? "La API ha rechazado el token de escritura"
-            : "No se pudo guardar el gancho",
+      mensaje: mensajeDeRespuesta(respuesta.status, detalle),
     };
   }
   try {
