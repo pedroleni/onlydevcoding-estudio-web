@@ -200,6 +200,10 @@ describe("página de publicación", () => {
     expect(
       within(bloques[0]).getByRole("listitem", { name: "Reel de lanzamiento" }),
     ).toBeInTheDocument();
+    // Lo ya subido también se ve en su lección, con su check.
+    const leccionYoutube = within(bloques[0]).getByRole("listitem", { name: "Lección completa" });
+    expect(leccionYoutube).toHaveTextContent("todo subido");
+    expect(within(leccionYoutube).getByRole("link", { name: "✅ YouTube, subido" })).toBeInTheDocument();
 
     const short = within(bloques[0]).getByRole("listitem", { name: "Short 2 · Con un taxi" });
     expect(within(short).getByRole("link", { name: "📅 YouTube, programado" })).toHaveAttribute(

@@ -335,16 +335,20 @@ function QuedaPorSubir({ datos }: { datos: DatosCurso }) {
             </h3>
             <ul>
               {leccion.piezas
-                .filter((p) => p.pendientes.length > 0)
-                .map(({ clave, titulo, pieza, redes, prevista }) => (
+                .filter((p) => p.redes.length > 0)
+                .map(({ clave, titulo, pieza, redes, prevista, pendientes }) => (
                   <li
                     key={clave}
                     aria-label={titulo}
-                    className="grid gap-1.5 border-t border-borde px-3 py-2"
+                    className={`grid gap-1.5 border-t border-borde px-3 py-2 ${
+                      pendientes.length === 0 ? "opacity-70" : ""
+                    }`}
                   >
                     <span className="text-sm">
                       {titulo}
-                      {prevista ? (
+                      {pendientes.length === 0 ? (
+                        <span className="ml-2 text-xs text-verde">· todo subido</span>
+                      ) : prevista ? (
                         <span className="ml-2 text-xs text-tenue">· sin preparar</span>
                       ) : null}
                     </span>
