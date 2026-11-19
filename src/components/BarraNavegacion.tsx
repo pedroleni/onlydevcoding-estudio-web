@@ -8,6 +8,7 @@ const enlaces = [
   { href: "/teleprompter", etiqueta: "Teleprompter" },
   { href: "/tareas", etiqueta: "Tareas" },
   { href: "/trabajos", etiqueta: "Trabajos" },
+  { href: "/publicacion", etiqueta: "Publicación" },
 ] as const;
 
 export function BarraNavegacion() {
