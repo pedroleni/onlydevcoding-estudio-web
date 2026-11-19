@@ -31,7 +31,7 @@ export function VistaTodas({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 grid-cols-1 gap-4">
       <p className="text-sm text-tenue">
         <span className="font-mono text-texto">{total - hechas}</span> pendientes de{" "}
         <span className="font-mono text-texto">{total}</span> en {grupos.length}{" "}
@@ -45,7 +45,7 @@ export function VistaTodas({
           <details
             key={grupo.clave}
             open={grupo.clave === primeraAbierta}
-            className="group border border-borde bg-superficie/40"
+            className="group min-w-0 border border-borde bg-superficie/40"
           >
             <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-superficie">
               <span
@@ -69,7 +69,7 @@ export function VistaTodas({
                 {grupo.hechas}/{grupo.tareas.length}
               </span>
             </summary>
-            <ul className="grid gap-2 px-2 pb-3 sm:px-4">
+            <ul className="grid grid-cols-1 gap-2 px-2 pb-3 sm:px-4">
               {grupo.tareas.map((tarea) => (
                 <FilaTarea
                   key={tarea.id}

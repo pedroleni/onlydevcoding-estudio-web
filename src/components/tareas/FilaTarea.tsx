@@ -92,7 +92,7 @@ export function FilaTarea({
           {href ? (
             <Link
               href={href}
-              className="border border-borde px-2 py-0.5 text-marca hover:text-texto focus-visible:outline-2 focus-visible:outline-marca"
+              className="max-w-full truncate border border-borde px-2 py-0.5 text-marca hover:text-texto focus-visible:outline-2 focus-visible:outline-marca"
             >
               {etiqueta}
             </Link>
@@ -109,7 +109,8 @@ export function FilaTarea({
           </p>
         ) : null}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {/* En móvil los botones bajan a su propia línea para no estrujar el texto. */}
+      <div className="flex w-full flex-wrap items-center gap-2 pl-7 sm:w-auto sm:shrink-0 sm:pl-0">
         {ponerDia && !hecha ? (
           <label className="flex items-center gap-1 text-xs text-tenue">
             <span className="sr-only">Poner día a «{tarea.texto}»</span>
