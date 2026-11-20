@@ -1,19 +1,2 @@
 {
-  "src/components/teleprompter/Teleprompter.tsx": {
-    "complexity": {
-      "count": 3
-    },
-    "max-lines": {
-      "count": 1
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
-    "no-nested-ternary": {
-      "count": 4
-    },
-    "sonarjs/cognitive-complexity": {
-      "count": 3
-    }
-  }
 }
