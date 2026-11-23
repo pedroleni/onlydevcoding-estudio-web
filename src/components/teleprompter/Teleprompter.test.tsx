@@ -526,6 +526,72 @@ describe("Teleprompter: selección y prueba del micrófono", () => {
   });
 });
 
+describe("Teleprompter: aviso con el micrófono que se abre de verdad", () => {
+  const AVISO = "Vas a grabar con el micrófono del portátil";
+
+  beforeEach(() => {
+    enumerateDevices.mockResolvedValue([
+      { kind: "audioinput", deviceId: "default", label: "Predeterminado - Micrófono del MacBook Pro" },
+      { kind: "audioinput", deviceId: "micro-usb", label: "Wireless microphone" },
+    ]);
+    // Cada apertura devuelve la pista del micrófono pedido.
+    getUserMedia.mockImplementation(async ({ audio }: { audio: { deviceId?: { exact: string } } }) =>
+      flujoDe({
+        stop: vi.fn(),
+        label:
+          audio.deviceId?.exact === "micro-usb" ? "Wireless microphone" : "Micrófono del MacBook Pro",
+      }),
+    );
+  });
+
+  it("al volver al predeterminado durante una toma, avisa del micro del portátil para la siguiente", async () => {
+    pintar();
+    const selector = screen.getByLabelText("Micrófono");
+    await screen.findByRole("option", { name: "Wireless microphone" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Probar micrófono" }));
+    expect(await screen.findByText(AVISO)).toBeInTheDocument();
+
+    await userEvent.selectOptions(selector, "micro-usb");
+    await waitFor(() => expect(screen.queryByText(AVISO)).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+    expect(await screen.findByText("Silencio")).toBeInTheDocument();
+    await userEvent.selectOptions(selector, "");
+
+    expect(await screen.findByText(AVISO)).toBeInTheDocument();
+  });
+
+  it("sin nombre del predeterminado, avisa con la pista que se ha abierto al volver a él", async () => {
+    // Fuera de Chrome no hay entrada «default»: el aviso solo puede salir del micrófono abierto.
+    enumerateDevices.mockResolvedValue([
+      { kind: "audioinput", deviceId: "micro-mac", label: "Micrófono del MacBook Pro" },
+      { kind: "audioinput", deviceId: "micro-usb", label: "Wireless microphone" },
+    ]);
+    pintar();
+    const selector = screen.getByLabelText("Micrófono");
+    await screen.findByRole("option", { name: "Wireless microphone" });
+
+    await userEvent.selectOptions(selector, "micro-usb");
+    await userEvent.click(screen.getByRole("button", { name: "Probar micrófono" }));
+    await screen.findByText("Micrófono listo: Wireless microphone. Habla y mira la barra de nivel.");
+    expect(screen.queryByText(AVISO)).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(selector, "");
+
+    expect(await screen.findByText(AVISO)).toBeInTheDocument();
+  });
+
+  it("desactiva «Probar micrófono» mientras se graba", async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: /Grabar/ }));
+    expect(await screen.findByText("Silencio")).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "Probar micrófono" })).toBeDisabled();
+  });
+});
+
 describe("Teleprompter sin lección en la URL", () => {
   it("abre la última lección usada", async () => {
     window.localStorage.setItem(

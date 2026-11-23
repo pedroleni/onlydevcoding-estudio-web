@@ -20,7 +20,8 @@ import {
   type Grabacion,
 } from "@/lib/teleprompter/grabadora";
 import { guardarPreferencias, leerPreferencias } from "@/lib/teleprompter/preferencias";
-import { mensajeError, mensajeFalloMicro } from "@/lib/teleprompter/microfonos";
+import { mensajeError } from "@/lib/mensaje-error";
+import { mensajeFalloMicro } from "@/lib/teleprompter/microfonos";
 import type { TomaGuardada } from "@/lib/tipos";
 
 export type Pendiente = { escena: string; wav: Blob };
@@ -315,10 +316,11 @@ export function useSesionGrabacion({
   const dispositivos = useMicros({
     micro,
     alEstado,
+    // El micrófono abierto de verdad: la preferencia puede haber cambiado mientras se abría.
     abrirMicro: () =>
       abrirMicroConNivel(vivo(), {
         alNivel: (pico) => pintarNivel(nivelRef.current, pico),
-      }),
+      }).then((flujo) => ({ flujo, micro: vivo().microAbierto })),
   });
 
   const entorno: Entorno = {

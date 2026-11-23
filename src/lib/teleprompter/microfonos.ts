@@ -1,3 +1,5 @@
+import { mensajeError } from "@/lib/mensaje-error";
+
 export type Microfono = { id: string; nombre: string };
 
 export const MENSAJE_ABRIENDO_MICRO =
@@ -6,20 +8,9 @@ export const MENSAJE_ABRIENDO_MICRO =
 const AYUDA_PERMISO_MICRO =
   " Revisa el permiso del micrófono de esta página en Chrome y, en el Mac, Ajustes del Sistema → Privacidad y seguridad → Micrófono → Google Chrome.";
 
-export function mensajeError(error: unknown): string {
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const { message } = error as { message: unknown };
-    if (typeof message === "string") return message;
-  }
-  return String(error);
-}
-
 export function mensajeFalloMicro(error: unknown): string {
-  const nombre =
-    typeof error === "object" && error !== null && "name" in error
-      ? (error as { name: unknown }).name
-      : "";
-  const ayuda = nombre === "NotAllowedError" ? AYUDA_PERMISO_MICRO : "";
+  const denegado = error instanceof DOMException && error.name === "NotAllowedError";
+  const ayuda = denegado ? AYUDA_PERMISO_MICRO : "";
   return `No se puede usar el micrófono: ${mensajeError(error)}${ayuda}`;
 }
 

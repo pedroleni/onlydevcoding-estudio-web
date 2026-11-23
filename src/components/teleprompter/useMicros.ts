@@ -13,7 +13,7 @@ import {
 type OpcionesMicros = {
   micro: string;
   alEstado: (texto: string) => void;
-  abrirMicro: () => Promise<MediaStream>;
+  abrirMicro: () => Promise<{ flujo: MediaStream; micro: string }>;
 };
 
 function nombrePista(flujo: MediaStream): string {
@@ -48,6 +48,7 @@ export function useMicros({ micro, alEstado, abrirMicro }: OpcionesMicros) {
       montadoRef.current = false;
     };
     const alCambiarDispositivos = () => void actualizarMicros();
+    // Fuera del cuerpo del efecto, para no poner estado de forma síncrona al montar.
     queueMicrotask(alCambiarDispositivos);
     dispositivos.addEventListener("devicechange", alCambiarDispositivos);
     return () => {
@@ -59,8 +60,8 @@ export function useMicros({ micro, alEstado, abrirMicro }: OpcionesMicros) {
   const abrirMicroConNivel = async (): Promise<MediaStream> => {
     setAbriendoMicro(true);
     try {
-      const flujo = await abrirMicro();
-      if (montadoRef.current) setAbierto({ micro, nombre: nombrePista(flujo) });
+      const { flujo, micro: abiertoDeVerdad } = await abrirMicro();
+      if (montadoRef.current) setAbierto({ micro: abiertoDeVerdad, nombre: nombrePista(flujo) });
       void actualizarMicros();
       return flujo;
     } finally {
@@ -86,7 +87,6 @@ export function useMicros({ micro, alEstado, abrirMicro }: OpcionesMicros) {
 
   return {
     micros,
-    nombreEfectivo,
     microDelPortatil: esMicroDelPortatil(nombreEfectivo),
     abriendoMicro,
     abrirMicroConNivel,
