@@ -9,8 +9,8 @@ import {
   type SetStateAction,
 } from "react";
 
-import type { Microfono } from "@/components/teleprompter/BarraAjustes";
 import { useAvisoAlSalir } from "@/components/teleprompter/useAvisoAlSalir";
+import { useMicros } from "@/components/teleprompter/useMicros";
 import {
   abrirMicro,
   aWav,
@@ -20,11 +20,11 @@ import {
   type Grabacion,
 } from "@/lib/teleprompter/grabadora";
 import { guardarPreferencias, leerPreferencias } from "@/lib/teleprompter/preferencias";
+import { mensajeError } from "@/lib/mensaje-error";
+import { mensajeFalloMicro } from "@/lib/teleprompter/microfonos";
 import type { TomaGuardada } from "@/lib/tipos";
 
 export type Pendiente = { escena: string; wav: Blob };
-
-export const mensaje = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 type Subida = { ok: true } | { ok: false; error: string };
 
@@ -107,23 +107,8 @@ function pintarNivel(caja: HTMLElement | null, pico: number) {
   caja.classList.toggle("alto", pico > 0.95);
 }
 
-async function listarMicros(alListar: (micros: Microfono[]) => void) {
-  try {
-    const dispositivos = await navigator.mediaDevices.enumerateDevices();
-    alListar(
-      dispositivos
-        .filter(({ kind, deviceId }) => kind === "audioinput" && deviceId !== "default")
-        .map(({ deviceId, label }) => ({ id: deviceId, nombre: label || "Micrófono" })),
-    );
-  } catch {
-    // La lista de micrófonos es una ayuda: sin ella se graba con el predeterminado.
-  }
-}
-
 type AvisosMicro = {
   alNivel: (pico: number) => void;
-  // El micrófono se ha abierto: ya se pueden listar los micrófonos con su nombre.
-  alAbrir: () => void;
 };
 
 // Devuelve el flujo del micrófono elegido. Nunca hay dos aperturas a la vez: la que está en
@@ -158,7 +143,6 @@ function abrirMicroConNivel(v: Vivo, avisos: AvisosMicro): Promise<MediaStream> 
       v.microAbierto = micro;
       v.contexto ??= new AudioContext();
       v.pararNivel = medirNivel(v.contexto, flujo, avisos.alNivel);
-      avisos.alAbrir();
       return flujo;
     },
     (error: unknown) => {
@@ -214,8 +198,8 @@ async function subir(v: Vivo, entorno: Entorno, wav: Blob, idEscena: string): Pr
       ...actuales.filter((p) => p.escena !== idEscena),
       { escena: idEscena, wav },
     ]);
-    alEstado(`No se pudo guardar: ${mensaje(error)}`);
-    return { ok: false, error: mensaje(error) };
+    alEstado(`No se pudo guardar: ${mensajeError(error)}`);
+    return { ok: false, error: mensajeError(error) };
   }
 }
 
@@ -247,7 +231,7 @@ async function pararGrabacion(v: Vivo, entorno: Entorno, tirar: boolean) {
     }
     await subir(v, entorno, wav, idEscena);
   } catch (error) {
-    alEstado(`No se pudo guardar: ${mensaje(error)}`);
+    alEstado(`No se pudo guardar: ${mensajeError(error)}`);
   } finally {
     v.grabando = false;
     setGrabando(false);
@@ -289,19 +273,21 @@ async function cambiarMicro(
   try {
     await abrir();
   } catch (error) {
-    if (!v.cerrado) alEstado(`No se puede usar el micrófono: ${mensaje(error)}`);
+    if (!v.cerrado) alEstado(mensajeFalloMicro(error));
   }
 }
 
 export function useSesionGrabacion({
   curso,
   numero,
+  micro,
   nivelRef,
   alEstado,
   alGuardar,
 }: {
   curso: string;
   numero: number;
+  micro: string;
   nivelRef: RefObject<HTMLElement | null>;
   alEstado: (texto: string) => void;
   // Tras guardar una toma con la sesión abierta (para refrescar los datos de la página).
@@ -313,7 +299,6 @@ export function useSesionGrabacion({
   const [guardando, setGuardando] = useState(false);
   // Copia en estado de `vivo.grabando`, para avisar al salir de la página.
   const [grabando, setGrabando] = useState(false);
-  const [micros, setMicros] = useState<Microfono[]>([]);
   const vivoRef = useRef<Vivo | null>(null);
   // Se crea la primera vez que hace falta, nunca durante el render.
   const vivo = (): Vivo => (vivoRef.current ??= crearVivo());
@@ -328,6 +313,16 @@ export function useSesionGrabacion({
     return () => cerrarSesion(v);
   }, []);
 
+  const dispositivos = useMicros({
+    micro,
+    alEstado,
+    // El micrófono abierto de verdad: la preferencia puede haber cambiado mientras se abría.
+    abrirMicro: () =>
+      abrirMicroConNivel(vivo(), {
+        alNivel: (pico) => pintarNivel(nivelRef.current, pico),
+      }).then((flujo) => ({ flujo, micro: vivo().microAbierto })),
+  });
+
   const entorno: Entorno = {
     curso,
     numero,
@@ -338,17 +333,17 @@ export function useSesionGrabacion({
     setGuardando,
     setGrabando,
   };
-  const abrirConNivel = () =>
-    abrirMicroConNivel(vivo(), {
-      alNivel: (pico) => pintarNivel(nivelRef.current, pico),
-      alAbrir: () => void listarMicros(setMicros),
-    });
+  const abrirConNivel = dispositivos.abrirMicroConNivel;
 
   return {
     tomas,
     pendientes,
     guardando,
-    micros,
+    grabando,
+    micros: dispositivos.micros,
+    microDelPortatil: dispositivos.microDelPortatil,
+    abriendoMicro: dispositivos.abriendoMicro,
+    probarMicro: dispositivos.probarMicro,
     abrirMicroConNivel: abrirConNivel,
     empezarGrabacion: (flujo: MediaStream, idEscena: string) =>
       empezarGrabacion(vivo(), entorno, flujo, idEscena),

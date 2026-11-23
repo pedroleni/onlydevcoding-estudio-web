@@ -7,7 +7,7 @@ import type { ContextoSesion } from "@/components/teleprompter/contextoSesion";
 import { planDe } from "@/components/teleprompter/estadoEscena";
 import { iniciosDeFrases, seguirLectura } from "@/components/teleprompter/sincroniaPrevia";
 import type { Cuenta, Ejecucion } from "@/components/teleprompter/useLectura";
-import { mensaje } from "@/components/teleprompter/useSesionGrabacion";
+import { MENSAJE_ABRIENDO_MICRO, mensajeFalloMicro } from "@/lib/teleprompter/microfonos";
 import { leerPreferencias } from "@/lib/teleprompter/preferencias";
 import type { EscenaTeleprompter } from "@/lib/tipos";
 
@@ -79,7 +79,7 @@ async function arrancarCamara(
 // Si no se puede abrir el micrófono o arrancar la grabadora.
 function falloMicro(ctx: ContextoSesion, ejecucion: Ejecucion, error: unknown) {
   if (ctx.sesion.cerrada()) return;
-  ctx.setEstado(`No se puede usar el micrófono: ${mensaje(error)}`);
+  ctx.setEstado(mensajeFalloMicro(error));
   if (ejecucion.vigente()) pararTodo(ctx, true);
 }
 
@@ -93,7 +93,7 @@ async function arrancarVoz(
   const { lectura, sesion } = ctx;
   const { sigue } = ejecucion;
   if (conGrabacion) {
-    ctx.setEstado("Abriendo el micrófono… acepta el permiso si el navegador te lo pide.");
+    ctx.setEstado(MENSAJE_ABRIENDO_MICRO);
     let flujo: MediaStream;
     try {
       flujo = await sesion.abrirMicroConNivel();
