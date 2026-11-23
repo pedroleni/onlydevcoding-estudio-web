@@ -79,6 +79,7 @@ export function SesionTeleprompter({
   const sesion = useSesionGrabacion({
     curso: guion.curso,
     numero: guion.numero,
+    micro: pref.micro,
     nivelRef,
     alEstado: setEstado,
     alGuardar: () => router.refresh(),
@@ -90,7 +91,7 @@ export function SesionTeleprompter({
     previa: guion.previa,
   });
   const { enMarcha, aviso } = lectura;
-  const { tomas, pendientes, guardando, micros } = sesion;
+  const { tomas, pendientes, guardando, grabando, micros } = sesion;
   const ocupado = enMarcha || guardando;
   const bloqueado = ocupado || editando;
   const grabadas = useGrabadas(escenas, tomas);
@@ -133,6 +134,9 @@ export function SesionTeleprompter({
         micro={pref.micro}
         micros={micros}
         alCambiarMicro={(micro) => void sesion.cambiarMicro(micro)}
+        alProbarMicro={() => void sesion.probarMicro()}
+        microDesactivado={grabando || guardando || sesion.abriendoMicro}
+        microDelPortatil={sesion.microDelPortatil}
         nivelRef={nivelRef}
         tamPrevia={pref.tamPrevia}
         alCambiarTamPrevia={(tamPrevia) => guardarPreferencias({ tamPrevia })}

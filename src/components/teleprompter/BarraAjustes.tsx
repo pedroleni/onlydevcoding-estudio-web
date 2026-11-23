@@ -1,6 +1,7 @@
 import { useId, type Ref } from "react";
 
 import { LETRA, RITMO, TAMANOS_PREVIA, type Preferencias } from "@/lib/teleprompter/preferencias";
+import type { Microfono } from "@/lib/teleprompter/microfonos";
 import { textoLegible } from "@/lib/texto-legible";
 
 export type OpcionLeccion = {
@@ -9,8 +10,6 @@ export type OpcionLeccion = {
   titulo: string;
   nombreCurso: string;
 };
-
-export type Microfono = { id: string; nombre: string };
 
 export const valorLeccion = ({ curso, numero }: { curso: string; numero: number }) =>
   `${curso}/${numero}`;
@@ -25,6 +24,60 @@ const NOMBRES_PREVIA: Record<Preferencias["tamPrevia"], string> = {
 const AJUSTE = "flex min-w-0 items-center gap-2 text-sm text-tenue";
 const SELECTOR =
   "min-w-0 rounded-lg border border-borde bg-superficie px-2.5 py-2 text-texto";
+
+function AjusteMicrofono({
+  id,
+  micro,
+  micros,
+  desactivado,
+  microDelPortatil,
+  alCambiar,
+  alProbar,
+}: {
+  id: string;
+  micro: string;
+  micros: Microfono[];
+  desactivado: boolean;
+  microDelPortatil: boolean;
+  alCambiar: (micro: string) => void;
+  alProbar: () => void;
+}) {
+  const microConocido = micro === "" || micros.some(({ id: valor }) => valor === micro);
+
+  return (
+    <>
+      <div className={AJUSTE}>
+        <label htmlFor={id}>Micrófono</label>
+        <select
+          id={id}
+          value={microConocido ? micro : ""}
+          onChange={(evento) => alCambiar(evento.target.value)}
+          className={`${SELECTOR} max-w-[12rem]`}
+        >
+          <option value="">Predeterminado</option>
+          {micros.map((opcion) => (
+            <option key={opcion.id} value={opcion.id}>
+              {opcion.nombre}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={desactivado}
+          onClick={alProbar}
+          className="rounded-lg border border-borde px-3 py-2 font-semibold text-texto disabled:opacity-40"
+        >
+          Probar micrófono
+        </button>
+      </div>
+      {microDelPortatil ? (
+        <p className="m-0 text-sm font-medium text-ambar">
+          Vas a grabar con el micrófono del portátil
+        </p>
+      ) : null}
+    </>
+  );
+}
 
 export function SelectorLeccion({
   lecciones,
@@ -77,6 +130,9 @@ export function BarraAjustes({
   micro,
   micros,
   alCambiarMicro,
+  alProbarMicro,
+  microDesactivado,
+  microDelPortatil,
   nivelRef,
   tamPrevia,
   alCambiarTamPrevia,
@@ -92,12 +148,14 @@ export function BarraAjustes({
   micro: string;
   micros: Microfono[];
   alCambiarMicro: (micro: string) => void;
+  alProbarMicro: () => void;
+  microDesactivado: boolean;
+  microDelPortatil: boolean;
   nivelRef: Ref<HTMLSpanElement>;
   tamPrevia: Preferencias["tamPrevia"];
   alCambiarTamPrevia: (tam: Preferencias["tamPrevia"]) => void;
 }) {
   const id = useId();
-  const microConocido = micro === "" || micros.some(({ id: valor }) => valor === micro);
 
   return (
     <div className="flex flex-wrap items-center gap-x-[14px] gap-y-2 border-b border-borde px-4 py-2 md:px-6">
@@ -138,22 +196,15 @@ export function BarraAjustes({
         />
       </div>
 
-      <div className={AJUSTE}>
-        <label htmlFor={`${id}-micro`}>Micrófono</label>
-        <select
-          id={`${id}-micro`}
-          value={microConocido ? micro : ""}
-          onChange={(evento) => alCambiarMicro(evento.target.value)}
-          className={`${SELECTOR} max-w-[12rem]`}
-        >
-          <option value="">Predeterminado</option>
-          {micros.map((opcion) => (
-            <option key={opcion.id} value={opcion.id}>
-              {opcion.nombre}
-            </option>
-          ))}
-        </select>
-      </div>
+      <AjusteMicrofono
+        id={`${id}-micro`}
+        micro={micro}
+        micros={micros}
+        desactivado={microDesactivado}
+        microDelPortatil={microDelPortatil}
+        alCambiar={alCambiarMicro}
+        alProbar={alProbarMicro}
+      />
 
       <div className={AJUSTE}>
         <span>Nivel</span>
