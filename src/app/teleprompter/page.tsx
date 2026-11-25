@@ -80,7 +80,9 @@ async function ContenidoTeleprompter({
 
 export default function PaginaTeleprompter({ searchParams }: PageProps<"/teleprompter">) {
   return (
-    <section>
+    // En pantallas medianas la sección ocupa justo el alto bajo la cabecera, con el selector de
+    // modo incluido: así el pie del teleprompter (y su mensaje de estado) nunca queda por debajo.
+    <section className="flex flex-col md:h-[calc(100dvh-4rem-1px)]">
       <ModoTeleprompter activo="leccion" />
       <Suspense fallback={<p className="py-8 text-sm text-tenue">Cargando teleprompter…</p>}>
         <ContenidoTeleprompter searchParams={searchParams} />

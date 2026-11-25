@@ -121,7 +121,7 @@ export function SesionTeleprompter({
   useAtajosTeclado(ctx);
 
   return (
-    <div className="flex flex-col md:h-[calc(100dvh-4rem-1px)]">
+    <div className="flex flex-col md:min-h-0 md:flex-1">
       <BarraAjustes
         lecciones={lecciones}
         leccion={valorLeccion(guion)}
